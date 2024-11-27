@@ -62,17 +62,6 @@ const loader = new FBXLoader();
 
 const textureLoader = new THREE.TextureLoader();
 
-const atlas1 = textureLoader.load("public/ctextures/Atlas1.png")
-const grade1 = textureLoader.load("public/ctextures/Grade1.png");
-const grade2 = textureLoader.load("public/ctextures/Grade2.png");
-const grass1= textureLoader.load("public/ctextures/Grass01.png");
-const metal1 = textureLoader.load("public/ctextures/Metal.png");
-const roads1 = textureLoader.load("public/ctextures/Roads.png");
-const tires1 = textureLoader.load("public/ctextures/Tires.png");
-const trafficcaratlas = textureLoader.load("public/ctextures/Traffic_Car_Atlas.png");
-const trees1 = textureLoader.load("public/ctextures/Trees01.png");
-const water1 = textureLoader.load("public/ctextures/Water.png");
-const win1 = textureLoader.load("public/ctextures/Wins.png");
 
 loader1.load(
     'public/cityfinal.glb', // veya 'path/to/your/model.glb'
