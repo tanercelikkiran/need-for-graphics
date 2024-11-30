@@ -13,7 +13,7 @@ renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
 renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
 document.body.appendChild(renderer.domElement);
 
-new RGBELoader().load('public/hdri2.hdr', function (texture) {
+new RGBELoader().load('public/hdri.hdr', function (texture) {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     scene.environment = texture;
     scene.background = texture;
