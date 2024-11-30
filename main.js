@@ -4,9 +4,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
-import {BloomPass} from "three/addons/postprocessing/BloomPass.js";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
-
 
 const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -107,11 +105,11 @@ loader.load("public/car.fbx", function(object){
             }
             if (child.name.includes("headlight1") || child.name.includes("headlight2")){
                 emissiveLight(child, 0xffffff, 20.0);
-                const spotlight = spotlight(
+                const spotlight1 = spotlight(
                     child.getWorldPosition(new THREE.Vector3()),
                     new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10));
-                scene.add(spotlight.target);
-                scene.add(spotlight);
+                scene.add(spotlight1.target);
+                scene.add(spotlight1);
             }
             if (child.name.includes("Studio_Car252_light1")) {
                 emissiveLight(child, 0xff3333, 5.0);
