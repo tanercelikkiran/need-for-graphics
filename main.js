@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -51,8 +51,8 @@ const cube2 = new THREE.Mesh( geometry2, material2 );
 
 scene.add(cube);
 scene.add(cube2);
-scene.add( light );
-scene.add( ambient );
+scene.add(light);
+scene.add(ambient);
 
 cube.position.set( 0, 0, -10 );
 cube2.position.set( 0, 0, 0 );
@@ -90,118 +90,84 @@ loader.load("public/car.fbx", function(object){
         if (child.isMesh){
             console.log(child.material);
             child.castShadow = child.receiveShadow = true;
-            if (child.material.name.includes('clear glassa')){
-                makeTransparent(child.material);
+            if (child.name.includes("Studio_Car66") || child.material.name.includes('clear glass')){
+                transparent(child.material, 0x3F3F3F);
             }
             if (child.name.includes("Studio_Car276")){
-                makeRedTransparent(child.material);
+                transparent(child.material, 0x5C0007);
             }
             if (child.name.includes("Studio_Car277")){
                 metallicPaint(child.material);
             }
             if (child.name.includes("Studio_Car148")){
-                whiteEmissive(child, 0xffffff, 20.0);
-
+                emissiveLight(child, 0xffffff, 20.0);
             }
             if (child.name.includes("Studio_Car149")){
-                whiteEmissive(child, 0xffffff, 20.0);
+                emissiveLight(child, 0xffffff, 20.0);
             }
-            if (child.name.includes("headlight1")){
-                whiteEmissive(child, 0xffffff, 20.0);
-                const { spotlight, volumetricLight } = createVolumetricLight(
+            if (child.name.includes("headlight1") || child.name.includes("headlight2")){
+                emissiveLight(child, 0xffffff, 20.0);
+                const spotlight = spotlight(
                     child.getWorldPosition(new THREE.Vector3()),
-                    new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10),
-                    0xDDE6FF,
-                    10,
-                    Math.PI / 4,
-                    50
-                );
-                // const helper = new THREE.SpotLightHelper(spotlight);
-                // scene.add(helper);
-
+                    new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10));
                 scene.add(spotlight.target);
                 scene.add(spotlight);
-                scene.add(volumetricLight);
-            }
-            if (child.name.includes("headlight2")){
-                whiteEmissive(child, 0xffffff, 20.0);
-                const { spotlight, volumetricLight } = createVolumetricLight(
-                    child.getWorldPosition(new THREE.Vector3()),
-                    new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10),
-                    0xDDE6FF,
-                    10,
-                    Math.PI / 4,
-                    50
-                );
-                // const helper = new THREE.SpotLightHelper(spotlight);
-                // scene.add(helper);
-
-                scene.add(spotlight.target);
-                scene.add(spotlight);
-                scene.add(volumetricLight);
-
             }
             if (child.name.includes("Studio_Car252_light1")) {
-                redEmissive(child, 0xff3333, 5.0);
+                emissiveLight(child, 0xff3333, 5.0);
             }
             if (child.name.includes("Studio_Car252_light2")) {
-                redEmissive(child, 0xff3333, 5.0);
+                emissiveLight(child, 0xff3333, 5.0);
             }
             if (child.name.includes("Studio_Car252_light3")) {
-                redEmissive(child, 0xff3333, 5.0);
+                emissiveLight(child, 0xff3333, 5.0);
             }
             if (child.name.includes("Studio_Car236_light4")) {
-                redEmissive(child, 0xff3333, 20.0);
+                emissiveLight(child, 0xff3333, 20.0);
             }
             if (child.name.includes("Studio_Car252_taillights1")) {
-                redEmissive(child, 0xff3333, 20.0);
+                emissiveLight(child, 0xff3333, 20.0);
             }
             if (child.name.includes("platelight1")) {
-                const pointLight = new THREE.PointLight(0xCDDCFF, 0.01, 1,5);
-                pointLight.position.copy(child.position);
 
-                child.add(pointLight);
+                const pointLight1 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
+                child.add(pointLight1);
             }
             if (child.name.includes("platelight2")) {
-                const pointLight2 = new THREE.PointLight(0xCDDCFF, 0.01, 1,5);
-                pointLight2.position.copy(child.position);
-
+                const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
                 child.add(pointLight2);
             }
             if (child.name.includes("Studio_Car252_taillights2")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights3")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights4")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights5")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights6")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights7")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights8")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
             if (child.name.includes("Studio_Car252_taillights9")) {
-                redEmissive(child, 0xff3333, 50.0);
+                emissiveLight(child, 0xff3333, 50.0);
             }
         }
     });
-
-
     animate();
-
-}, null, function(error){
+},
+    null, function(error){
     console.error(error);
-})
-
+    })
 
 // Creates a 12 by 12 grid helper.
 const gridHelper = new THREE.GridHelper(12, 12);
@@ -219,60 +185,55 @@ function animate() {
 
 // renderer.setAnimationLoop(animate);
 animate();
+
 window.addEventListener('resize', function() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-function makeTransparent(material) {
+function transparent(material, color) {
     material.transparent = true; // Şeffaflık modunu etkinleştir
     material.opacity = 0.5; // Şeffaflık oranı (0 tamamen görünmez, 1 tamamen opak)
     material.roughness = 0; // Cam yüzeyi pürüzsüz olmalı
     material.metalness = 0; // Cam için metalik etki gerekmez
-    material.color.set(0x3F3F3F); // Hafif bir renk tonu (isteğe bağlı)
+    material.color.set(color); // Hafif bir renk tonu (isteğe bağlı)
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
-function makeRedTransparent(material) {
-    material.transparent = true; // Şeffaflık modunu etkinleştir
-    material.opacity = 0.5; // Şeffaflık oranı (0 tamamen görünmez, 1 tamamen opak)
-    material.roughness = 0; // Cam yüzeyi pürüzsüz olmalı
-    material.metalness = 0; // Cam için metalik etki gerekmez
-    material.color.set(0x5C0007); // Hafif bir renk tonu (isteğe bağlı)
-    material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
-}
+
 function metallicPaint(material) {
     material.roughness = 0.3; // Cam yüzeyi pürüzsüz olmalı
     material.metalness = 1.0; // Cam için metalik etki gerekmez
     material.color.set(0xF8CD02); // Hafif bir renk tonu (isteğe bağlı)
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
-
 }
-function whiteEmissive(mesh, emissiveColor = 0xffffff, intensity = 20.0) {
-    const emissiveMaterial = new THREE.MeshStandardMaterial({
+
+function pointLight(position, color, intensity, distance, decay) {
+    const pointLight = new THREE.PointLight(color, intensity, distance, decay);
+    pointLight.position.copy(position);
+    return pointLight;
+}
+
+function emissiveLight(mesh, emissiveColor, intensity) {
+    mesh.material = new THREE.MeshStandardMaterial({
         emissive: emissiveColor,
         emissiveIntensity: intensity,
     });
-    mesh.material = emissiveMaterial;
-}
-function redEmissive(mesh, emissiveColor = 0xff3333, intensity) {
-    const emissiveMaterial1 = new THREE.MeshStandardMaterial({
-        emissive: emissiveColor,
-        emissiveIntensity: intensity,
-    });
-    mesh.material = emissiveMaterial1;
 }
 
-function createVolumetricLight(position, targetPosition, color = 0xDDE6FF, intensity = 5, angle = Math.PI / 2, distance = 100) {
-    // SpotLight
+function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
     const spotlight = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
     spotlight.position.copy(position);
+
+    // Adjust the target position
     const targetOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * position.distanceTo(targetPosition), 0);
     const adjustedTargetPosition = targetPosition.clone().add(targetOffset);
-
     spotlight.target.position.copy(adjustedTargetPosition);
 
-    // Volumetrik Geometri
+    return spotlight;
+}
+
+function volumetricLight(position, targetPosition, color = 0xDDE6FF) {
     const coneGeometry = new THREE.ConeGeometry(2, 10, 32, 1, true);
     const coneMaterial = new THREE.MeshBasicMaterial({
         color: color,
@@ -284,12 +245,9 @@ function createVolumetricLight(position, targetPosition, color = 0xDDE6FF, inten
 
     const volumetricLight = new THREE.Mesh(coneGeometry, coneMaterial);
     const direction = new THREE.Vector3().subVectors(targetPosition, position).normalize();
-    volumetricLight.position.set(position.x, position.y,position.z-2.45);
+    volumetricLight.position.copy(position);
     volumetricLight.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    volumetricLight.rotateX(Math.PI); // Optional adjustment
 
-    // Ölçeklendirme
-    volumetricLight.scale.set(0, 0, 0);
-    volumetricLight.rotateX(Math.PI);
-
-    return { spotlight, volumetricLight };
+    return volumetricLight;
 }
