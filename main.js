@@ -4,6 +4,9 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import {BloomPass} from "three/addons/postprocessing/BloomPass.js";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+
 
 const renderer = new THREE.WebGLRenderer({antialias: true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -13,7 +16,7 @@ document.body.appendChild(renderer.domElement);
 // renderer.setClearColor(0xFEFEFE);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 10000);
 
 // Sets orbit control to move the camera around.
 const orbit = new OrbitControls(camera, renderer.domElement);
@@ -54,7 +57,28 @@ scene.add(ambient);
 cube.position.set( 0, 0, -10 );
 cube2.position.set( 0, 0, 0 );
 
+const loader1 = new GLTFLoader();
 const loader = new FBXLoader();
+
+const textureLoader = new THREE.TextureLoader();
+
+
+loader1.load(
+    'public/cityfinal.glb', // veya 'path/to/your/model.glb'
+    function (gltf) {
+        // Model yüklendiğinde sahneye ekle
+        scene.add(gltf.scene);
+        console.log('Model loaded successfully!');
+    },
+    // function (xhr) {
+    //     // Yükleme durumunu görüntüleme (isteğe bağlı)
+    //     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    // },
+    // function (error) {
+    //     // Hata durumunu ele al
+    //     console.error('An error happened:', error);
+    // }
+);
 
 loader.load("public/car.fbx", function(object){
     const car = object;
@@ -64,6 +88,7 @@ loader.load("public/car.fbx", function(object){
 
     object.traverse( function(child){
         if (child.isMesh){
+            console.log(child.material);
             child.castShadow = child.receiveShadow = true;
             if (child.name.includes("Studio_Car66") || child.material.name.includes('clear glass')){
                 transparent(child.material, 0x3F3F3F);
@@ -153,7 +178,7 @@ const axesHelper = new THREE.AxesHelper(4);
 scene.add(axesHelper);
 
 function animate() {
-    // renderer.render(scene, camera);
+    //renderer.render(scene, camera);
     composer.render();
     requestAnimationFrame(animate);
 }
@@ -179,7 +204,7 @@ function transparent(material, color) {
 function metallicPaint(material) {
     material.roughness = 0.3; // Cam yüzeyi pürüzsüz olmalı
     material.metalness = 1.0; // Cam için metalik etki gerekmez
-    material.color.set(0x38b52a); // Hafif bir renk tonu (isteğe bağlı)
+    material.color.set(0xF8CD02); // Hafif bir renk tonu (isteğe bağlı)
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
 
