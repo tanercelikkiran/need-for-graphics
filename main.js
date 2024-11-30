@@ -5,11 +5,20 @@ import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
 
 const renderer = new THREE.WebGLRenderer({antialias: true});
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
+renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
+renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
 document.body.appendChild(renderer.domElement);
 
+new RGBELoader().load('public/hdri2.hdr', function (texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    scene.background = texture;
+    scene.environment.intensity = 0.2;
+});
 // Sets the color of the background.
 // renderer.setClearColor(0xFEFEFE);
 
@@ -31,16 +40,14 @@ composer.addPass(renderScene);
 const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     1.5,
-    0.1,
-    0.1
+    1,
+    0
 );
 composer.addPass(bloomPass);
 
 const geometry = new THREE.BoxGeometry( 10, 10, 10 );
 const geometry2 = new THREE.BoxGeometry( 10, 0.1, 10 );
-const light = new THREE.DirectionalLight( 0xffffff,0.1);
-light.position.set( 0, 200, 100 );
-const ambient = new THREE.AmbientLight( 0x707070 ); // soft white light
+
 
 const material= new THREE.MeshPhongMaterial( { color: 0x4b4b4b } );
 const material2= new THREE.MeshPhongMaterial( { color: 0x525257 } );
@@ -49,8 +56,7 @@ const cube2 = new THREE.Mesh( geometry2, material2 );
 
 scene.add(cube);
 scene.add(cube2);
-scene.add(light);
-scene.add(ambient);
+
 
 cube.position.set( 0, 0, -10 );
 cube2.position.set( 0, 0, 0 );
