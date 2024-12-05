@@ -184,6 +184,8 @@ scene.add(axesHelper);
 function animate() {
     //renderer.render(scene, camera);
     composer.render();
+    
+
     requestAnimationFrame(animate);
 }
 
