@@ -6,11 +6,18 @@ import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
+import Stats from 'three/addons/libs/stats.module.js';
 
-const renderer = new THREE.WebGLRenderer({antialias: true});
+const stats = new Stats();
+stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
+document.body.appendChild(stats.dom);
+
+
+const renderer = new THREE.WebGLRenderer({antialias: false});
 renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
 renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
 renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
+renderer.shadowMap.enabled = false;
 document.body.appendChild(renderer.domElement);
 
 new RGBELoader().load('public/hdri.hdr', function (texture) {
@@ -23,7 +30,7 @@ new RGBELoader().load('public/hdri.hdr', function (texture) {
 // renderer.setClearColor(0xFEFEFE);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 10000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
 
 // Sets orbit control to move the camera around.
 const orbit = new OrbitControls(camera, renderer.domElement);
@@ -39,27 +46,13 @@ composer.addPass(renderScene);
 
 const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.5,
-    1,
-    0
+    0.8,
+    0.4,
+    0.2
 );
 composer.addPass(bloomPass);
 
-const geometry = new THREE.BoxGeometry( 10, 10, 10 );
-const geometry2 = new THREE.BoxGeometry( 10, 0.1, 10 );
 
-
-const material= new THREE.MeshPhongMaterial( { color: 0x4b4b4b } );
-const material2= new THREE.MeshPhongMaterial( { color: 0x525257 } );
-const cube = new THREE.Mesh( geometry, material );
-const cube2 = new THREE.Mesh( geometry2, material2 );
-
-scene.add(cube);
-scene.add(cube2);
-
-
-cube.position.set( 0, 0, -10 );
-cube2.position.set( 0, 0, 0 );
 
 const loader1 = new GLTFLoader();
 const loader = new FBXLoader();
@@ -73,16 +66,27 @@ loader1.load(
         // Model yüklendiğinde sahneye ekle
         scene.add(gltf.scene);
         console.log('Model loaded successfully!');
+
+        // gltf.scene.traverse(function (child) {
+        //     if (child.isMesh && child.name.includes("PLight")) {
+        //
+        //         // Mevcut konumda PointLight oluştur
+        //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
+        //         pointLight.position.copy(child.position);
+        //
+        //         // PointLight'ı sahneye ekle
+        //         scene.add(pointLight);
+        //     }
+        // });
+
     },
-    // function (xhr) {
-    //     // Yükleme durumunu görüntüleme (isteğe bağlı)
-    //     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    // },
-    // function (error) {
-    //     // Hata durumunu ele al
-    //     console.error('An error happened:', error);
-    // }
+    null,
+    function (error) {
+        // Hata durumunu ele al
+        console.error('An error happened:', error);
+    }
 );
+
 
 loader.load("public/car.fbx", function(object){
     const car = object;
@@ -90,9 +94,12 @@ loader.load("public/car.fbx", function(object){
     orbit.target = object.position.clone();
     orbit.update();
 
+    const carLight = new THREE.PointLight(0xFFF0CC, 20, 50);
+    carLight.position.set(0, 5 , 5);
+    car.add(carLight);
+
     object.traverse( function(child){
         if (child.isMesh){
-            console.log(child.material);
             child.castShadow = child.receiveShadow = true;
             if (child.name.includes("Studio_Car66") || child.material.name.includes('clear glass')){
                 transparent(child.material, 0x3F3F3F);
@@ -173,21 +180,20 @@ loader.load("public/car.fbx", function(object){
     console.error(error);
     })
 
-// Creates a 12 by 12 grid helper.
-const gridHelper = new THREE.GridHelper(12, 12);
-scene.add(gridHelper);
-
-// Creates an axes helper with an axis length of 4.
-const axesHelper = new THREE.AxesHelper(4);
-scene.add(axesHelper);
 
 function animate() {
     //renderer.render(scene, camera);
+    stats.begin();
     composer.render();
+<<<<<<< Updated upstream
     
 
+=======
+    stats.end();
+>>>>>>> Stashed changes
     requestAnimationFrame(animate);
 }
+
 
 // renderer.setAnimationLoop(animate);
 animate();
