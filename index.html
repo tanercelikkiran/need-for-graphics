@@ -9,12 +9,16 @@
         {
             "imports": {
                 "three": "./node_modules/three/build/three.module.js",
-                "three/addons/": "./node_modules/three/examples/jsm/"
+                "three/addons/": "./node_modules/three/examples/jsm/",
+                "cannon-es": "./node_modules/cannon-es/dist/cannon-es.js",
+                "cannon-es-debugger": "./node_modules/cannon-es-debugger/dist/cannon-es-debugger.js"
             }
         }
     </script>
 </head>
 <body>
-<script src="js/main.js" type="module"></script>
+    <script src="js/main.js" type="module"></script>
+    <script src="js/material-properties.js" type="module"></script>
+    <script src="js/loaders.js" type="module"></script>
 </body>
 </html>

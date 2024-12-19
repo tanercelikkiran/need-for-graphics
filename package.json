@@ -2,7 +2,7 @@
   "name": "threeboilerplate",
   "version": "1.0.0",
   "description": "The Three.js boilerplate that I'm using in my Tutorials.",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -10,7 +10,9 @@
   "author": "Wael Yasmina",
   "license": "ISC",
   "dependencies": {
-    "three": "^0.170.0"
+    "three": "^0.170.0",
+    "cannon-es": "^0.20.0",
+    "cannon-es-debugger": "^1.0.0"
   },
   "devDependencies": {
     "vite": "^5.3.2"
