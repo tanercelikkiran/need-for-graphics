@@ -185,12 +185,6 @@ function animate() {
     //renderer.render(scene, camera);
     stats.begin();
     composer.render();
-<<<<<<< Updated upstream
-    
-
-=======
-    stats.end();
->>>>>>> Stashed changes
     requestAnimationFrame(animate);
 }
 
