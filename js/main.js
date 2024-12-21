@@ -10,8 +10,8 @@ import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
-let camera, scene, renderer, composer, orbit, stats;
-let world, cannonDebugger, vehicle, carSize, carCenter;
+export let camera, scene, renderer, composer, orbit, stats;
+export let world, cannonDebugger, vehicle, carSize;
 
 function init() {
     scene = new THREE.Scene();
@@ -76,29 +76,27 @@ function setCannonWorld(){
         type: CANNON.Body.STATIC,
         shape: new CANNON.Plane(),
     });
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, Math.PI/24, 0); // Rotate plane to be horizontal
+    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal
     world.addBody(groundBody);
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
 
 function createVehicle() {
-    carCenter = new THREE.Vector3();
     carSize = new THREE.Vector3();
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
 
     boundingBox.getSize(carSize);
 
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2,  carSize.y / 2, carSize.z / 2));
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.1, carSize.z / 2));
     const chassisBody = new CANNON.Body({
         mass: 1500,
-        shape: chassisShape
     });
-
-    //Get the center of the car
-
-    boundingBox.getCenter(carCenter);
-    chassisBody.position.set(carCenter.x/2, carCenter.y/2 + 0.5, carCenter.z/2);
+    chassisBody.addShape(chassisShape);
+    let pos = carMesh.position.clone();
+    chassisBody.position.copy(pos);
+    chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
+    chassisBody.threemesh = carMesh;
 
     vehicle = new CANNON.RaycastVehicle({
         chassisBody: chassisBody,
@@ -119,41 +117,54 @@ function createVehicle() {
         maxSuspensionForce: 100000,
         rollInfluence: 0.01,
         axleLocal: new CANNON.Vec3(1, 0, 0),
-        chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 2), // To be set for each wheel
+        chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0), // To be set for each wheel
         maxSuspensionTravel: 0.3,
         customSlidingRotationalSpeed: -30
     }
 
     let wheelCenter = new THREE.Vector3();
     let wheelSize = new THREE.Vector3();
+    let wheelBodies = [];
 
-    //Front-left wheel
-    const wheelBoundingBox = new THREE.Box3().setFromObject(wheelMeshes.leftFront);
-    wheelBoundingBox.getSize(wheelSize);
-    wheelBoundingBox.getCenter(wheelCenter);
-    wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
-    vehicle.addWheel(wheelOptions);
+    wheelMeshes.forEach(function(wheelMesh){
+        const boundingBox = new THREE.Box3().setFromObject(wheelMesh);
+        boundingBox.getCenter(wheelCenter);
+        boundingBox.getSize(wheelSize);
 
-    //Front-right wheel
-    wheelBoundingBox.setFromObject(wheelMeshes.rightFront);
-    wheelBoundingBox.getSize(wheelSize);
-    wheelBoundingBox.getCenter(wheelCenter);
-    wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
-    vehicle.addWheel(wheelOptions);
+        const shape = new CANNON.Cylinder(wheelSize.y / 2, wheelSize.y / 2, wheelSize.x, 20);
+        const wheelBody = new CANNON.Body({
+            mass: wheelOptions.mass,
+            type: CANNON.Body.KINEMATIC,
+        });
+        wheelBody.collisionFilterGroup = 0;
+        const q = new CANNON.Quaternion();
+        q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
+        wheelBody.addShape(shape, new CANNON.Vec3(), q);
+        wheelBody.position.copy(wheelCenter);
+        wheelBody.threemesh = wheelMesh;
+        world.addBody(wheelBody);
+        wheelBodies.push(wheelBody);
 
-    //Rear-left wheel
-    wheelBoundingBox.setFromObject(wheelMeshes.leftBack);
-    wheelBoundingBox.getSize(wheelSize);
-    wheelBoundingBox.getCenter(wheelCenter);
-    wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
-    vehicle.addWheel(wheelOptions);
+        wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
 
-    //Rear-right wheel
-    wheelBoundingBox.setFromObject(wheelMeshes.rightBack);
-    wheelBoundingBox.getSize(wheelSize);
-    wheelBoundingBox.getCenter(wheelCenter);
-    wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
-    vehicle.addWheel(wheelOptions);
+        vehicle.addWheel({
+            body: wheelBody,
+            ...wheelOptions
+        });
+    });
+    vehicle.wheelBodies = wheelBodies;
+
+    world.addEventListener('postStep', function(){
+        let index = 0;
+        vehicle.wheelBodies.forEach((wheelBody, index) => {
+            vehicle.updateWheelTransform(index);
+            const wheelTransform = vehicle.wheelInfos[index].worldTransform;
+            wheelBodies[index].position.copy(wheelTransform.position);
+            wheelBodies[index].quaternion.copy(wheelTransform.quaternion);
+            wheelBodies[index].threemesh.position.copy(wheelBodies[index].position);
+            wheelBodies[index].threemesh.quaternion.copy(wheelBodies[index].quaternion);
+        });
+    });
 
     vehicle.addToWorld(world);
 }
@@ -166,7 +177,7 @@ function createVehicle() {
 let forwardForce = 0;
 let steeringValue = 0;
 const maxSteerVal = Math.PI / 8; // Maximum steering angle
-const maxForce = 5000; // Maximum engine force
+const maxForce =1000; // Maximum engine force
 
 document.addEventListener('keydown', (event) => {
     switch (event.key) {
@@ -221,41 +232,19 @@ document.addEventListener('keyup', (event) => {
 });
 
 function animate() {
-    renderer.render(scene, camera);
-    stats.begin();
-    composer.render();
-
-    cannonDebugger.update();
     world.step(1/60);
 
     try {
-        // Update chassis position and rotation
-        const position = vehicle.chassisBody.position;
-        carMesh.position.copy(new THREE.Vector3(position.x, position.y- (carSize.y/2), position.z));
-        carMesh.quaternion.copy(vehicle.chassisBody.quaternion);
-
-        //Front-left wheel
-        wheelMeshes.leftFront.position.copy(vehicle.wheelInfos[0].worldTransform.position);
-        wheelMeshes.leftFront.quaternion.copy(vehicle.wheelInfos[0].worldTransform.quaternion);
-        wheelMeshes.leftFront.rotateZ(-Math.PI); // Maintain vertical orientation
-        wheelMeshes.leftFront.rotateX(-Math.PI/2); // Maintain vertical orientation
-
-        //Front-right wheel
-        wheelMeshes.rightFront.position.copy(vehicle.wheelInfos[1].worldTransform.position);
-        wheelMeshes.rightFront.quaternion.copy(vehicle.wheelInfos[1].worldTransform.quaternion);
-        wheelMeshes.rightFront.rotateZ(-Math.PI); // Maintain vertical orientation
-        wheelMeshes.rightFront.rotateX(-Math.PI/2); // Maintain vertical orientation
-        //Rear-left wheel
-        wheelMeshes.leftBack.position.copy(vehicle.wheelInfos[2].worldTransform.position);
-        wheelMeshes.leftBack.quaternion.copy(vehicle.wheelInfos[2].worldTransform.quaternion);
-        wheelMeshes.leftBack.rotateZ(-Math.PI); // Maintain vertical orientation
-
-        //Rear-right wheel
-        wheelMeshes.rightBack.position.copy(vehicle.wheelInfos[3].worldTransform.position);
-        wheelMeshes.rightBack.quaternion.copy(vehicle.wheelInfos[3].worldTransform.quaternion);
+        const chassisBody = vehicle.chassisBody;
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
+        chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
     }
     catch (e) {
     }
+
+    stats.begin();
+    composer.render();
+    cannonDebugger.update();
     stats.end();
     requestAnimationFrame(animate);
 }
