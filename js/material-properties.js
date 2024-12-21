@@ -38,6 +38,14 @@ export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity 
     const adjustedTargetPosition = targetPosition.clone().add(targetOffset);
     spotlight.target.position.copy(adjustedTargetPosition);
 
+    spotlight.updatePositionAndDirection = function(newPosition, newTargetPosition) {
+        this.position.copy(newPosition);
+        const dynamicOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * newPosition.distanceTo(newTargetPosition), 0);
+        const dynamicTargetPosition = newTargetPosition.clone().add(dynamicOffset);
+        this.target.position.copy(dynamicTargetPosition);
+        this.target.updateMatrixWorld(); // Ensure the target's matrix updates correctly
+    };
+
     return spotlight;
 }
 
