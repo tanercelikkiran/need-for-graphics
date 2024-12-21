@@ -4,14 +4,10 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
 import {emissiveLight, pointLight, spotlight} from "./material-properties.js";
 import {transparent, metallicPaint} from "./material-properties.js";
+import {world} from "./main.js";
 
 let carMesh;
-let wheelMeshes = {
-    leftFront: null,
-    leftBack: null,
-    rightFront: null,
-    rightBack: null
-}
+let wheelMeshes = [];
 export {carMesh, wheelMeshes};
 
 const manager = new THREE.LoadingManager();
@@ -72,17 +68,17 @@ export function loadMap(scene) {
                 carMesh.traverse( function(child){
                     if (child.isMesh){
                         child.castShadow = child.receiveShadow = true;
-                        if (child.name.includes("wheel-RB")){
-                            wheelMeshes.rightBack = child;
-                        }
-                        if (child.name.includes("wheel-LB")){
-                            wheelMeshes.leftBack = child;
+                        if (child.name.includes("wheel-LF")){
+                            wheelMeshes[0] = child;
                         }
                         if (child.name.includes("wheel-RF")){
-                            wheelMeshes.rightFront = child;
+                            wheelMeshes[1] = child;
                         }
-                        if (child.name.includes("wheel-LF")){
-                            wheelMeshes.leftFront = child;
+                        if (child.name.includes("wheel-LB")){
+                            wheelMeshes[2] = child;
+                        }
+                        if (child.name.includes("wheel-RB")){
+                            wheelMeshes[3] = child;
                         }
                         if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
                             transparent(child.material);
@@ -99,13 +95,21 @@ export function loadMap(scene) {
                         if (child.name.includes("Studio_Car149")){
                             emissiveLight(child, 0xffffff, 20.0);
                         }
-                        if (child.name.includes("headlight1") || child.name.includes("headlight2")){
+                        if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
                             emissiveLight(child, 0xffffff, 20.0);
                             const spotlight1 = spotlight(
                                 child.getWorldPosition(new THREE.Vector3()),
-                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10));
+                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10)
+                            );
                             scene.add(spotlight1.target);
                             scene.add(spotlight1);
+
+                            // Update the spotlight position and direction dynamically during animation
+                            world.addEventListener('postStep', function() {
+                                const updatedPosition = child.getWorldPosition(new THREE.Vector3());
+                                const updatedTarget = new THREE.Vector3(updatedPosition.x, updatedPosition.y, updatedPosition.z - 10);
+                                spotlight1.updatePositionAndDirection(updatedPosition, updatedTarget);
+                            });
                         }
                         if (child.name.includes("Studio_Car252_light1")) {
                             emissiveLight(child, 0xff3333, 5.0);
@@ -162,7 +166,7 @@ export function loadMap(scene) {
             });
         setTimeout(() => {
             resolve();
-        }, 6000); // 5-second delay
+        }, 8000); // 5-second delay
     });
 }
 
