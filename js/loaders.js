@@ -60,10 +60,10 @@ export function loadMap(scene) {
                 scene.add(object);
 
 
-                const carCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-                carCamera.position.set(0, 2, 5); // Kamerayı arabadan biraz yukarı ve geriye yerleştir
-                carCamera.lookAt(new THREE.Vector3(0, 1, 0)); // Kameranın arabaya bakmasını sağlar
-                object.add(carCamera);
+                const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+                carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
+                carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
+                carMesh.add(carCamera);
 
                 scene.userData.activeCamera = carCamera;
 
@@ -166,6 +166,7 @@ export function loadMap(scene) {
     });
 }
 
+
 export function loadWheels(scene) {
     return new Promise((resolve, reject) => {
         fbxLoader.load('public/wheels.fbx', (object) => {
@@ -201,6 +202,8 @@ export function loadWheels(scene) {
         });
     });
 }
+
+
 
 export function loadHDR(scene) {
     new RGBELoader().load('public/hdri.hdr', function (texture) {

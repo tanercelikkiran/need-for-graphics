@@ -242,19 +242,72 @@ document.addEventListener('keyup', (event) => {
             break;
     }
 });
+let cameraStartZ = 6.3; // Başlangıç Z pozisyonu (ilk değer)
+let cameraTargetZ = 8; // Hedef Z pozisyonu
+let cameraAnimationDuration = 3000; // 1 saniye (ms)
+let cameraAnimationStartTime = null;
+let isReturning = false; // Kameranın geri dönüp dönmediğini kontrol etmek için
+let currentCameraZ = cameraStartZ; // Kameranın mevcut Z pozisyonu
+
+document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'w') {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+        }
+        cameraAnimationStartTime = performance.now(); // Animasyonu başlat
+        isReturning = false; // Geri dönüş durumu sıfırla
+    }
+});
+
+document.addEventListener('keyup', (event) => {
+    if (event.key.toLowerCase() === 'w') {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+        }
+        cameraAnimationStartTime = performance.now(); // Animasyonu başlat
+        isReturning = true; // Geri dönüş animasyonu başlasın
+    }
+});
+
 
 function animate() {
     world.step(1/60);
+
+    const currentTime = performance.now();
+
+    if (cameraAnimationStartTime !== null) {
+        const elapsedTime = currentTime - cameraAnimationStartTime;
+        const t = Math.min(elapsedTime / cameraAnimationDuration, 1); // 0 ile 1 arasında interpolasyon
+        const activeCamera = scene.userData.activeCamera;
+
+        if (activeCamera) {
+            if (!isReturning) {
+                // İleri animasyon: Mevcut pozisyondan 8'e
+                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraTargetZ, t);
+            } else {
+                // Geri dönüş animasyonu: Mevcut pozisyondan 6.4'e
+                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraStartZ, t);
+            }
+
+            if (t === 1) {
+                cameraAnimationStartTime = null; // Animasyon tamamlandı
+            }
+        }
+    }
 
     try {
         const chassisBody = vehicle.chassisBody;
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
+
         console.log("Bi sıkıntı yok he");
     }
     catch (e) {
         console.error("Bi sıkıntı mı var");
     }
+
 
     stats.begin();
     const activeCamera = scene.userData.activeCamera;
@@ -290,5 +343,7 @@ function main() {
     loadHDR(scene, renderer);
     animate();
 }
+
+
 
 main();
