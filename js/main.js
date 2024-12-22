@@ -1,4 +1,4 @@
-import {loadMap, loadCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
+import {loadMap, loadCar, loadHDR, carMesh, wheelMeshes, loadWheels} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -10,12 +10,11 @@ import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
-export let camera, scene, renderer, composer, orbit, stats;
+export let activeCamera, scene, renderer, composer, orbit, stats;
 export let world, cannonDebugger, vehicle, carSize;
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
 
     renderer = new THREE.WebGLRenderer({antialias: false});
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -25,11 +24,8 @@ function init() {
     renderer.shadowMap.enabled = false;
     document.body.appendChild(renderer.domElement);
 
-    orbit = new OrbitControls(camera, renderer.domElement);
-    camera.position.set(1, 2, 5);
-    orbit.update();
 
-    const renderScene = new RenderPass(scene, camera);
+    const renderScene = new RenderPass(scene, null);
     composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
 
@@ -46,8 +42,11 @@ function init() {
     document.body.appendChild(stats.dom);
 
     window.addEventListener('resize', function() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            activeCamera.aspect = window.innerWidth / window.innerHeight;
+            activeCamera.updateProjectionMatrix();
+        }
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 }
@@ -85,7 +84,6 @@ function setCannonWorld(){
 function createVehicle() {
     carSize = new THREE.Vector3();
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
-
     boundingBox.getSize(carSize);
 
     const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.1, carSize.z / 2));
@@ -106,7 +104,7 @@ function createVehicle() {
     });
 
     const wheelOptions = {
-        mass: 20,
+        mass: 0,
         radius: 0.4,
         directionLocal: new CANNON.Vec3(0, -1, 0),
         suspensionStiffness: 30,
@@ -116,8 +114,8 @@ function createVehicle() {
         dampingCompression: 4.4,
         maxSuspensionForce: 100000,
         rollInfluence: 0.01,
-        axleLocal: new CANNON.Vec3(1, 0, 0),
-        chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0), // To be set for each wheel
+        axleLocal: new CANNON.Vec3(-1, 0, 0),
+        chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
         maxSuspensionTravel: 0.3,
         customSlidingRotationalSpeed: -30
     }
@@ -138,31 +136,43 @@ function createVehicle() {
         });
         wheelBody.collisionFilterGroup = 0;
         const q = new CANNON.Quaternion();
-        q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 2);
+        q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
         wheelBody.addShape(shape, new CANNON.Vec3(), q);
         wheelBody.position.copy(wheelCenter);
         wheelBody.threemesh = wheelMesh;
         world.addBody(wheelBody);
         wheelBodies.push(wheelBody);
 
+
+
         wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
 
         vehicle.addWheel({
             body: wheelBody,
-            ...wheelOptions
+            ...wheelOptions,
+            chassisConnectionPointLocal: new CANNON.Vec3(wheelCenter.x, 0, wheelCenter.z)
         });
     });
+
     vehicle.wheelBodies = wheelBodies;
 
-    world.addEventListener('postStep', function(){
-        let index = 0;
+    world.addEventListener('postStep', function () {
         vehicle.wheelBodies.forEach((wheelBody, index) => {
+            // Lastiklerin fiziksel pozisyon ve dönüşünü güncelle
             vehicle.updateWheelTransform(index);
             const wheelTransform = vehicle.wheelInfos[index].worldTransform;
-            wheelBodies[index].position.copy(wheelTransform.position);
-            wheelBodies[index].quaternion.copy(wheelTransform.quaternion);
-            wheelBodies[index].threemesh.position.copy(wheelBodies[index].position);
-            wheelBodies[index].threemesh.quaternion.copy(wheelBodies[index].quaternion);
+
+            // Fizik motoru lastiklerinin pozisyonunu ve dönüşünü uygulayın
+            wheelBody.position.copy(wheelTransform.position);
+            wheelBody.quaternion.copy(wheelTransform.quaternion);
+
+            // Görsel lastikleri fizik motoruyla senkronize edin
+            if (wheelBodies[index].threemesh) {
+                wheelBodies[index].threemesh.position.copy(wheelBody.position);
+                wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
+
+            }
+
         });
     });
 
@@ -180,6 +190,7 @@ const maxSteerVal = Math.PI / 8; // Maximum steering angle
 const maxForce =1000; // Maximum engine force
 
 document.addEventListener('keydown', (event) => {
+    const key = event.key.toLowerCase();
     switch (event.key) {
         case 'w': // Move forward
             forwardForce = maxForce;
@@ -209,6 +220,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.addEventListener('keyup', (event) => {
+    const key = event.key.toLowerCase();
     switch (event.key) {
         case 'w':
             vehicle.setBrake(25, 0);
@@ -238,12 +250,21 @@ function animate() {
         const chassisBody = vehicle.chassisBody;
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
+        console.log("Bi sıkıntı yok he");
     }
     catch (e) {
+        console.error("Bi sıkıntı mı var");
     }
 
     stats.begin();
-    composer.render();
+    const activeCamera = scene.userData.activeCamera;
+    if (activeCamera) {
+        composer.passes[0].camera = activeCamera;
+        composer.render();
+        console.log("Aktif Kamera var");
+    } else {
+        console.error("Aktif kamera bulunamadı.");
+    }
     cannonDebugger.update();
     stats.end();
     requestAnimationFrame(animate);
@@ -253,7 +274,19 @@ function main() {
     init();
     setCannonWorld();
     loadMap(scene);
-    loadCar(scene, orbit).then(createVehicle);
+    loadCar(scene).then(() => {
+        return loadWheels(scene);
+    }).then(() => {
+
+        const activeCamera=scene.userData.activeCamera;
+        if (activeCamera) {
+            composer.passes[0].camera = activeCamera; // RenderPass için aktif kamerayı ayarla
+            console.log("Kamera başarıyla ayarlandı.");
+        }
+    }).then(() => {
+        createVehicle();
+    })
+
     loadHDR(scene, renderer);
     animate();
 }

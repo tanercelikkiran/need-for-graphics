@@ -55,31 +55,27 @@ export function loadMap(scene) {
 
  export function loadCar(scene, orbit) {
     return new Promise((resolve) => {
-        fbxLoader.load("public/CarRestored.fbx", function(object){
+        fbxLoader.load("public/CarwNoWheels.fbx", function(object){
                 carMesh = object;
                 scene.add(object);
-                orbit.target = object.position.clone();
-                orbit.update();
 
-                const carLight = new THREE.PointLight(0xFFF0CC, 10, 50);
+
+                const carCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+                carCamera.position.set(0, 2, 5); // Kamerayı arabadan biraz yukarı ve geriye yerleştir
+                carCamera.lookAt(new THREE.Vector3(0, 1, 0)); // Kameranın arabaya bakmasını sağlar
+                object.add(carCamera);
+
+                scene.userData.activeCamera = carCamera;
+
+                console.log("Kamera başarıyla eklendi ve aktif kamera ayarlandı.");
+
+                const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
                 carLight.position.set(0, 5 , 5);
                 carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
                     if (child.isMesh){
                         child.castShadow = child.receiveShadow = true;
-                        if (child.name.includes("wheel-LF")){
-                            wheelMeshes[0] = child;
-                        }
-                        if (child.name.includes("wheel-RF")){
-                            wheelMeshes[1] = child;
-                        }
-                        if (child.name.includes("wheel-LB")){
-                            wheelMeshes[2] = child;
-                        }
-                        if (child.name.includes("wheel-RB")){
-                            wheelMeshes[3] = child;
-                        }
                         if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
                             transparent(child.material);
                         }
@@ -167,6 +163,42 @@ export function loadMap(scene) {
         setTimeout(() => {
             resolve();
         }, 8000); // 5-second delay
+    });
+}
+
+export function loadWheels(scene) {
+    return new Promise((resolve, reject) => {
+        fbxLoader.load('public/wheels.fbx', (object) => {
+            object.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+
+                    // Lastik isimlerini kontrol ederek diziye ekle
+                    if (child.name.includes("wheel-LF")) {
+                        wheelMeshes[0] = child;
+                    }
+                    if (child.name.includes("wheel-RF")) {
+                        wheelMeshes[1] = child;
+                    }
+                    if (child.name.includes("wheel-LB")) {
+                        wheelMeshes[2] = child;
+                    }
+                    if (child.name.includes("wheel-RB")) {
+                        wheelMeshes[3] = child;
+                    }
+                }
+            });
+
+            // Lastik modelini sahneye ekle (isteğe bağlı, debug için)
+            scene.add(object);
+
+            console.log("Wheels loaded successfully!");
+            resolve();
+        }, null, (error) => {
+            console.error('Error loading wheels:', error);
+            reject(error);
+        });
     });
 }
 
