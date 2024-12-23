@@ -13,6 +13,46 @@ import Stats from 'three/addons/libs/stats.module.js';
 export let activeCamera, scene, renderer, composer, orbit, stats;
 export let world, cannonDebugger, vehicle, carSize;
 
+// -----------------------------
+// Değişkenler
+// -----------------------------
+let isAccelerating = false;
+let isBraking      = false;
+let isSteeringLeft = false;
+let isSteeringRight= false;
+
+// Aracın motor ve direksiyon durumu
+let currentEngineForce = 0;
+let currentSteering    = 0;
+
+// TEMEL AYARLAR
+const maxEngineForce = 3000;
+const engineRamp     = 100;  // Gaz veriş/çekiş ramp hızı
+const brakeForce     = 50;   // Fren gücü
+
+// DIREKSIYON / DAMPING
+const maxSteerVal  = Math.PI / 5;  // ~36 derece (baz limit)
+const steerSpeed   = 0.03;         // Direksiyonun dönüş hızı
+const steerDamping = 0.03;         // Direksiyonu bırakınca ortalama sertliği
+
+// HIZ BAZLI STEERING AYARLARI
+const speedLimit         = 55;       // (m/s) Bu hızı geçince direksiyon iyice azalır (~198 km/h)
+const minSteerFactor     = 0.15;     // Çok yüksek hızda direksiyon, normalin %15’ine kadar düşebilir
+const mediumSpeed        = 20;       // 20 m/s (~72 km/h) altı -> Tam direksiyon
+const mediumSteerFactor  = 1.0;      // Bu hızın altında tam direksiyon
+// Non-linear formül için bir sabit
+// (bu sayede hız arttıkça direksiyon, "dairesel" oranda azalır)
+const steerFalloff = 0.0015;  // Deneme yanılma ile ayarlanır
+
+// Fren anında direksiyonun ekstra sertleşmesi
+const brakeSteerMultiplier = 0.6;  // Frenliyorken max direksiyon açısını biraz kıs
+
+let isHandBraking = false;
+
+const handbrakeForce = 100;   // El freninin fren kuvveti
+const driftSlip     = 1.0;    // Drift için düşük sürtünme (örn. 1.0 normalden daha kaygan)
+const normalSlip    = 5.0;    // Normal lastik frictionSlip (varsayım)
+
 function init() {
     scene = new THREE.Scene();
 
@@ -49,6 +89,59 @@ function init() {
         }
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        switch (key) {
+            case 'w':
+                isAccelerating = true;
+                isBraking = false;
+                break;
+            case 's':
+                isBraking = true;
+                isAccelerating = false;
+                break;
+            case 'a':
+                isSteeringLeft = true;
+                break;
+            case 'd':
+                isSteeringRight = true;
+                break;
+            case ' ':
+                // Space -> el freni aktif
+                isHandBraking = true;
+                // İsteğe bağlı: Arka tekerlekleri kaygan yapmak
+                vehicle.wheelInfos[2].frictionSlip = driftSlip; // Rear-left
+                vehicle.wheelInfos[3].frictionSlip = driftSlip; // Rear-right
+                break;
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        const key = event.key.toLowerCase();
+        switch (key) {
+            case 'w':
+                isAccelerating = false;
+                break;
+            case 's':
+                isBraking = false;
+                break;
+            case 'a':
+                isSteeringLeft = false;
+                break;
+            case 'd':
+                isSteeringRight = false;
+                break;
+            case ' ':
+                // Space bırakıldı -> el freni off
+                isHandBraking = false;
+                // Tekerlekleri tekrar normal sürtünmeye ayarla
+                vehicle.wheelInfos[2].frictionSlip = normalSlip;
+                vehicle.wheelInfos[3].frictionSlip = normalSlip;
+                break;
+        }
+    });
+
 }
 
 function setCannonWorld(){
@@ -143,8 +236,6 @@ function createVehicle() {
         world.addBody(wheelBody);
         wheelBodies.push(wheelBody);
 
-
-
         wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
 
         vehicle.addWheel({
@@ -170,78 +261,156 @@ function createVehicle() {
             if (wheelBodies[index].threemesh) {
                 wheelBodies[index].threemesh.position.copy(wheelBody.position);
                 wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
-
             }
 
+            switch (index) {
+                case 2:
+                    //rotation
+                    wheelBodies[index].threemesh.rotation.z += -Math.PI;
+            }
         });
     });
 
     vehicle.addToWorld(world);
 }
 
+function updateVehicleControls() {
+    //---------------------------
+    // 1) Aracın anlık hızını ölç
+    //---------------------------
+    const velocity = vehicle.chassisBody.velocity;
+    // Sadece XZ düzlemindeki hızı (m/s)
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+
+    //---------------------------
+    // 2) Direksiyon oranını hesapla
+    //---------------------------
+
+    // 2A) "speedRatio1": mediumSpeed'e göre basit linear
+    //    - 0 -> speed=0, 1 -> speed=mediumSpeed
+    //    - mediumSpeed üzerinde, 1'i aşar
+    let speedRatio1 = speed / mediumSpeed;
+
+    // 2B) "speedRatio2": speedLimit'e göre
+    //    - 0 -> speed=0, 1 -> speed=speedLimit ya da üstü
+    let speedRatio2 = speed / speedLimit;
+    if (speedRatio2 > 1) speedRatio2 = 1;  // clamp
+
+    // 2C) Non-linear (örneğin dairesel) düşüş.
+    //    1 / (1 + steerFalloff * speed^2) -> Yüksek hızda agresif düşüş
+    const nonLinearFactor = 1 / (1 + steerFalloff * speed * speed);
+
+    // Şimdi bu 3 “faktör”ü birleştirelim.
+    // Örneğin:
+    // - Düşük hızda (0~mediumSpeed) tam direksiyon (mediumSteerFactor=1).
+    // - mediumSpeed üstünde artarak kısıtla, speedLimit'te minSteerFactor'e kadar düş.
+    // - Non-linear factor de devrede, ama istersen "blend" edebilirsin.
+
+    // Aşağıda basit bir blend örneği:
+    // direksiyonFactor = nonLinearFactor * lineerFactor
+    // lineerFactor = lerp(mediumSteerFactor, minSteerFactor, speedRatio2)
+    const linearFactor = mediumSteerFactor +
+        (minSteerFactor - mediumSteerFactor) * speedRatio2;
+
+    let steerFactor = nonLinearFactor * linearFactor;
+    // steerFactor aşırı düşük olmasın
+    if (steerFactor < 0.05) steerFactor = 0.05;
+
+    // 2D) Frenliyorsak (isBraking) direksiyon limitini biraz daha kıs
+    if (isBraking) {
+        steerFactor *= brakeSteerMultiplier;  // ~%60'a düşür
+    }
+
+    // Sonuç olarak bu frame'deki maks direksiyon
+    const effectiveMaxSteer = maxSteerVal * steerFactor;
+
+    //---------------------------
+    // 3) Motor Gücü
+    //---------------------------
+    if (isAccelerating) {
+        currentEngineForce = Math.min(
+            currentEngineForce + engineRamp,
+            maxEngineForce
+        );
+    } else if (isBraking) {
+        // Geri vitese mi alsın yoksa fren mi yapsın?
+        // Basitçe "geri" yaklaşımlardan biri:
+        currentEngineForce = Math.max(
+            currentEngineForce - engineRamp,
+            -maxEngineForce / 2
+        );
+    } else {
+        // Ne gaz ne fren
+        if (currentEngineForce > 0) {
+            currentEngineForce = Math.max(currentEngineForce - engineRamp, 0);
+        } else {
+            currentEngineForce = Math.min(currentEngineForce + engineRamp, 0);
+        }
+    }
+
+    //---------------------------
+    // 4) Fren Uygula?
+    //---------------------------
+    let brakingValue = 0;
+    // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
+    if (isBraking && currentEngineForce > 0) {
+        brakingValue = brakeForce;
+    }
+
+    //---------------------------
+    // 5) Direksiyon
+    //---------------------------
+    if (isSteeringLeft) {
+        // Sola doğru yavaşça art
+        currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
+    } else if (isSteeringRight) {
+        // Sağa doğru yavaşça art
+        currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
+    } else {
+        // Ortalamaya dön (damping)
+        if (currentSteering > 0) {
+            currentSteering = Math.max(currentSteering - steerDamping, 0);
+        } else {
+            currentSteering = Math.min(currentSteering + steerDamping, 0);
+        }
+    }
+
+    //---------------------------
+    // 6) Araca Uygula
+    //---------------------------
+    // Frenleri sıfırla
+    vehicle.setBrake(0, 0);
+    vehicle.setBrake(0, 1);
+    vehicle.setBrake(0, 2); // Arka sol
+    vehicle.setBrake(0, 3); // Arka sağ
+    // (dört tekerleğe fren yapmak istiyorsan 2 ve 3. index'e de setBrake uygula)
+
+    // 3) Normal fren (ör. S tuşu) varsa ön tekerleklere uygula
+    if (brakingValue > 0) {
+        vehicle.setBrake(brakingValue, 0);  // front-left
+        vehicle.setBrake(brakingValue, 1);  // front-right
+    }
+
+    // 4) El freni aktifse, arka tekerleklere yüksek fren
+    if (isHandBraking) {
+        vehicle.setBrake(handbrakeForce, 2); // rear-left
+        vehicle.setBrake(handbrakeForce, 3); // rear-right
+    }
+
+
+    // Motor kuvveti -> genelde ön tekerler
+    vehicle.applyEngineForce(currentEngineForce, 0);
+    vehicle.applyEngineForce(currentEngineForce, 1);
+
+    // Direksiyon
+    vehicle.setSteeringValue(currentSteering, 0);
+    vehicle.setSteeringValue(currentSteering, 1);
+}
+
 //############################################################################################################
 //####  MAIN FUNCTION  #######################################################################################
 //############################################################################################################
 
-// Vehicle controls
-let forwardForce = 0;
-let steeringValue = 0;
-const maxSteerVal = Math.PI / 8; // Maximum steering angle
-const maxForce =1000; // Maximum engine force
-
-document.addEventListener('keydown', (event) => {
-    const key = event.key.toLowerCase();
-    switch (event.key) {
-        case 'w': // Move forward
-            forwardForce = maxForce;
-            vehicle.setBrake(0, 0);
-            vehicle.setBrake(0, 1);
-            vehicle.applyEngineForce(forwardForce, 0);
-            vehicle.applyEngineForce(forwardForce, 1);
-            break;
-        case 's': // Move backward
-            forwardForce = -maxForce;
-            vehicle.setBrake(0, 0);
-            vehicle.setBrake(0, 1);
-            vehicle.applyEngineForce(forwardForce, 0);
-            vehicle.applyEngineForce(forwardForce, 1);
-            break;
-        case 'a': // Steer left
-            steeringValue = maxSteerVal;
-            vehicle.setSteeringValue(steeringValue, 0); // Front-left
-            vehicle.setSteeringValue(steeringValue, 1); // Front-right
-            break;
-        case 'd': // Steer right
-            steeringValue = -maxSteerVal;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
-            break;
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    const key = event.key.toLowerCase();
-    switch (event.key) {
-        case 'w':
-            vehicle.setBrake(25, 0);
-            vehicle.setBrake(25, 1);
-            break;
-        case 's':
-            vehicle.setBrake(25, 0);
-            vehicle.setBrake(25, 1);
-            break;
-        case 'a':
-            steeringValue = 0;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
-            break;
-        case 'd':
-            steeringValue = 0;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
-            break;
-    }
-});
 let cameraStartZ = 6.3; // Başlangıç Z pozisyonu (ilk değer)
 let cameraTargetZ = 8; // Hedef Z pozisyonu
 let cameraAnimationDuration = 3000; // 1 saniye (ms)
@@ -298,28 +467,25 @@ function animate() {
     }
 
     try {
+
+        updateVehicleControls();
+
         const chassisBody = vehicle.chassisBody;
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
-        console.log("Bi sıkıntı yok he");
+        stats.begin();
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            composer.passes[0].camera = activeCamera;
+            composer.render();
+        }
+        cannonDebugger.update();
+        stats.end();
     }
     catch (e) {
-        console.error("Bi sıkıntı mı var");
     }
 
-
-    stats.begin();
-    const activeCamera = scene.userData.activeCamera;
-    if (activeCamera) {
-        composer.passes[0].camera = activeCamera;
-        composer.render();
-        console.log("Aktif Kamera var");
-    } else {
-        console.error("Aktif kamera bulunamadı.");
-    }
-    cannonDebugger.update();
-    stats.end();
     requestAnimationFrame(animate);
 }
 
@@ -334,7 +500,6 @@ function main() {
         const activeCamera=scene.userData.activeCamera;
         if (activeCamera) {
             composer.passes[0].camera = activeCamera; // RenderPass için aktif kamerayı ayarla
-            console.log("Kamera başarıyla ayarlandı.");
         }
     }).then(() => {
         createVehicle();
@@ -343,7 +508,5 @@ function main() {
     loadHDR(scene, renderer);
     animate();
 }
-
-
 
 main();

@@ -59,7 +59,6 @@ export function loadMap(scene) {
                 carMesh = object;
                 scene.add(object);
 
-
                 const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
                 carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
                 carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
@@ -93,18 +92,33 @@ export function loadMap(scene) {
                         }
                         if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
                             emissiveLight(child, 0xffffff, 20.0);
-                            const spotlight1 = spotlight(
-                                child.getWorldPosition(new THREE.Vector3()),
-                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10)
-                            );
-                            scene.add(spotlight1.target);
-                            scene.add(spotlight1);
 
-                            // Update the spotlight position and direction dynamically during animation
-                            world.addEventListener('postStep', function() {
+                            // Create the spotlight with dummy positions for now
+                            const headlightSpot = spotlight(
+                                new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                                new THREE.Vector3(0, 0, -10)
+                            );
+
+                            // Add it to the scene
+                            scene.add(headlightSpot);
+                            scene.add(headlightSpot.target);
+
+                            // Now each physics step, update the spotlight so it "follows" this child
+                            world.addEventListener("postStep", () => {
+                                // 1) Get the child's current world position
                                 const updatedPosition = child.getWorldPosition(new THREE.Vector3());
-                                const updatedTarget = new THREE.Vector3(updatedPosition.x, updatedPosition.y, updatedPosition.z - 10);
-                                spotlight1.updatePositionAndDirection(updatedPosition, updatedTarget);
+
+                                // 2) We'll define a local "forward" offset of -10 along Z,
+                                //    then rotate it by the child's *world* quaternion.
+                                const localDir = new THREE.Vector3(0, 10, 0);
+                                const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
+                                localDir.applyQuaternion(childQuat);
+
+                                // 3) Final target is updatedPosition + localDir
+                                const updatedTarget = updatedPosition.clone().add(localDir);
+
+                                // 4) Call the tilt-based spotlight update:
+                                headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
                             });
                         }
                         if (child.name.includes("Studio_Car252_light1")) {
@@ -190,14 +204,9 @@ export function loadWheels(scene) {
                     }
                 }
             });
-
-            // Lastik modelini sahneye ekle (isteğe bağlı, debug için)
             scene.add(object);
-
-            console.log("Wheels loaded successfully!");
             resolve();
         }, null, (error) => {
-            console.error('Error loading wheels:', error);
             reject(error);
         });
     });

@@ -30,40 +30,33 @@ export function emissiveLight(mesh, emissiveColor, intensity) {
 }
 
 export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
-    const spotlight = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
-    spotlight.position.copy(position);
 
-    // Adjust the target position
-    const targetOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * position.distanceTo(targetPosition), 0);
-    const adjustedTargetPosition = targetPosition.clone().add(targetOffset);
-    spotlight.target.position.copy(adjustedTargetPosition);
+    const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
+    spot.position.copy(position);
 
-    spotlight.updatePositionAndDirection = function(newPosition, newTargetPosition) {
+    // 1) Compute direction from position --> target
+    const direction = new THREE.Vector3().subVectors(targetPosition, position);
+
+    // 2) Tilt that direction by -5° around the local X axis
+    const tiltEuler = new THREE.Euler(THREE.MathUtils.degToRad(-5), 0, 0, "XYZ");
+    direction.applyEuler(tiltEuler);
+
+    // 3) Final target = position + (tilted direction)
+    const finalTarget = position.clone().add(direction);
+    spot.target.position.copy(finalTarget);
+    spot.target.updateMatrixWorld();
+
+    // For dynamic updates, reapply the same tilt.
+    spot.updatePositionAndDirection = function (newPosition, newTargetPosition) {
         this.position.copy(newPosition);
-        const dynamicOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * newPosition.distanceTo(newTargetPosition), 0);
-        const dynamicTargetPosition = newTargetPosition.clone().add(dynamicOffset);
-        this.target.position.copy(dynamicTargetPosition);
-        this.target.updateMatrixWorld(); // Ensure the target's matrix updates correctly
+
+        const dir = new THREE.Vector3().subVectors(newTargetPosition, newPosition);
+        dir.applyEuler(tiltEuler);
+
+        const finalTarget2 = newPosition.clone().add(dir);
+        this.target.position.copy(finalTarget2);
+        this.target.updateMatrixWorld();
     };
 
-    return spotlight;
-}
-
-function volumetricLight(position, targetPosition, color = 0xDDE6FF) {
-    const coneGeometry = new THREE.ConeGeometry(2, 10, 32, 1, true);
-    const coneMaterial = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.2,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-    });
-
-    const volumetricLight = new THREE.Mesh(coneGeometry, coneMaterial);
-    const direction = new THREE.Vector3().subVectors(targetPosition, position).normalize();
-    volumetricLight.position.copy(position);
-    volumetricLight.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
-    volumetricLight.rotateX(Math.PI); // Optional adjustment
-
-    return volumetricLight;
+    return spot;
 }
