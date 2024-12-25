@@ -64,7 +64,6 @@ function init() {
     renderer.shadowMap.enabled = false;
     document.body.appendChild(renderer.domElement);
 
-
     const renderScene = new RenderPass(scene, null);
     composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
@@ -148,7 +147,22 @@ function setCannonWorld(){
     world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
     world.broadphase = new CANNON.SAPBroadphase(world);
+    world.useBoundingBoxes = true;
     world.defaultContactMaterial.friction = 0.1;
+
+    world.addEventListener("beginContact", (event) => {
+        console.log("Begin Contact:", event.bodyA, event.bodyB);
+    });
+
+    world.addEventListener("endContact", (event) => {
+        console.log("End Contact:", event.bodyA, event.bodyB);
+    });
+
+    const minBounds = new CANNON.Vec3(-1000, -1000, -1000);
+    const maxBounds = new CANNON.Vec3(1000, 1000, 1000);
+
+    world.broadphase.aabbMin = minBounds;
+    world.broadphase.aabbMax = maxBounds;
 
     const groundMaterial = new CANNON.Material("groundMaterial");
     const wheelMaterial = new CANNON.Material("wheelMaterial");
@@ -170,6 +184,7 @@ function setCannonWorld(){
     });
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal
     world.addBody(groundBody);
+    groundBody.aabbNeedsUpdate = true;
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
@@ -197,8 +212,8 @@ function createVehicle() {
     });
 
     const wheelOptions = {
-        mass: 0,
-        radius: 0.4,
+        mass: 15,
+        radius: 0.35,
         directionLocal: new CANNON.Vec3(0, -1, 0),
         suspensionStiffness: 30,
         suspensionRestLength: 0.3,
@@ -207,7 +222,7 @@ function createVehicle() {
         dampingCompression: 4.4,
         maxSuspensionForce: 100000,
         rollInfluence: 0.01,
-        axleLocal: new CANNON.Vec3(-1, 0, 0),
+        axleLocal: new CANNON.Vec3(1, 0, 0),
         chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
         maxSuspensionTravel: 0.3,
         customSlidingRotationalSpeed: -30
@@ -241,7 +256,6 @@ function createVehicle() {
         vehicle.addWheel({
             body: wheelBody,
             ...wheelOptions,
-            chassisConnectionPointLocal: new CANNON.Vec3(wheelCenter.x, 0, wheelCenter.z)
         });
     });
 
@@ -444,6 +458,8 @@ document.addEventListener('keyup', (event) => {
 function animate() {
     world.step(1/60);
 
+    stats.begin();
+
     const currentTime = performance.now();
 
     if (cameraAnimationStartTime !== null) {
@@ -474,29 +490,28 @@ function animate() {
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
-        stats.begin();
+
         const activeCamera = scene.userData.activeCamera;
         if (activeCamera) {
             composer.passes[0].camera = activeCamera;
             composer.render();
         }
         cannonDebugger.update();
-        stats.end();
+
     }
     catch (e) {
     }
 
+    stats.end();
     requestAnimationFrame(animate);
 }
 
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene);
+    //loadMap(scene);
+    //loadHDR(scene, renderer);
     loadCar(scene).then(() => {
-        return loadWheels(scene);
-    }).then(() => {
-
         const activeCamera=scene.userData.activeCamera;
         if (activeCamera) {
             composer.passes[0].camera = activeCamera; // RenderPass için aktif kamerayı ayarla
@@ -504,8 +519,6 @@ function main() {
     }).then(() => {
         createVehicle();
     })
-
-    loadHDR(scene, renderer);
     animate();
 }
 

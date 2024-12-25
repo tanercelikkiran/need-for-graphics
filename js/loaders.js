@@ -53,7 +53,7 @@ export function loadMap(scene) {
     );
 }
 
- export function loadCar(scene, orbit) {
+ export function loadCar(scene) {
     return new Promise((resolve) => {
         fbxLoader.load("public/CarwNoWheels.fbx", function(object){
                 carMesh = object;
@@ -65,8 +65,6 @@ export function loadMap(scene) {
                 carMesh.add(carCamera);
 
                 scene.userData.activeCamera = carCamera;
-
-                console.log("Kamera başarıyla eklendi ve aktif kamera ayarlandı.");
 
                 const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
                 carLight.position.set(0, 5 , 5);
@@ -174,45 +172,40 @@ export function loadMap(scene) {
             null, function(error){
                 console.error(error);
             });
+        loadWheels(scene);
         setTimeout(() => {
             resolve();
-        }, 8000); // 5-second delay
+        }, 2000);
     });
 }
-
 
 export function loadWheels(scene) {
-    return new Promise((resolve, reject) => {
-        fbxLoader.load('public/wheels.fbx', (object) => {
-            object.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
+    fbxLoader.load('public/wheels.fbx', (object) => {
+        object.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
 
-                    // Lastik isimlerini kontrol ederek diziye ekle
-                    if (child.name.includes("wheel-LF")) {
-                        wheelMeshes[0] = child;
-                    }
-                    if (child.name.includes("wheel-RF")) {
-                        wheelMeshes[1] = child;
-                    }
-                    if (child.name.includes("wheel-LB")) {
-                        wheelMeshes[2] = child;
-                    }
-                    if (child.name.includes("wheel-RB")) {
-                        wheelMeshes[3] = child;
-                    }
+                // Lastik isimlerini kontrol ederek diziye ekle
+                if (child.name.includes("wheel-LF")) {
+                    wheelMeshes[0] = child;
                 }
-            });
-            scene.add(object);
-            resolve();
-        }, null, (error) => {
-            reject(error);
+                if (child.name.includes("wheel-RF")) {
+                    wheelMeshes[1] = child;
+                }
+                if (child.name.includes("wheel-LB")) {
+                    wheelMeshes[2] = child;
+                }
+                if (child.name.includes("wheel-RB")) {
+                    wheelMeshes[3] = child;
+                }
+            }
         });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
     });
 }
-
-
 
 export function loadHDR(scene) {
     new RGBELoader().load('public/hdri.hdr', function (texture) {
