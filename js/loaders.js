@@ -69,9 +69,9 @@ export function loadMap(scene) {
 
                 console.log("Kamera başarıyla eklendi ve aktif kamera ayarlandı.");
 
-                // const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
-                // carLight.position.set(0, 5 , 5);
-                // carMesh.add(carLight);
+                const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
+                carLight.position.set(0, 5 , 5);
+                carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
                     if (child.isMesh){
