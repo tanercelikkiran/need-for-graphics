@@ -90,7 +90,8 @@ function createVehicle() {
     const chassisBody = new CANNON.Body({
         mass: 1500,
     });
-    chassisBody.addShape(chassisShape);
+    const chassisOffset = new CANNON.Vec3(0, 0.2, 0);
+    chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
     chassisBody.position.copy(pos);
     chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
@@ -245,32 +246,88 @@ document.addEventListener('keyup', (event) => {
 let cameraStartZ = 6.3; // Başlangıç Z pozisyonu (idle pozisyonu)
 let cameraTargetZ;
 let maxCameraTargetZ = 7.8; // En uzak kamera hedefi
-let minCameraTargetZ = 6.6; // En yakın kamera hedefi
+let minCameraTargetZ = 6.6;
+let brakingCameraZ = 5;
+let rearingCameraZ = 5.6;
+let backingCameraZ = 6.8;
 let speedFactor = 0.05; // Hedef Z pozisyonu (hareket pozisyonu)
 let cameraBackZ = 6; // Geri dönüş pozisyonu (w tuşundan el çekince)
-let cameraAnimationDuration3 = 3000; // 3 saniye (ms)
+let cameraAnimationDuration3 = 2000; // 2 saniye (ms)
+let cameraAnimationDuration2 = 500;
 let cameraAnimationDuration1 = 1000; // 1 saniye (ms)
 let cameraAnimationStartTime = null;
 let isMovingForward = false;
 let isMovingBackward = false; // Kamera geri mi dönüyor
+let isBackingMorvard = false;
 let isMovingToIdle = false;
-let isStopped= false;// Kamera idle pozisyonuna mı gidiyor
-let currentCameraZ = cameraStartZ; // Kameranın mevcut Z pozisyonu
+let isBraking = false;
+let isStopped= false;//
+let isBrakingPhase = 0;
+let currentCameraZ = cameraStartZ;
+
+let isMovingLeft = false;
+let isMovingRight = false;
+let cameraStartX = 0; // Başlangıç X pozisyonu
+let cameraLeftTargetX = -1; // Sol pozisyon hedefi
+let cameraRightTargetX = 1; // Sağ pozisyon hedefi
+let cameraAnimationStartTimeX = null;
+let currentCameraX = cameraStartX;
+
 
 function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
 document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'w') {
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+    const activeCamera = scene.userData.activeCamera;
+    if (activeCamera) {
+        switch (event.key.toLowerCase()) {
+            case 's':
+                if (!isBraking) {
+                    currentCameraZ = activeCamera.position.z;
+                    isMovingForward = false;// Mevcut pozisyonu kaydet
+                    isBraking = true;
+                    isMovingBackward = false;
+                    isMovingToIdle = false;
+                    isBackingMorvard = false;
+                    cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
+                }
+                break;
+            case 'w':
+                if (!isMovingForward) {
+                    currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                    isMovingForward = true;
+                    isBraking = false;
+                    isMovingBackward = false;
+                    isMovingToIdle = false;
+                    isBackingMorvard = false;
+                    cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
+                }
+                break;
         }
-        cameraAnimationStartTime = performance.now(); // Animasyonu başlat
-        isMovingForward = true;
-        isMovingBackward = false; // Geri dönüş durumu sıfırla
-        isMovingToIdle = false; // Idle pozisyonuna gitmeyi durdur
+    }
+});
+document.addEventListener('keydown', (event) => {
+    const activeCamera = scene.userData.activeCamera;
+    if (activeCamera) {
+        switch (event.key.toLowerCase()) {
+            case 'a': // Kamera sola hareket
+                if (!isMovingLeft) {
+                    currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                    isMovingLeft = true;
+                    isMovingRight = false;
+                    cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+                }
+                break;
+            case 'd': // Kamera sağa hareket
+                if (!isMovingRight) {
+                    currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                    isMovingRight = true;
+                    isMovingLeft = false;
+                    cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+                }
+                break;
+        }
     }
 });
 
@@ -280,10 +337,47 @@ document.addEventListener('keyup', (event) => {
         if (activeCamera) {
             currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
         }
-        cameraAnimationStartTime = performance.now(); // Animasyonu başlat
+         // Animasyonu başlat
         isMovingForward = false;
         isMovingBackward = true;
-        isMovingToIdle = true;// Geri dönüş animasyonu başlasın
+        isMovingToIdle = true;//
+        isBraking = false;
+        isBackingMorvard = false;
+        cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
+    }
+    if (event.key.toLowerCase() === 's') {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+        }
+         // Animasyonu başlat
+        isMovingForward = false;
+        isMovingBackward = false;
+        isMovingToIdle = true;//
+        isBraking = false;
+        isBackingMorvard = true;
+        isBrakingPhase=0;
+        cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
+    }
+});
+
+document.addEventListener('keyup', (event) => {
+    const activeCamera = scene.userData.activeCamera;
+    if (activeCamera) {
+        switch (event.key.toLowerCase()) {
+            case 'a':
+                currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                isMovingLeft = false;
+                isMovingRight = false;
+                cameraAnimationStartTimeX = performance.now(); // Geri dönüş animasyonu başlasın
+                break;
+            case 'd':
+                currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                isMovingLeft = false;
+                isMovingRight = false;
+                cameraAnimationStartTimeX = performance.now(); // Geri dönüş animasyonu başlasın
+                break;
+        }
     }
 });
 
@@ -300,13 +394,25 @@ function animate() {
         if (activeCamera) {
             if (isMovingBackward) {
                 // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
-                const t = Math.min(elapsedTime / cameraAnimationDuration3, 1);
+                const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
                 const easeT = easeInOutSin(t);
                 activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraBackZ, easeT);
 
                 if (t === 1) {
+                    isMovingBackward = false;
                     cameraAnimationStartTime = null; // Animasyon tamamlandı
-                    isMovingBackward = false; // Geri dönüş tamamlandı
+                    // Geri dönüş tamamlandı
+                }
+            }else if (isBackingMorvard) {
+                // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
+                const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, backingCameraZ, easeT);
+
+                if (t === 1) {
+                    isBackingMorvard = false;
+                    cameraAnimationStartTime = null; // Animasyon tamamlandı
+                    // Geri dönüş tamamlandı
                 }
             } else if (isMovingToIdle && isStopped) {
                 // Araba durunca idle pozisyonuna dönüş: Mevcut pozisyondan 6.3'e
@@ -315,8 +421,9 @@ function animate() {
                 activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraStartZ, easeT);
 
                 if (t === 1) {
+                    isMovingToIdle = false;
                     cameraAnimationStartTime = null; // Animasyon tamamlandı
-                    isMovingToIdle = false; // Idle pozisyonuna ulaşıldı
+                     // Idle pozisyonuna ulaşıldı
                 }
             } else if (isMovingForward) {
                 try {
@@ -343,6 +450,71 @@ function animate() {
                 } catch (e) {
                     console.error("Kamera hıza göre güncellenemedi:", e);
                 }
+            } else if (isBraking) {
+                try {
+                    if (isBrakingPhase===0) {
+                        const velocity = vehicle.chassisBody.velocity.length();
+                        const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
+                        const easeT = easeInOutSin(t);
+                        activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
+
+                        if (t === 1) {
+                            isBrakingPhase = 1; // Faz 2'ye geçiş
+                            cameraAnimationStartTime = performance.now();
+                        }
+                    }else if (isBrakingPhase===1) {
+                        if (elapsedTime >= cameraAnimationDuration1) {
+                            isBrakingPhase = 2;
+                            cameraAnimationStartTime = performance.now();
+                            currentCameraZ = activeCamera.position.z;
+                        }
+                    }else if (isBrakingPhase===2){
+                        const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
+                        const easeT = easeInOutSin(t);
+                        activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, rearingCameraZ, easeT);
+
+                        if (t === 1) {
+                            isBraking = false; // Animasyon tamamlandı
+                            cameraAnimationStartTime = null;
+                        }
+                    }
+                }
+                catch (e) {
+                    console.error("Bizde geri vites yok");
+                }
+            }
+        }
+    }
+    if (cameraAnimationStartTimeX !== null) {
+        const elapsedTimeX = currentTime - cameraAnimationStartTimeX;
+        const activeCamera = scene.userData.activeCamera;
+
+        if (activeCamera) {
+            if (isMovingLeft) {
+                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraLeftTargetX, easeT);
+
+                if (t === 1) {
+                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
+                }
+            } else if (isMovingRight) {
+                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraRightTargetX, easeT);
+
+                if (t === 1) {
+                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
+                }
+            } else {
+                // Geri dönüş hareketi
+                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraStartX, easeT);
+
+                if (t === 1) {
+                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
+                }
             }
         }
     }
@@ -366,6 +538,9 @@ function animate() {
         } else {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
+        const activeCamera=scene.userData.activeCamera;
+        const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
+        activeCamera.lookAt(lookAtTarget);
         console.log("Bi sıkıntı yok he");
     }
     catch (e) {

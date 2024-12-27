@@ -69,9 +69,9 @@ export function loadMap(scene) {
 
                 console.log("Kamera başarıyla eklendi ve aktif kamera ayarlandı.");
 
-                const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
-                carLight.position.set(0, 5 , 5);
-                carMesh.add(carLight);
+                // const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
+                // carLight.position.set(0, 5 , 5);
+                // carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
                     if (child.isMesh){
@@ -93,18 +93,27 @@ export function loadMap(scene) {
                         }
                         if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
                             emissiveLight(child, 0xffffff, 20.0);
+
+                            // Arabanın yönünü al
+                            const carDirection = new THREE.Vector3();
+                            carMesh.getWorldDirection(carDirection);
+
+                            // Spotlight oluştur
                             const spotlight1 = spotlight(
                                 child.getWorldPosition(new THREE.Vector3()),
-                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10)
+                                new THREE.Vector3(), // Placeholder (fonksiyon içinde düzeltilecek)
+                                carDirection
                             );
                             scene.add(spotlight1.target);
                             scene.add(spotlight1);
 
-                            // Update the spotlight position and direction dynamically during animation
-                            world.addEventListener('postStep', function() {
+                            // Spotlight pozisyon ve yönünü sürekli güncelle
+                            world.addEventListener("postStep", function () {
                                 const updatedPosition = child.getWorldPosition(new THREE.Vector3());
-                                const updatedTarget = new THREE.Vector3(updatedPosition.x, updatedPosition.y, updatedPosition.z - 10);
-                                spotlight1.updatePositionAndDirection(updatedPosition, updatedTarget);
+                                const updatedDirection = new THREE.Vector3();
+                                carMesh.getWorldDirection(updatedDirection);
+
+                                spotlight1.updatePositionAndDirection(updatedPosition, updatedDirection);
                             });
                         }
                         if (child.name.includes("Studio_Car252_light1")) {

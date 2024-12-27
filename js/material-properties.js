@@ -29,21 +29,27 @@ export function emissiveLight(mesh, emissiveColor, intensity) {
     });
 }
 
-export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
-    const spotlight = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
+export function spotlight(position, carDirection, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
+    const spotlight = new THREE.SpotLight(color, intensity, distance, angle, 1, 1.5);
     spotlight.position.copy(position);
 
-    // Adjust the target position
-    const targetOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * position.distanceTo(targetPosition), 0);
-    const adjustedTargetPosition = targetPosition.clone().add(targetOffset);
+    // Spotlight hedefini biraz aşağı (-Y) bakacak şekilde ayarla
+    const offsetY = -1; // Hedefin Y ekseninde aşağı kaydırılması
+    const adjustedTargetPosition = position
+        .clone()
+        .add(carDirection.clone().negate().multiplyScalar(10)) // -Z yönüne bak
+        .add(new THREE.Vector3(0, offsetY, 0)); // Y ekseninde aşağı kaydır
     spotlight.target.position.copy(adjustedTargetPosition);
 
-    spotlight.updatePositionAndDirection = function(newPosition, newTargetPosition) {
+    // Spotlight pozisyon ve yönünü dinamik olarak güncelleyen fonksiyon
+    spotlight.updatePositionAndDirection = function(newPosition, newCarDirection) {
+        const dynamicTargetPosition = newPosition
+            .clone()
+            .add(newCarDirection.clone().negate().multiplyScalar(10)) // -Z yönüne bak
+            .add(new THREE.Vector3(0, offsetY, 0)); // Y ekseninde aşağı kaydır
         this.position.copy(newPosition);
-        const dynamicOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * newPosition.distanceTo(newTargetPosition), 0);
-        const dynamicTargetPosition = newTargetPosition.clone().add(dynamicOffset);
         this.target.position.copy(dynamicTargetPosition);
-        this.target.updateMatrixWorld(); // Ensure the target's matrix updates correctly
+        this.target.updateMatrixWorld(); // Hedef matrisini güncelle
     };
 
     return spotlight;
