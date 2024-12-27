@@ -92,33 +92,20 @@ export function loadMap(scene) {
                         }
                         if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
                             emissiveLight(child, 0xffffff, 20.0);
-
-                            // Create the spotlight with dummy positions for now
-                            const headlightSpot = spotlight(
-                                new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                                new THREE.Vector3(0, 0, -10)
+                            const spotlight1 = spotlight(
+                                child.getWorldPosition(new THREE.Vector3()),
+                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10)
                             );
 
                             // Add it to the scene
                             scene.add(headlightSpot);
                             scene.add(headlightSpot.target);
 
-                            // Now each physics step, update the spotlight so it "follows" this child
-                            world.addEventListener("postStep", () => {
-                                // 1) Get the child's current world position
+                            // Update the spotlight position and direction dynamically during animation
+                            world.addEventListener('postStep', function() {
                                 const updatedPosition = child.getWorldPosition(new THREE.Vector3());
-
-                                // 2) We'll define a local "forward" offset of -10 along Z,
-                                //    then rotate it by the child's *world* quaternion.
-                                const localDir = new THREE.Vector3(0, 10, 0);
-                                const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
-                                localDir.applyQuaternion(childQuat);
-
-                                // 3) Final target is updatedPosition + localDir
-                                const updatedTarget = updatedPosition.clone().add(localDir);
-
-                                // 4) Call the tilt-based spotlight update:
-                                headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
+                                const updatedTarget = new THREE.Vector3(updatedPosition.x, updatedPosition.y, updatedPosition.z - 10);
+                                spotlight1.updatePositionAndDirection(updatedPosition, updatedTarget);
                             });
                         }
                         if (child.name.includes("Studio_Car252_light1")) {
