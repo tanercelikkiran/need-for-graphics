@@ -190,6 +190,30 @@ let steeringValue = 0;
 const maxSteerVal = Math.PI / 8; // Maximum steering angle
 const maxForce =1000; // Maximum engine force
 
+let currentSteeringValue = 0; // Şu anki direksiyon açısı
+let targetSteeringValue = 0; // Hedef direksiyon açısı
+const steeringTransitionDuration = 3000; // Geçiş süresi (ms)
+let steeringAnimationStartTime = null;
+
+function updateSteeringValue() {
+    if (steeringAnimationStartTime !== null) {
+        const elapsedTime = performance.now() - steeringAnimationStartTime;
+        const t = Math.min(elapsedTime / steeringTransitionDuration, 1); // 0 ile 1 arasında bir değer
+
+        // Mevcut direksiyon değerini hedefe doğru yaklaştır
+        currentSteeringValue = THREE.MathUtils.lerp(currentSteeringValue, targetSteeringValue, t);
+
+        // Direksiyon değerini uygulayın
+        vehicle.setSteeringValue(currentSteeringValue, 0); // Ön sol teker
+        vehicle.setSteeringValue(currentSteeringValue, 1); // Ön sağ teker
+
+        // Animasyon tamamlandıysa sıfırla
+        if (t === 1) {
+            steeringAnimationStartTime = null;
+        }
+    }
+}
+
 document.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
     switch (event.key) {
@@ -207,15 +231,13 @@ document.addEventListener('keydown', (event) => {
             vehicle.applyEngineForce(forwardForce, 0);
             vehicle.applyEngineForce(forwardForce, 1);
             break;
-        case 'a': // Steer left
-            steeringValue = maxSteerVal;
-            vehicle.setSteeringValue(steeringValue, 0); // Front-left
-            vehicle.setSteeringValue(steeringValue, 1); // Front-right
+        case 'a': // Sol
+            targetSteeringValue = maxSteerVal;
+            steeringAnimationStartTime = performance.now();
             break;
-        case 'd': // Steer right
-            steeringValue = -maxSteerVal;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
+        case 'd': // Sağ
+            targetSteeringValue = -maxSteerVal;
+            steeringAnimationStartTime = performance.now();
             break;
     }
 });
@@ -232,14 +254,12 @@ document.addEventListener('keyup', (event) => {
             vehicle.setBrake(25, 1);
             break;
         case 'a':
-            steeringValue = 0;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
+            targetSteeringValue = 0; // Direksiyonu düzelt
+            steeringAnimationStartTime = performance.now();
             break;
         case 'd':
-            steeringValue = 0;
-            vehicle.setSteeringValue(steeringValue, 0);
-            vehicle.setSteeringValue(steeringValue, 1);
+            targetSteeringValue = 0; // Direksiyonu düzelt
+            steeringAnimationStartTime = performance.now();
             break;
     }
 });
@@ -384,6 +404,8 @@ document.addEventListener('keyup', (event) => {
 
 function animate() {
     world.step(1/60);
+
+    updateSteeringValue();
 
     const currentTime = performance.now();
 
