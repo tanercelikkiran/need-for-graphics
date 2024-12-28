@@ -70,13 +70,13 @@ let cameraStartZ            = 6.3;   // Adjusted for a more dynamic view
 let cameraTargetZ;                       // Anlık hedef Z (dinamik)
 let maxCameraTargetZ        = 7.8;   // Camera zooms out further
 let minCameraTargetZ        = 6.6;
-let brakingCameraZ          = 5.5;   // Closer view during braking
+let brakingCameraZ          = 5.3;   // Closer view during braking
 let rearingCameraZ          = 5.8;
-let backingCameraZ          = 7.0;
-let speedFactor             = 0.08;  // Faster camera zooming
+let backingCameraZ          = 6.8;
+let speedFactor             = 0.03;  // Faster camera zooming
 let cameraBackZ             = 6.0;   // Slightly forward position on stop
 let cameraAnimationDuration3 = 1500; // Faster animations
-let cameraAnimationDuration2 = 400;
+let cameraAnimationDuration2 = 500;
 let cameraAnimationDuration1 = 800;
 let cameraAnimationStartTime = null; // Animasyon için referans zaman
 let isMovingForward         = false;
@@ -103,6 +103,7 @@ let currentCameraX           = cameraStartX;
 // 10) TOP SPEED VE İVMELENME AYARLARI
 // ================================================
 let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
+let rearMaxSpeed = 70 / 3.6;
 let engineDropFactor = 0.7;
 
 
@@ -402,10 +403,11 @@ function updateVehicleControls() {
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
         // Basitçe "geri" yaklaşımlardan biri:
+
         currentEngineForce = Math.max(
             currentEngineForce - engineRamp,
-            -maxEngineForce / 2
-        );
+            -maxEngineForce*1
+        )
     } else {
         // Ne gaz ne fren
         const dampingFactor = 0.995; // Hızı azaltmak için katsayı
@@ -425,6 +427,8 @@ function updateVehicleControls() {
     //---------------------------
     // 4) Fren Uygula?
     //---------------------------
+
+
     let brakingValue = 0;
     // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
     if (isBraking > 0) {
@@ -452,19 +456,22 @@ function updateVehicleControls() {
     //---------------------------
     // 5.5) İvmelenme
     //---------------------------
-
-    if (velocity.length() >= maxSpeed){
-        currentEngineForce=0;
-        // const speedLimiterFactor = maxSpeed / speed; // Fazla hızı oransal olarak azalt
-        // vehicle.chassisBody.velocity.set(
-        //     velocity.x * speedLimiterFactor,
-        //     velocity.y * speedLimiterFactor,
-        //     velocity.z * speedLimiterFactor
-        // );
-    } else {
-        const speedRatio= velocity.length() / maxSpeed;
-        const effectiveEngineForce= maxEngineForce*(1-speedRatio*engineDropFactor);
-        currentEngineForce=Math.min(currentEngineForce, effectiveEngineForce);
+    if (isBraking>0) {
+        if (speed >= rearMaxSpeed) {
+            currentEngineForce = 0;
+        } else {
+            const speedRatio = speed / rearMaxSpeed;
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
+        }
+    }else {
+        if (speed >= maxSpeed) {
+            currentEngineForce = 0;
+        } else {
+            const speedRatio = speed / maxSpeed;
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
+        }
     }
 
     //---------------------------
@@ -516,7 +523,7 @@ function updateCamera() {
                     }
                     break;
                 case 's':
-                    if (!isBraking) {
+                    if (!isBrakingCamera) {
                         currentCameraZ = activeCamera.position.z;
                         isMovingForward = false;// Mevcut pozisyonu kaydet
                         isBrakingCamera = true;
@@ -656,7 +663,6 @@ function updateCamera() {
             } else if (isBrakingCamera) {
                 try {
                     if (isBrakingPhase===0) {
-                        const velocity = vehicle.chassisBody.velocity.length();
                         const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
                         const easeT = easeInOutSin(t);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
@@ -754,10 +760,12 @@ function animate() {
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
-        const velocity = vehicle.chassisBody.velocity.length();
-        console.log(velocity);
+        const velocity = vehicle.chassisBody.velocity;
+        const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+
+        console.log(speed);
         console.log(currentEngineForce);
-        if (velocity > 0 && velocity < 0.2 && !isMovingForward && !isMovingBackward) {
+        if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
                 isStopped = true;
