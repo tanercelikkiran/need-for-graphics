@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -762,9 +762,6 @@ function animate() {
 
         const velocity = vehicle.chassisBody.velocity;
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-
-        console.log(speed);
-        console.log(currentEngineForce);
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
@@ -793,6 +790,7 @@ function main() {
     loadMap(scene);
     loadHDR(scene, renderer);
     loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+    loadBMW(scene);
     animate();
 }
 

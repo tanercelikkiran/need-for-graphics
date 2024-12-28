@@ -54,6 +54,46 @@ export function loadMap(scene) {
     );
 }
 
+export function loadBMW(scene) {
+    fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                // Apply specific material changes for the BMW model if necessary
+                if (child.name.includes("Glass")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
+                // Add any specific light effects or emissive materials to parts of the car
+                if (child.name.includes("Rearlight")) {
+                    emissiveLight(child, 0xff3333, 2.5); // Example for emissive lighting effect
+                }
+                if (child.name.includes("Brakelight")) {
+                    emissiveLight(child, 0xff3333, 5.0); // Example for emissive lighting effect
+                }
+                if (child.name.includes("Headlight")) {
+                    emissiveLight(child, 0xe0ffff, 0.3); // Example for emissive lighting effect
+                }
+                if (child.name.includes("RearlightWindow")) {
+                    transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("platelight")){
+                    const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
+                    child.add(pointLight3);
+                }
+            }
+        });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
+    });
+}
+
 export function loadSportCar(scene) {
     return new Promise((resolve) => {
         fbxLoader.load("public/CarwNoWheels.fbx", function(object){
