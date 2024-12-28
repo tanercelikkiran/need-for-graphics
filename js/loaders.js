@@ -67,8 +67,8 @@ export function loadSportCar(scene) {
 
                 scene.userData.activeCamera = carCamera;
 
-                const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
-                carLight.position.set(0, 5 , 5);
+                const carLight = new THREE.PointLight(0xFFF0CC, 50, 500);
+                carLight.position.set(0, 10 , 5);
                 carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
