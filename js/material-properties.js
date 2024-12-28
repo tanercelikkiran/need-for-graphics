@@ -29,9 +29,9 @@ export function emissiveLight(mesh, emissiveColor, intensity) {
     });
 }
 
-export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
+export function spotlight(position, carDirection, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
 
-    const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
+    const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 1.5);
     spot.position.copy(position);
 
     // 1) Compute direction from position --> target
