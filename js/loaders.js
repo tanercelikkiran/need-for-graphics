@@ -26,6 +26,7 @@ manager.onError = (url) => {
 
 const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
+const rgbeLoader = new RGBELoader(manager);
 
 export function loadMap(scene) {
     gltfLoader.load(
@@ -53,7 +54,7 @@ export function loadMap(scene) {
     );
 }
 
- export function loadCar(scene, orbit) {
+export function loadSportCar(scene) {
     return new Promise((resolve) => {
         fbxLoader.load("public/CarwNoWheels.fbx", function(object){
                 carMesh = object;
@@ -65,8 +66,6 @@ export function loadMap(scene) {
                 carMesh.add(carCamera);
 
                 scene.userData.activeCamera = carCamera;
-
-                console.log("Kamera başarıyla eklendi ve aktif kamera ayarlandı.");
 
                 const carLight = new THREE.PointLight(0xFFF0CC, 50, 50);
                 carLight.position.set(0, 5 , 5);
@@ -92,20 +91,33 @@ export function loadMap(scene) {
                         }
                         if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
                             emissiveLight(child, 0xffffff, 20.0);
-                            const spotlight1 = spotlight(
-                                child.getWorldPosition(new THREE.Vector3()),
-                                new THREE.Vector3(child.position.x, child.position.y, child.position.z - 10)
+
+                            // Create the spotlight with dummy positions for now
+                            const headlightSpot = spotlight(
+                                new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                                new THREE.Vector3(0, 0, -10)
                             );
 
                             // Add it to the scene
                             scene.add(headlightSpot);
                             scene.add(headlightSpot.target);
 
-                            // Update the spotlight position and direction dynamically during animation
-                            world.addEventListener('postStep', function() {
+                            // Now each physics step, update the spotlight so it "follows" this child
+                            world.addEventListener("postStep", () => {
+                                // 1) Get the child's current world position
                                 const updatedPosition = child.getWorldPosition(new THREE.Vector3());
-                                const updatedTarget = new THREE.Vector3(updatedPosition.x, updatedPosition.y, updatedPosition.z - 10);
-                                spotlight1.updatePositionAndDirection(updatedPosition, updatedTarget);
+
+                                // 2) We'll define a local "forward" offset of -10 along Z,
+                                //    then rotate it by the child's *world* quaternion.
+                                const localDir = new THREE.Vector3(0, 10, 0);
+                                const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
+                                localDir.applyQuaternion(childQuat);
+
+                                // 3) Final target is updatedPosition + localDir
+                                const updatedTarget = updatedPosition.clone().add(localDir);
+
+                                // 4) Call the tilt-based spotlight update:
+                                headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
                             });
                         }
                         if (child.name.includes("Studio_Car252_light1")) {
@@ -161,48 +173,43 @@ export function loadMap(scene) {
             null, function(error){
                 console.error(error);
             });
+        loadSportWheels(scene);
         setTimeout(() => {
             resolve();
-        }, 8000); // 5-second delay
+        }, 8000);
     });
 }
 
+export function loadSportWheels(scene) {
+    fbxLoader.load('public/wheels.fbx', (object) => {
+        object.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
 
-export function loadWheels(scene) {
-    return new Promise((resolve, reject) => {
-        fbxLoader.load('public/wheels.fbx', (object) => {
-            object.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-
-                    // Lastik isimlerini kontrol ederek diziye ekle
-                    if (child.name.includes("wheel-LF")) {
-                        wheelMeshes[0] = child;
-                    }
-                    if (child.name.includes("wheel-RF")) {
-                        wheelMeshes[1] = child;
-                    }
-                    if (child.name.includes("wheel-LB")) {
-                        wheelMeshes[2] = child;
-                    }
-                    if (child.name.includes("wheel-RB")) {
-                        wheelMeshes[3] = child;
-                    }
+                // Lastik isimlerini kontrol ederek diziye ekle
+                if (child.name.includes("wheel-LF")) {
+                    wheelMeshes[0] = child;
                 }
-            });
-            scene.add(object);
-            resolve();
-        }, null, (error) => {
-            reject(error);
+                if (child.name.includes("wheel-RF")) {
+                    wheelMeshes[1] = child;
+                }
+                if (child.name.includes("wheel-LB")) {
+                    wheelMeshes[2] = child;
+                }
+                if (child.name.includes("wheel-RB")) {
+                    wheelMeshes[3] = child;
+                }
+            }
         });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
     });
 }
-
-
 
 export function loadHDR(scene) {
-    new RGBELoader().load('public/hdri.hdr', function (texture) {
+    rgbeLoader.load('public/hdri.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;

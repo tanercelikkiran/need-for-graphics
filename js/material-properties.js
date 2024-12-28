@@ -29,29 +29,33 @@ export function emissiveLight(mesh, emissiveColor, intensity) {
     });
 }
 
-export function spotlight(position, carDirection, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
-    const spotlight = new THREE.SpotLight(color, intensity, distance, angle, 1, 1.5);
-    spotlight.position.copy(position);
+export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 20, angle = Math.PI / 4, distance = 50) {
 
-    // Spotlight hedefini biraz aşağı (-Y) bakacak şekilde ayarla
-    const offsetY = -1; // Hedefin Y ekseninde aşağı kaydırılması
-    const adjustedTargetPosition = position
-        .clone()
-        .add(carDirection.clone().negate().multiplyScalar(10)) // -Z yönüne bak
-        .add(new THREE.Vector3(0, offsetY, 0)); // Y ekseninde aşağı kaydır
-    spotlight.target.position.copy(adjustedTargetPosition);
+    const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 2);
+    spot.position.copy(position);
 
-    // Spotlight pozisyon ve yönünü dinamik olarak güncelleyen fonksiyon
-    spotlight.updatePositionAndDirection = function(newPosition, newCarDirection) {
-        const dynamicTargetPosition = newPosition
-            .clone()
-            .add(newCarDirection.clone().negate().multiplyScalar(10)) // -Z yönüne bak
-            .add(new THREE.Vector3(0, offsetY, 0)); // Y ekseninde aşağı kaydır
+    // 1) Compute direction from position --> target
+    const direction = new THREE.Vector3().subVectors(targetPosition, position);
+
+    // 2) Tilt that direction by -5° around the local X axis
+    const tiltEuler = new THREE.Euler(THREE.MathUtils.degToRad(-5), 0, 0, "XYZ");
+    direction.applyEuler(tiltEuler);
+
+    // 3) Final target = position + (tilted direction)
+    const finalTarget = position.clone().add(direction);
+    spot.target.position.copy(finalTarget);
+    spot.target.updateMatrixWorld();
+
+    // For dynamic updates, reapply the same tilt.
+    spot.updatePositionAndDirection = function (newPosition, newTargetPosition) {
         this.position.copy(newPosition);
-        const dynamicOffset = new THREE.Vector3(0, -Math.tan(THREE.MathUtils.degToRad(5)) * newPosition.distanceTo(newTargetPosition), 0);
-        const dynamicTargetPosition = newTargetPosition.clone().add(dynamicOffset);
-        this.target.position.copy(dynamicTargetPosition);
-        this.target.updateMatrixWorld(); // Ensure the target's matrix updates correctly
+
+        const dir = new THREE.Vector3().subVectors(newTargetPosition, newPosition);
+        dir.applyEuler(tiltEuler);
+
+        const finalTarget2 = newPosition.clone().add(dir);
+        this.target.position.copy(finalTarget2);
+        this.target.updateMatrixWorld();
     };
 
     return spot;
