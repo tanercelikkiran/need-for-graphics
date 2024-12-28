@@ -26,6 +26,7 @@ manager.onError = (url) => {
 
 const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
+const rgbeLoader = new RGBELoader(manager);
 
 export function loadMap(scene) {
     gltfLoader.load(
@@ -53,7 +54,7 @@ export function loadMap(scene) {
     );
 }
 
- export function loadCar(scene) {
+export function loadSportCar(scene) {
     return new Promise((resolve) => {
         fbxLoader.load("public/CarwNoWheels.fbx", function(object){
                 carMesh = object;
@@ -172,14 +173,14 @@ export function loadMap(scene) {
             null, function(error){
                 console.error(error);
             });
-        loadWheels(scene);
+        loadSportWheels(scene);
         setTimeout(() => {
             resolve();
-        }, 2000);
+        }, 8000);
     });
 }
 
-export function loadWheels(scene) {
+export function loadSportWheels(scene) {
     fbxLoader.load('public/wheels.fbx', (object) => {
         object.traverse((child) => {
             if (child.isMesh) {
@@ -208,7 +209,7 @@ export function loadWheels(scene) {
 }
 
 export function loadHDR(scene) {
-    new RGBELoader().load('public/hdri.hdr', function (texture) {
+    rgbeLoader.load('public/hdri.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;

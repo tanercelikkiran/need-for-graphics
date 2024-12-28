@@ -1,57 +1,104 @@
-import {loadMap, loadCar, loadHDR, carMesh, wheelMeshes, loadWheels} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import CannonDebugger from "cannon-es-debugger";
 
-import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
-export let activeCamera, scene, renderer, composer, orbit, stats;
+export let scene, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize;
 
-// -----------------------------
-// Değişkenler
-// -----------------------------
-let isAccelerating = false;
-let isBraking      = false;
-let isSteeringLeft = false;
-let isSteeringRight= false;
+// ================================================
+// 1) ARACIN GİRİŞ / DURUM FLAGLERİ
+// ================================================
+let isAccelerating   = false;
+let isBraking        = false;
+let isSteeringLeft   = false;
+let isSteeringRight  = false;
+let isHandBraking    = false;
 
-// Aracın motor ve direksiyon durumu
+// ================================================
+// 2) ARACIN ANLIK MOTOR & DİREKSİYON
+// ================================================
 let currentEngineForce = 0;
 let currentSteering    = 0;
 
-// TEMEL AYARLAR
-const maxEngineForce = 3000;
-const engineRamp     = 100;  // Gaz veriş/çekiş ramp hızı
-const brakeForce     = 50;   // Fren gücü
+// ================================================
+// 3) TEMEL AYARLAR
+// ================================================
+let maxEngineForce = 1500;  // Sports cars have more powerful engines
+let engineRamp     = 300;   // Faster throttle response
+let brakeForce     = 500;   // Stronger braking force
 
-// DIREKSIYON / DAMPING
-const maxSteerVal  = Math.PI / 5;  // ~36 derece (baz limit)
-const steerSpeed   = 0.03;         // Direksiyonun dönüş hızı
-const steerDamping = 0.03;         // Direksiyonu bırakınca ortalama sertliği
+// ================================================
+// 4) DİREKSİYON VE DAMPING AYARLARI
+// ================================================
+let maxSteerVal  = Math.PI / 7;  // Steering range remains the same (~45 degrees)
+let steerSpeed   = 0.005;         // Reduced steering speed (slower turns)
+let steerDamping = 0.05;         // Increased damping (slower return to center)
+// ================================================
+// 5) HIZ BAZLI DİREKSİYON AYARLARI
+// ================================================
+let speedLimit         = 80;       // Higher speed before steering reduces (~288 km/h)
+let minSteerFactor     = 0.2;      // Steering effectiveness drops less at high speeds
+let mediumSpeed        = 30;       // Medium speed (~108 km/h)
+let mediumSteerFactor  = 1.0;      // Full steering effectiveness below mediumSpeed
+let steerFalloff       = 0.001;    // Slightly less aggressive falloff
 
-// HIZ BAZLI STEERING AYARLARI
-const speedLimit         = 55;       // (m/s) Bu hızı geçince direksiyon iyice azalır (~198 km/h)
-const minSteerFactor     = 0.15;     // Çok yüksek hızda direksiyon, normalin %15’ine kadar düşebilir
-const mediumSpeed        = 20;       // 20 m/s (~72 km/h) altı -> Tam direksiyon
-const mediumSteerFactor  = 1.0;      // Bu hızın altında tam direksiyon
-// Non-linear formül için bir sabit
-// (bu sayede hız arttıkça direksiyon, "dairesel" oranda azalır)
-const steerFalloff = 0.0015;  // Deneme yanılma ile ayarlanır
+// ================================================
+// 6) FREN ANINDA EKSTRA DİREKSİYON KISITLAMASI
+// ================================================
+let brakeSteerMultiplier = 0.7;    // Slightly more forgiving during braking
 
-// Fren anında direksiyonun ekstra sertleşmesi
-const brakeSteerMultiplier = 0.6;  // Frenliyorken max direksiyon açısını biraz kıs
+// ================================================
+// 7) EL FRENİ & DRIFT AYARLARI
+// ================================================
+let handbrakeForce = 400;          // Stronger handbrake for drifting
+let driftSlip      = 0.7;          // Lower friction for drifting
+let normalSlip     = 4.0;          // Slightly more slippery tires for agility
 
-let isHandBraking = false;
+// ================================================
+// 8) KAMERA POZİSYONLARI - DİKEY HAREKET
+// ================================================
+let cameraStartZ            = 6.5;   // Adjusted for a more dynamic view
+let cameraTargetZ;                       // Anlık hedef Z (dinamik)
+let maxCameraTargetZ        = 8.0;   // Camera zooms out further
+let minCameraTargetZ        = 6.8;
+let brakingCameraZ          = 5.5;   // Closer view during braking
+let rearingCameraZ          = 5.8;
+let backingCameraZ          = 7.0;
+let speedFactor             = 0.08;  // Faster camera zooming
+let cameraBackZ             = 6.3;   // Slightly forward position on stop
+let cameraAnimationDuration3 = 1500; // Faster animations
+let cameraAnimationDuration2 = 400;
+let cameraAnimationDuration1 = 800;
+let cameraAnimationStartTime = null; // Animasyon için referans zaman
+let isMovingForward         = false;
+let isMovingBackward        = false;
+let isBackingMorvard        = false; // (Kod içinde özel durumu varsa)
+let isMovingToIdle          = false;
+let isStopped               = false;
+let isBrakingPhase          = 0;     // Fren aşamasını izleme
+let currentCameraZ          = cameraStartZ;
 
-const handbrakeForce = 100;   // El freninin fren kuvveti
-const driftSlip     = 1.0;    // Drift için düşük sürtünme (örn. 1.0 normalden daha kaygan)
-const normalSlip    = 5.0;    // Normal lastik frictionSlip (varsayım)
+// ================================================
+// 9) KAMERA POZİSYONLARI - YATAY HAREKET
+// ================================================
+let isMovingLeft             = false;
+let isMovingRight            = false;
+let cameraStartX             = 0;
+let cameraLeftTargetX        = -1.2; // Wider camera movement for dramatic effect
+let cameraRightTargetX       = 1.2;
+let cameraAnimationStartTimeX = null;
+let currentCameraX           = cameraStartX;
+
+const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
+const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
+let lastTime = performance.now();
 
 function init() {
     scene = new THREE.Scene();
@@ -157,12 +204,6 @@ function setCannonWorld(){
     world.addEventListener("endContact", (event) => {
         console.log("End Contact:", event.bodyA, event.bodyB);
     });
-
-    const minBounds = new CANNON.Vec3(-1000, -1000, -1000);
-    const maxBounds = new CANNON.Vec3(1000, 1000, 1000);
-
-    world.broadphase.aabbMin = minBounds;
-    world.broadphase.aabbMax = maxBounds;
 
     const groundMaterial = new CANNON.Material("groundMaterial");
     const wheelMaterial = new CANNON.Material("wheelMaterial");
@@ -412,7 +453,6 @@ function updateVehicleControls() {
         vehicle.setBrake(handbrakeForce, 3); // rear-right
     }
 
-
     // Motor kuvveti -> genelde ön tekerler
     vehicle.applyEngineForce(currentEngineForce, 0);
     vehicle.applyEngineForce(currentEngineForce, 1);
@@ -422,211 +462,81 @@ function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 1);
 }
 
-//############################################################################################################
-//####  MAIN FUNCTION  #######################################################################################
-//############################################################################################################
+function updateCamera() {
 
-// Vehicle controls
-let forwardForce = 0;
-let steeringValue = 0;
-const maxSteerVal = Math.PI / 8; // Maximum steering angle
-const maxForce =1000; // Maximum engine force
-
-let currentSteeringValue = 0; // Şu anki direksiyon açısı
-let targetSteeringValue = 0; // Hedef direksiyon açısı
-const steeringTransitionDuration = 3000; // Geçiş süresi (ms)
-let steeringAnimationStartTime = null;
-
-function updateSteeringValue() {
-    if (steeringAnimationStartTime !== null) {
-        const elapsedTime = performance.now() - steeringAnimationStartTime;
-        const t = Math.min(elapsedTime / steeringTransitionDuration, 1); // 0 ile 1 arasında bir değer
-
-        // Mevcut direksiyon değerini hedefe doğru yaklaştır
-        currentSteeringValue = THREE.MathUtils.lerp(currentSteeringValue, targetSteeringValue, t);
-
-        // Direksiyon değerini uygulayın
-        vehicle.setSteeringValue(currentSteeringValue, 0); // Ön sol teker
-        vehicle.setSteeringValue(currentSteeringValue, 1); // Ön sağ teker
-
-        // Animasyon tamamlandıysa sıfırla
-        if (t === 1) {
-            steeringAnimationStartTime = null;
+    document.addEventListener('keydown', (event) => {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            switch (event.key.toLowerCase()) {
+                case 'w':
+                    if (!isMovingForward) {
+                        currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                        isMovingForward = true;
+                        isBraking = false;
+                        isMovingBackward = false;
+                        isMovingToIdle = false;
+                        isBackingMorvard = false;
+                        cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
+                    }
+                    break;
+                case 's':
+                    if (!isBraking) {
+                        currentCameraZ = activeCamera.position.z;
+                        isMovingForward = false;// Mevcut pozisyonu kaydet
+                        isBraking = true;
+                        isMovingBackward = false;
+                        isMovingToIdle = false;
+                        isBackingMorvard = false;
+                        cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
+                    }
+                    break;
+                case 'a': // Kamera sola hareket
+                    if (!isMovingLeft) {
+                        currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                        isMovingLeft = true;
+                        isMovingRight = false;
+                        cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+                    }
+                    break;
+                case 'd': // Kamera sağa hareket
+                    if (!isMovingRight) {
+                        currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
+                        isMovingRight = true;
+                        isMovingLeft = false;
+                        cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+                    }
+                    break;
+            }
         }
-    }
-}
-
-document.addEventListener('keydown', (event) => {
-    const key = event.key.toLowerCase();
-    switch (event.key) {
-        case 'w': // Move forward
-            forwardForce = maxForce;
-            vehicle.setBrake(0, 0);
-            vehicle.setBrake(0, 1);
-            vehicle.applyEngineForce(forwardForce, 0);
-            vehicle.applyEngineForce(forwardForce, 1);
-            break;
-        case 's': // Move backward
-            forwardForce = -maxForce;
-            vehicle.setBrake(0, 0);
-            vehicle.setBrake(0, 1);
-            vehicle.applyEngineForce(forwardForce, 0);
-            vehicle.applyEngineForce(forwardForce, 1);
-            break;
-        case 'a': // Sol
-            targetSteeringValue = maxSteerVal;
-            steeringAnimationStartTime = performance.now();
-            break;
-        case 'd': // Sağ
-            targetSteeringValue = -maxSteerVal;
-            steeringAnimationStartTime = performance.now();
-            break;
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    const key = event.key.toLowerCase();
-    switch (event.key) {
-        case 'w':
-            vehicle.setBrake(25, 0);
-            vehicle.setBrake(25, 1);
-            break;
-        case 's':
-            vehicle.setBrake(25, 0);
-            vehicle.setBrake(25, 1);
-            break;
-        case 'a':
-            targetSteeringValue = 0; // Direksiyonu düzelt
-            steeringAnimationStartTime = performance.now();
-            break;
-        case 'd':
-            targetSteeringValue = 0; // Direksiyonu düzelt
-            steeringAnimationStartTime = performance.now();
-            break;
-    }
-});
-let cameraStartZ = 6.3; // Başlangıç Z pozisyonu (idle pozisyonu)
-let cameraTargetZ;
-let maxCameraTargetZ = 7.8; // En uzak kamera hedefi
-let minCameraTargetZ = 6.6;
-let brakingCameraZ = 5;
-let rearingCameraZ = 5.6;
-let backingCameraZ = 6.8;
-let speedFactor = 0.05; // Hedef Z pozisyonu (hareket pozisyonu)
-let cameraBackZ = 6; // Geri dönüş pozisyonu (w tuşundan el çekince)
-let cameraAnimationDuration3 = 2000; // 2 saniye (ms)
-let cameraAnimationDuration2 = 500;
-let cameraAnimationDuration1 = 1000; // 1 saniye (ms)
-let cameraAnimationStartTime = null;
-let isMovingForward = false;
-let isMovingBackward = false; // Kamera geri mi dönüyor
-let isBackingMorvard = false;
-let isMovingToIdle = false;
-let isBraking = false;
-let isStopped= false;//
-let isBrakingPhase = 0;
-let currentCameraZ = cameraStartZ;
-
-let isMovingLeft = false;
-let isMovingRight = false;
-let cameraStartX = 0; // Başlangıç X pozisyonu
-let cameraLeftTargetX = -1; // Sol pozisyon hedefi
-let cameraRightTargetX = 1; // Sağ pozisyon hedefi
-let cameraAnimationStartTimeX = null;
-let currentCameraX = cameraStartX;
-
-
-function easeInOutSin(t) {
-    return 0.5*(1 - Math.cos(Math.PI * t));
-}
-
-document.addEventListener('keydown', (event) => {
-    const activeCamera = scene.userData.activeCamera;
-    if (activeCamera) {
+    });
+    document.addEventListener('keyup', (event) => {
+        const activeCamera = scene.userData.activeCamera;
         switch (event.key.toLowerCase()) {
-            case 's':
-                if (!isBraking) {
-                    currentCameraZ = activeCamera.position.z;
-                    isMovingForward = false;// Mevcut pozisyonu kaydet
-                    isBraking = true;
-                    isMovingBackward = false;
-                    isMovingToIdle = false;
-                    isBackingMorvard = false;
-                    cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
-                }
-                break;
             case 'w':
-                if (!isMovingForward) {
+                if (activeCamera) {
                     currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-                    isMovingForward = true;
-                    isBraking = false;
-                    isMovingBackward = false;
-                    isMovingToIdle = false;
-                    isBackingMorvard = false;
-                    cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
                 }
+                // Animasyonu başlat
+                isMovingForward = false;
+                isMovingBackward = true;
+                isMovingToIdle = true;//
+                isBraking = false;
+                isBackingMorvard = false;
+                cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
                 break;
-        }
-    }
-});
-document.addEventListener('keydown', (event) => {
-    const activeCamera = scene.userData.activeCamera;
-    if (activeCamera) {
-        switch (event.key.toLowerCase()) {
-            case 'a': // Kamera sola hareket
-                if (!isMovingLeft) {
-                    currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                    isMovingLeft = true;
-                    isMovingRight = false;
-                    cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+            case 's':
+                if (activeCamera) {
+                    currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
                 }
+                // Animasyonu başlat
+                isMovingForward = false;
+                isMovingBackward = false;
+                isMovingToIdle = true;//
+                isBraking = false;
+                isBackingMorvard = true;
+                isBrakingPhase=0;
+                cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
                 break;
-            case 'd': // Kamera sağa hareket
-                if (!isMovingRight) {
-                    currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                    isMovingRight = true;
-                    isMovingLeft = false;
-                    cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
-                }
-                break;
-        }
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    if (event.key.toLowerCase() === 'w') {
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-        }
-         // Animasyonu başlat
-        isMovingForward = false;
-        isMovingBackward = true;
-        isMovingToIdle = true;//
-        isBraking = false;
-        isBackingMorvard = false;
-        cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
-    }
-    if (event.key.toLowerCase() === 's') {
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-        }
-         // Animasyonu başlat
-        isMovingForward = false;
-        isMovingBackward = false;
-        isMovingToIdle = true;//
-        isBraking = false;
-        isBackingMorvard = true;
-        isBrakingPhase=0;
-        cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    const activeCamera = scene.userData.activeCamera;
-    if (activeCamera) {
-        switch (event.key.toLowerCase()) {
             case 'a':
                 currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
                 isMovingLeft = false;
@@ -640,13 +550,7 @@ document.addEventListener('keyup', (event) => {
                 cameraAnimationStartTimeX = performance.now(); // Geri dönüş animasyonu başlasın
                 break;
         }
-    }
-});
-
-function animate() {
-    world.step(1/60);
-
-    stats.begin();
+    });
 
     const currentTime = performance.now();
 
@@ -686,7 +590,7 @@ function animate() {
                 if (t === 1) {
                     isMovingToIdle = false;
                     cameraAnimationStartTime = null; // Animasyon tamamlandı
-                     // Idle pozisyonuna ulaşıldı
+                    // Idle pozisyonuna ulaşıldı
                 }
             } else if (isMovingForward) {
                 try {
@@ -781,20 +685,40 @@ function animate() {
             }
         }
     }
+}
 
-    console.log(isMovingToIdle);
-    console.log(isStopped);
+function setCameraComposer() {
+    const activeCamera = scene.userData.activeCamera;
+    if (activeCamera) {
+        composer.passes[0].camera = activeCamera;
+    }
+}
 
+function easeInOutSin(t) {
+    return 0.5*(1 - Math.cos(Math.PI * t));
+}
+
+//############################################################################################################
+//####  MAIN FUNCTION  #######################################################################################
+//############################################################################################################
+
+function animate() {
+    const time = performance.now();
+    const deltaTime = (time - lastTime) / 1000; // Convert to seconds
+    lastTime = time;
+    // Step the physics world
+    world.step(fixedTimeStep, deltaTime, maxSubSteps);
+    stats.begin();
     try {
 
         updateVehicleControls();
+        updateCamera();
 
         const chassisBody = vehicle.chassisBody;
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity.length();
-        console.log(velocity);
         if (velocity > 0 && velocity < 0.02 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
@@ -808,19 +732,7 @@ function animate() {
         const activeCamera=scene.userData.activeCamera;
         const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
         activeCamera.lookAt(lookAtTarget);
-        console.log("Bi sıkıntı yok he");
-    }
-    catch (e) {
-        console.error("Bi sıkıntı mı var");
-    }
-
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            composer.passes[0].camera = activeCamera;
-            composer.render();
-        }
-        cannonDebugger.update();
-
+        composer.render();
     }
     catch (e) {
     }
@@ -832,16 +744,9 @@ function animate() {
 function main() {
     init();
     setCannonWorld();
-    //loadMap(scene);
-    //loadHDR(scene, renderer);
-    loadCar(scene).then(() => {
-        const activeCamera=scene.userData.activeCamera;
-        if (activeCamera) {
-            composer.passes[0].camera = activeCamera; // RenderPass için aktif kamerayı ayarla
-        }
-    }).then(() => {
-        createVehicle();
-    })
+    loadMap(scene);
+    loadHDR(scene, renderer);
+    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
 
