@@ -1,7 +1,15 @@
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Friction Forces</title>
     <style>
+        @font-face {
+            font-family: 'ColoPro';
+            src: url('public/colo-pro.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
         body { margin: 0; }
         canvas { width: 100%; height: 100%; display: block; }
 
@@ -14,7 +22,7 @@
             pointer-events: none; /* WebGL sahnesiyle etkileşime engel olmaz */
         }
 
-        #speedometer, #timer, #time-remaining {
+        #timer, #time-remaining {
             position: absolute;
             top: 10px;
             right: 10px;
@@ -31,6 +39,68 @@
 
         #time-remaining {
             top: 90px;
+        }
+
+        #speedometer {
+            position: absolute;
+            bottom: 135px;
+            left: 326px; /* Ortalamak için */
+            transform: translateX(-50%); /* Ortalamak için */
+            text-align: center;
+            width: 150px; /* Sabit bir genişlik */
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #speed-value {
+            font-family: 'ColoPro', sans-serif;
+            font-size: 60px; /* Hız değeri için büyük yazı */
+            font-weight: bold;
+            color: white;
+            background: radial-gradient(circle,
+                #8000ff 0%,
+                #fd01f3 16.6%,
+                #f32a17 33.3%,
+                #f95805 50% ,
+                #fc7d00 66.6%,
+                #dcb200 83.3%,
+                #bcc601 100%);
+            -webkit-background-clip: text; /* Gradyanı yazıya uygula */
+            -webkit-text-fill-color: transparent; /* Yazının içini şeffaf yap */
+            text-shadow:
+                    0 0 8px #8000ff,
+                    0 0 16px #fd01f3,
+                    0 0 24px #f32a17,
+                    0 0 32px #f95805,
+                    0 0 40px #fc7d00,
+                    0 0 48px #dcb200,
+                    0 0 56px #bcc601;
+            display: block; /* Blok seviyesinde, üstte dursun */
+        }
+
+        #speed-unit {
+            font-family: 'ColoPro', sans-serif;
+            font-size: 30px; /* Daha küçük yazı */
+            color: white;
+            background: radial-gradient(circle,
+            #8000ff 0%,
+            #fd01f3 16.6%,
+            #f32a17 33.3%,
+            #f95805 50% ,
+            #fc7d00 66.6%,
+            #dcb200 83.3%,
+            #bcc601 100%);
+            -webkit-background-clip: text; /* Gradyanı yazıya uygula */
+            -webkit-text-fill-color: transparent; /* Yazının içini şeffaf yap */
+            text-shadow:
+                    0 0 8px #8000ff,
+                    0 0 16px #fd01f3,
+                    0 0 24px #f32a17,
+                    0 0 32px #f95805,
+                    0 0 40px #fc7d00,
+                    0 0 48px #dcb200,
+                    0 0 56px #bcc601;
+            display: block; /* Blok seviyesinde, altta dursun */
         }
 
         #minimap {
@@ -80,6 +150,19 @@
             padding: 20px;
             border-radius: 10px;
         }
+
+        #speedometergif {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: auto;
+            height: auto;
+            z-index: 100;
+        }
+        #speedometergif img {
+            width: auto;
+            height: auto;
+        }
     </style>
     <script type="importmap">
         {
@@ -94,7 +177,6 @@
 </head>
 <body>
 <div id="game-gui">
-    <div id="speedometer">Speed: 0 km/h</div>
     <div id="timer">Time: 00:00</div>
     <div id="time-remaining">Time Remaining: 01:00</div>
     <div id="minimap">Minimap Data</div>
@@ -108,6 +190,15 @@
 <!-- Game Over Screen -->
 <div id="game-over">
     Game Over
+</div>
+
+<div id="speedometergif">
+    <img src="public/speedometer.gif" alt="Speedometer GIF">
+</div>
+
+<div id="speedometer">
+    <span id="speed-value">0</span>
+    <span id="speed-unit">km/h</span>
 </div>
 
 <script src="js/main.js" type="module"></script>

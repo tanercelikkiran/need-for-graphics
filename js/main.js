@@ -345,7 +345,8 @@ function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
     const speedKmH = (speed * 3.6).toFixed(1);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
-    document.getElementById('speedometer').textContent = `Speed: ${speedKmH} km/h`;
+    const speedometerText = document.getElementById('speed-value');
+    speedometerText.textContent = `${speedKmH}`;
 }
 
 function updateVehicleControls() {
@@ -823,13 +824,23 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-function main() {
+async function main() {
+    // Sahneyi ve dünyayı başlat
     init();
     setCannonWorld();
+
+    // Haritayı ve HDR'yi yükle
     loadMap(scene);
     loadHDR(scene, renderer);
-    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+
+    // Aracı yükleyin ve ardından kamerayı ayarlayın
+    await loadSportCar(scene); // Araç yüklenmesini bekliyoruz
+    setCameraComposer();
+    createVehicle(); // Araç oluşturma
+
+    // Animasyonu başlat
     animate();
 }
+
 
 //main();
