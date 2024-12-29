@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -789,14 +789,20 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-function main() {
+async function main() {
     init();
     setCannonWorld();
-    loadMap(scene);
-    loadHDR(scene, renderer);
-    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
-    loadBMW(scene);
-    animate();
+
+    try{
+        await loadMap(scene);
+        await loadHDR(scene, renderer);
+        await loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+        // await loadBMW(scene);
+        await loadJeep(scene);
+        animate();
+    } catch (error) {
+        console.error("Yükleme sırasında hata:", error);
+    }
 }
 
 main();
