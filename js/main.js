@@ -1,5 +1,5 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
-
+import {loadMap, loadSportCar, loadHDR,carMesh, wheelMeshes} from './loaders.js';
+//import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import CannonDebugger from "cannon-es-debugger";
@@ -99,6 +99,17 @@ let currentCameraX           = cameraStartX;
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
+let elapsedTime = 0;  //geçen zaman
+let gameStarted = false;
+let countdown = 3; // başlangıçtaki 3 sayacı
+let countdownTimer;
+const totalTime = 60;  // Total game time in seconds (1 minute)
+let remainingTime = totalTime;  // Initialize remaining time
+let gameOver = false; // Track if game is over
+
+//DENEME
+//let countdownText;
+//let loader;
 
 function init() {
     scene = new THREE.Scene();
@@ -330,6 +341,13 @@ function createVehicle() {
     vehicle.addToWorld(world);
 }
 
+function updateSpeedometer() {
+    const velocity = vehicle.chassisBody.velocity;
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const speedKmH = (speed * 3.6).toFixed(1);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
+    document.getElementById('speedometer').textContent = `Speed: ${speedKmH} km/h`;
+}
+
 function updateVehicleControls() {
     //---------------------------
     // 1) Aracın anlık hızını ölç
@@ -460,6 +478,7 @@ function updateVehicleControls() {
     // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
+    updateSpeedometer();
 }
 
 function updateCamera() {
@@ -698,11 +717,71 @@ function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
+function updateTimer(deltaTime) {
+    elapsedTime += deltaTime;
+    const minutes = Math.floor(elapsedTime / 60);
+    const seconds = Math.floor(elapsedTime % 60);
+    document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function updateRemainingTime(deltaTime) {
+    if (!gameOver) {
+        remainingTime -= deltaTime;
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            gameOver = true;
+            document.getElementById('game-over').style.display = 'block'; // Show game over
+        }
+        const minutes = Math.floor(remainingTime / 60);
+        const seconds = Math.floor(remainingTime % 60);
+        document.getElementById('time-remaining').textContent = `Time Remaining: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+}
+/*
+function updateCountdownText(count) {
+    const geometry = new THREE.TextGeometry(count.toString(), {
+        font: loader,
+        size: 10,
+        height: 1,
+    });
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    if (countdownText) {
+        countdownText.geometry.dispose(); // Eski geometriyi temizle
+        countdownText.geometry = geometry; // Update existing 3D text geometry
+    } else {
+        countdownText = new THREE.Mesh(geometry, material);
+        countdownText.position.set(0, 0, -50); // Position the text in front of the camera
+        scene.add(countdownText);
+    }
+}
+*/
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Enter" && !gameStarted) {
+        countdownTimer = setInterval(() => {
+            if (countdown > 0) {
+                //updateCountdownText(countdown);
+                document.getElementById('start-text').innerText = countdown;
+                countdown--;
+            } else {
+                clearInterval(countdownTimer);
+                document.getElementById('start-menu').style.display = 'none'; // Hide start menu
+                gameStarted = true;
+                elapsedTime = 0;  // Reset elapsedTime when the game starts
+                remainingTime = totalTime; // Reset remaining time
+                main();
+            }
+        }, 1000);
+    }
+});
+
 //############################################################################################################
 //####  MAIN FUNCTION  #######################################################################################
 //############################################################################################################
 
 function animate() {
+    if (gameOver){
+        return;
+    }
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
     lastTime = time;
@@ -732,11 +811,14 @@ function animate() {
         const activeCamera=scene.userData.activeCamera;
         const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
         activeCamera.lookAt(lookAtTarget);
+        updateTimer(deltaTime);
+        updateRemainingTime(deltaTime);
+
         composer.render();
+
     }
     catch (e) {
     }
-
     stats.end();
     requestAnimationFrame(animate);
 }
@@ -750,4 +832,4 @@ function main() {
     animate();
 }
 
-main();
+//main();
