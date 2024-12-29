@@ -2,9 +2,8 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
-import {emissiveLight, pointLight, spotlight} from "./material-properties.js";
-import {transparent, metallicPaint} from "./material-properties.js";
-import {world} from "./main.js";
+import {emissiveLight, metallicPaint, pointLight, spotlight, transparent} from "./material-properties.js";
+import {isBraking, world} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];
@@ -54,8 +53,14 @@ export function loadMap(scene) {
     );
 }
 
+
 export function loadBMW(scene) {
     fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
+
+        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
+        carLightBMW.position.set(0, 10 , 5);
+        scene.add(carLightBMW);
+
         object.traverse(function(child) {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -68,13 +73,56 @@ export function loadBMW(scene) {
 
                 // Add any specific light effects or emissive materials to parts of the car
                 if (child.name.includes("Rearlight")) {
-                    emissiveLight(child, 0xff3333, 2.5); // Example for emissive lighting effect
+                    child.material = new THREE.MeshStandardMaterial({
+                        color: 0x550000, // Kırmızı bir ana renk
+                        emissive: 0xff3333, // Emissive kırmızı ton
+                        emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
+                        roughness: 0.3, // Hafif yansımalar için
+                        metalness: 0.1, // Biraz metalik görünüm
+                    });
+                    world.addEventListener("postStep", () => {
+                        if (isBraking) {
+                            child.material.emissiveIntensity = 5;
+                        }else{
+                            child.material.emissiveIntensity = 2;
+                        }
+                    });
+
                 }
                 if (child.name.includes("Brakelight")) {
-                    emissiveLight(child, 0xff3333, 5.0); // Example for emissive lighting effect
+                    const originalMaterial = child.material;
+                    world.addEventListener("postStep", () => {
+                        if (isBraking) {
+                            emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
+                        }else{
+                            child.material = originalMaterial;
+                        }
+                    });
                 }
                 if (child.name.includes("Headlight")) {
-                    emissiveLight(child, 0xe0ffff, 0.3); // Example for emissive lighting effect
+                    emissiveLight(child, 0xFFD5B3, 0.5); // Example for emissive lighting effect
+
+                    const headlightSpotBMW = spotlight(
+                        new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                        new THREE.Vector3(0, -0.05, -1)
+                    );
+
+                    // Add it to the scene
+                    scene.add(headlightSpotBMW);
+                    scene.add(headlightSpotBMW.target);
+
+                    // Now each physics step, update the spotlight so it "follows" this child
+                    world.addEventListener("postStep", () => {
+                        const updatedPositionBMW = child.getWorldPosition(new THREE.Vector3());
+                        const updatedDirection = new THREE.Vector3(0, -0.1, 1); // Varsayılan ileri yön
+                        const updatedQuat = child.getWorldQuaternion(new THREE.Quaternion());
+                        updatedDirection.applyQuaternion(updatedQuat);
+
+                        headlightSpotBMW.updatePositionAndDirection(
+                            updatedPositionBMW,
+                            updatedPositionBMW.clone().add(updatedDirection)
+                        );
+                    });
                 }
                 if (child.name.includes("RearlightWindow")) {
                     transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
@@ -160,18 +208,16 @@ export function loadSportCar(scene) {
                                 headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
                             });
                         }
-                        if (child.name.includes("Studio_Car252_light1")) {
-                            emissiveLight(child, 0xff3333, 5.0);
+                        if (child.name.includes("Studio_Car252_light")) {
+                            world.addEventListener("postStep", () => {
+                                if (isBraking) {
+                                    emissiveLight(child, 0xff3333, 20); // Fren yapıldığında parlaklık
+                                }else{
+                                    emissiveLight(child, 0xff3333, 5);
+                                }
+                            });
                         }
-                        if (child.name.includes("Studio_Car252_light2")) {
-                            emissiveLight(child, 0xff3333, 5.0);
-                        }
-                        if (child.name.includes("Studio_Car252_light3")) {
-                            emissiveLight(child, 0xff3333, 5.0);
-                        }
-                        if (child.name.includes("Studio_Car236_light4")) {
-                            emissiveLight(child, 0xff3333, 20.0);
-                        }
+
                         if (child.name.includes("Studio_Car252_taillights1")) {
                             emissiveLight(child, 0xff3333, 20.0);
                         }
@@ -183,29 +229,15 @@ export function loadSportCar(scene) {
                             const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
                             child.add(pointLight2);
                         }
-                        if (child.name.includes("Studio_Car252_taillights2")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights3")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights4")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights5")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights6")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights7")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights8")) {
-                            emissiveLight(child, 0xff3333, 50.0);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights9")) {
-                            emissiveLight(child, 0xff3333, 50.0);
+                        if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
+                            const originalMaterial = child.material;
+                            world.addEventListener("postStep", () => {
+                                if (isBraking) {
+                                    emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
+                                }else{
+                                    child.material = originalMaterial;
+                                }
+                            });
                         }
                     }
                 });

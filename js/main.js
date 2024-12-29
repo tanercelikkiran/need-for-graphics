@@ -7,21 +7,22 @@ import CannonDebugger from "cannon-es-debugger";
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let scene, renderer, composer, stats;
-export let world, cannonDebugger, vehicle, carSize;
+export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
 // ================================================
 let isAccelerating   = false;
-let isBraking        = false;
+isBraking        = false;
 let isSteeringLeft   = false;
 let isSteeringRight  = false;
 let isHandBraking    = false;
 
-let brakeTest=0;
 
 // ================================================
 // 2) ARACIN ANLIK MOTOR & DİREKSİYON
@@ -125,6 +126,10 @@ function init() {
     const renderScene = new RenderPass(scene, null);
     composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
+
+    const fxaaPass = new ShaderPass(FXAAShader);
+    fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+    composer.addPass(fxaaPass);
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
