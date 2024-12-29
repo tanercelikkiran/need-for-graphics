@@ -2,6 +2,8 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
+import {FontLoader} from "three/addons/loaders/FontLoader.js";
+
 import {emissiveLight, pointLight, spotlight} from "./material-properties.js";
 import {transparent, metallicPaint} from "./material-properties.js";
 import {world} from "./main.js";
@@ -27,7 +29,7 @@ manager.onError = (url) => {
 const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
-
+const fontloader = new FontLoader(manager);
 export function loadMap(scene) {
     gltfLoader.load(
         'public/cityfinal.glb',
@@ -214,5 +216,13 @@ export function loadHDR(scene) {
         scene.environment = texture;
         scene.background = texture;
         scene.environment.intensity = 0.2;
+    });
+}
+
+export function loadFonts() {
+    return new Promise((resolve) => {
+        fontloader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+            resolve(font);
+        });
     });
 }
