@@ -71,6 +71,10 @@ export function loadBMW(scene) {
                     transparent(child.material); // Example of applying a transparent material to a part
                 }
 
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
                 // Add any specific light effects or emissive materials to parts of the car
                 if (child.name.includes("Rearlight")) {
                     child.material = new THREE.MeshStandardMaterial({
@@ -100,7 +104,7 @@ export function loadBMW(scene) {
                     });
                 }
                 if (child.name.includes("Headlight")) {
-                    emissiveLight(child, 0xFFD5B3, 0.5); // Example for emissive lighting effect
+                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
 
                     const headlightSpotBMW = spotlight(
                         new THREE.Vector3(0, 0, 0), // we'll override in postStep
@@ -123,6 +127,10 @@ export function loadBMW(scene) {
                             updatedPositionBMW.clone().add(updatedDirection)
                         );
                     });
+                }
+                if (child.name.includes("Headl")) {
+                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
+
                 }
                 if (child.name.includes("RearlightWindow")) {
                     transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
