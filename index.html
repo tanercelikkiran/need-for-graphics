@@ -4,8 +4,15 @@
     <title>Friction Forces</title>
     <style>
         @font-face {
-            font-family: 'ColoPro';
-            src: url('public/colo-pro.ttf') format('truetype');
+            font-family: 'Platformone';
+            src: url('public/PlatformOne.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Digital7';
+            src: url('public/digital7.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
         }
@@ -22,7 +29,7 @@
             pointer-events: none; /* WebGL sahnesiyle etkileşime engel olmaz */
         }
 
-        #timer, #time-remaining {
+        #timer {
             position: absolute;
             top: 10px;
             right: 10px;
@@ -37,70 +44,64 @@
             top: 50px;
         }
 
-        #time-remaining {
-            top: 90px;
-        }
+        /*#time-remaining {*/
+        /*    position: absolute;*/
+        /*    top: 94px;*/
+        /*    left: 50%; !* Ortalamak için *!*/
+        /*    transform: translateX(-50%); !* Ortalamak için *!*/
+        /*    text-align: center;*/
+        /*    width: 250px; !* Sabit bir genişlik *!*/
+        /*    padding: 10px;*/
+        /*    border-radius: 5px;*/
+        /*}*/
+
+        /*#time-value {*/
+        /*    font-family: 'Digital7', sans-serif;*/
+        /*    font-size: 120px;*/
+        /*    font-weight: normal;*/
+        /*    color: #1dd8b7;*/
+        /*    text-shadow: 0 0 5px #1dd8b7, 0 0 10px #1dd8b7;*/
+        /*    display: inline-block;*/
+        /*}*/
 
         #speedometer {
             position: absolute;
-            bottom: 135px;
-            left: 326px; /* Ortalamak için */
+            bottom: 105px;
+            left: 256px; /* Ortalamak için */
             transform: translateX(-50%); /* Ortalamak için */
             text-align: center;
-            width: 150px; /* Sabit bir genişlik */
+            width: 250px; /* Sabit bir genişlik */
             padding: 10px;
             border-radius: 5px;
         }
 
         #speed-value {
-            font-family: 'ColoPro', sans-serif;
-            font-size: 60px; /* Hız değeri için büyük yazı */
-            font-weight: bold;
-            color: white;
-            background: radial-gradient(circle,
-                #8000ff 0%,
-                #fd01f3 16.6%,
-                #f32a17 33.3%,
-                #f95805 50% ,
-                #fc7d00 66.6%,
-                #dcb200 83.3%,
-                #bcc601 100%);
-            -webkit-background-clip: text; /* Gradyanı yazıya uygula */
-            -webkit-text-fill-color: transparent; /* Yazının içini şeffaf yap */
-            text-shadow:
-                    0 0 8px #8000ff,
-                    0 0 16px #fd01f3,
-                    0 0 24px #f32a17,
-                    0 0 32px #f95805,
-                    0 0 40px #fc7d00,
-                    0 0 48px #dcb200,
-                    0 0 56px #bcc601;
-            display: block; /* Blok seviyesinde, üstte dursun */
+            font-family: 'Platformone', sans-serif;
+            font-size: 30px;
+            font-weight: normal;
+            color: #1dd8b7;
+            text-shadow: 0 0 5px #1dd8b7, 0 0 10px #1dd8b7;
+            display: inline-block;
         }
 
-        #speed-unit {
-            font-family: 'ColoPro', sans-serif;
-            font-size: 30px; /* Daha küçük yazı */
-            color: white;
-            background: radial-gradient(circle,
-            #8000ff 0%,
-            #fd01f3 16.6%,
-            #f32a17 33.3%,
-            #f95805 50% ,
-            #fc7d00 66.6%,
-            #dcb200 83.3%,
-            #bcc601 100%);
-            -webkit-background-clip: text; /* Gradyanı yazıya uygula */
-            -webkit-text-fill-color: transparent; /* Yazının içini şeffaf yap */
-            text-shadow:
-                    0 0 8px #8000ff,
-                    0 0 16px #fd01f3,
-                    0 0 24px #f32a17,
-                    0 0 32px #f95805,
-                    0 0 40px #fc7d00,
-                    0 0 48px #dcb200,
-                    0 0 56px #bcc601;
-            display: block; /* Blok seviyesinde, altta dursun */
+
+        #speed-slider-container {
+            position: absolute;
+            bottom: 80px;
+            left: 434px;
+            transform: translateX(-50%);
+            width: 570px; /* Slider'ın genişliği */
+            height: 35.5px; /* Slider'ın yüksekliği */
+            background-color: rgba(0, 0, 0, 0); /* Arka plan rengi */
+            border-radius: 0; /* Köşeleri yuvarla */
+            overflow: hidden; /* Dolum çubuğu dışına taşmasın */
+        }
+
+        #speed-slider-fill {
+            width: 0%; /* Başlangıçta boş */
+            height: 100%;
+            background: linear-gradient(90deg, rgba(0,0,0,0), rgba(29,216,183,0.7)); /* Dolum gradyanı */
+            transition: width 0.1s; /* Pürüzsüz animasyon */
         }
 
         #minimap {
@@ -151,18 +152,23 @@
             border-radius: 10px;
         }
 
-        #speedometergif {
+        #neonline {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            width: auto;
-            height: auto;
-            z-index: 100;
+            bottom: 109px;
+            left: 135px;
+            width: auto; /* PNG'nin genişliği */
+            height: auto; /* Oranlarını koru */
+            z-index: 50;
         }
-        #speedometergif img {
-            width: auto;
+
+        #neontimer {
+            position: absolute;
+            top: -20px;
+            left: 524px;
+            width: auto; /* PNG'nin genişliği */
             height: auto;
         }
+
     </style>
     <script type="importmap">
         {
@@ -178,7 +184,6 @@
 <body>
 <div id="game-gui">
     <div id="timer">Time: 00:00</div>
-    <div id="time-remaining">Time Remaining: 01:00</div>
     <div id="minimap">Minimap Data</div>
 </div>
 
@@ -192,14 +197,21 @@
     Game Over
 </div>
 
-<div id="speedometergif">
-    <img src="public/speedometer.gif" alt="Speedometer GIF">
+<div id="speed-slider-container">
+    <div id="speed-slider-fill"></div>
+</div>
+
+<div id="time-remaining">
+    <span id="time-value">600</span>
 </div>
 
 <div id="speedometer">
-    <span id="speed-value">0</span>
-    <span id="speed-unit">km/h</span>
+    <span id="speed-value">Speed 0KM</span>
 </div>
+
+<img id="neonline" src="public/neonline.png" alt="PNG Image">
+
+<img id="neontimer" src="public/neontimer.png" alt="PNG Image">
 
 <script src="js/main.js" type="module"></script>
 <script src="js/material-properties.js" type="module"></script>

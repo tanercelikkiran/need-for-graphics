@@ -103,7 +103,7 @@ let elapsedTime = 0;  //geçen zaman
 let gameStarted = false;
 let countdown = 3; // başlangıçtaki 3 sayacı
 let countdownTimer;
-const totalTime = 60;  // Total game time in seconds (1 minute)
+const totalTime = 600;  // Total game time in seconds (1 minute)
 let remainingTime = totalTime;  // Initialize remaining time
 let gameOver = false; // Track if game is over
 
@@ -344,9 +344,18 @@ function createVehicle() {
 function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
-    const speedKmH = (speed * 3.6).toFixed(1);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
+    const speedKmH = Math.round(speed * 3.6);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
     const speedometerText = document.getElementById('speed-value');
-    speedometerText.textContent = `${speedKmH}`;
+    speedometerText.textContent = `Speed ${speedKmH}KM`;
+}
+
+function updateSpeedSlider() {
+    const velocity = vehicle.chassisBody.velocity;
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const sliderFill = document.getElementById('speed-slider-fill');
+    const tSpeed=304/3.6;
+    const fillPercentage= (speed/tSpeed)*100;
+    sliderFill.style.width = `${fillPercentage}%`;
 }
 
 function updateVehicleControls() {
@@ -480,6 +489,7 @@ function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
     updateSpeedometer();
+    updateSpeedSlider();
 }
 
 function updateCamera() {
@@ -725,19 +735,19 @@ function updateTimer(deltaTime) {
     document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function updateRemainingTime(deltaTime) {
-    if (!gameOver) {
-        remainingTime -= deltaTime;
-        if (remainingTime <= 0) {
-            remainingTime = 0;
-            gameOver = true;
-            document.getElementById('game-over').style.display = 'block'; // Show game over
-        }
-        const minutes = Math.floor(remainingTime / 60);
-        const seconds = Math.floor(remainingTime % 60);
-        document.getElementById('time-remaining').textContent = `Time Remaining: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-}
+// function updateRemainingTime(deltaTime) {
+//     if (!gameOver) {
+//         remainingTime -= deltaTime;
+//         if (remainingTime <= 0) {
+//             remainingTime = 0;
+//             gameOver = true;
+//             document.getElementById('game-over').style.display = 'block'; // Show game over
+//         }
+//         const seconds = Math.floor(remainingTime % 600);
+//         const timerText = document.getElementById('time-value');
+//         timerText.textContent = `${String(seconds).padStart(2, '0')}`;
+//     }
+// }
 /*
 function updateCountdownText(count) {
     const geometry = new THREE.TextGeometry(count.toString(), {
@@ -813,7 +823,7 @@ function animate() {
         const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
         activeCamera.lookAt(lookAtTarget);
         updateTimer(deltaTime);
-        updateRemainingTime(deltaTime);
+        // updateRemainingTime(deltaTime);
 
         composer.render();
 
