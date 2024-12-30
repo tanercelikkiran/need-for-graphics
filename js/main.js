@@ -789,20 +789,16 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-async function main() {
+function main() {
     init();
     setCannonWorld();
+    loadMap(scene);
+    loadHDR(scene, renderer);
+    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+    //loadBMW(scene);
+    //loadJeep(scene);
+    animate();
 
-    try{
-        await loadMap(scene);
-        await loadHDR(scene, renderer);
-        await loadSportCar(scene).then(setCameraComposer).then(createVehicle);
-        // await loadBMW(scene);
-        await loadJeep(scene);
-        animate();
-    } catch (error) {
-        console.error("Yükleme sırasında hata:", error);
-    }
 }
 
 main();

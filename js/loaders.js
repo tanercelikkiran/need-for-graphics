@@ -341,14 +341,12 @@ export function loadSportCar(scene) {
                         }
                     }
                 });
+                resolve();
             },
             null, function(error){
                 console.error(error);
             });
         loadSportWheels(scene);
-        setTimeout(() => {
-            resolve();
-        }, 8000);
     });
 }
 
