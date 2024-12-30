@@ -844,9 +844,9 @@ async function main() {
     loadHDR(scene, renderer);
 
     // Aracı yükleyin ve ardından kamerayı ayarlayın
-    await loadSportCar(scene); // Araç yüklenmesini bekliyoruz
-    setCameraComposer();
-    createVehicle(); // Araç oluşturma
+    await loadSportCar(scene).then(setCameraComposer).then(createVehicle); // Araç yüklenmesini bekliyoruz
+
+    // Araç oluşturma
 
     // Animasyonu başlat
     animate();
