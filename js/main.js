@@ -735,19 +735,19 @@ function updateTimer(deltaTime) {
     document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-// function updateRemainingTime(deltaTime) {
-//     if (!gameOver) {
-//         remainingTime -= deltaTime;
-//         if (remainingTime <= 0) {
-//             remainingTime = 0;
-//             gameOver = true;
-//             document.getElementById('game-over').style.display = 'block'; // Show game over
-//         }
-//         const seconds = Math.floor(remainingTime % 600);
-//         const timerText = document.getElementById('time-value');
-//         timerText.textContent = `${String(seconds).padStart(2, '0')}`;
-//     }
-// }
+function updateRemainingTime(deltaTime) {
+    if (!gameOver) {
+        remainingTime -= deltaTime;
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            gameOver = true;
+            document.getElementById('game-over').style.display = 'block'; // Show game over
+        }
+        const seconds = Math.floor(remainingTime % 600);
+        const timerText = document.getElementById('time-value');
+        timerText.textContent = `${String(seconds).padStart(2, '0')}`;
+    }
+}
 /*
 function updateCountdownText(count) {
     const geometry = new THREE.TextGeometry(count.toString(), {
@@ -823,7 +823,7 @@ function animate() {
         const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
         activeCamera.lookAt(lookAtTarget);
         updateTimer(deltaTime);
-        // updateRemainingTime(deltaTime);
+        updateRemainingTime(deltaTime);
 
         composer.render();
 
