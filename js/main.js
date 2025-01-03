@@ -103,7 +103,7 @@ let elapsedTime = 0;  //geçen zaman
 let gameStarted = false;
 let countdown = 3; // başlangıçtaki 3 sayacı
 let countdownTimer;
-const totalTime = 600;  // Total game time in seconds (1 minute)
+const totalTime = 60;  // Total game time in seconds (1 minute)
 let remainingTime = totalTime;  // Initialize remaining time
 let gameOver = false; // Track if game is over
 
@@ -766,8 +766,45 @@ function updateCountdownText(count) {
     }
 }
 */
-document.addEventListener('keydown', function(event) {
-    if (event.key === "Enter" && !gameStarted) {
+
+// Minimap için kamera oluşturma
+const minimapCamera = new THREE.OrthographicCamera(
+    -50,
+    50,
+    50,
+    -50,
+    0.1,
+    1000
+);
+
+// Kamerayı konumlandırma
+minimapCamera.position.set(0, 100, 0);
+minimapCamera.lookAt(0, 0, 0);
+
+
+// Minimap renderer oluştur
+const minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
+minimapRenderer.setSize(200, 200);
+minimapRenderer.setClearColor(0x000000, 1);
+minimapRenderer.domElement.style.position = "absolute";
+minimapRenderer.domElement.style.bottom = "2%";
+minimapRenderer.domElement.style.right = "2%";
+minimapRenderer.domElement.style.borderRadius = "50%";
+
+document.getElementById("minimap").appendChild(minimapRenderer.domElement);
+
+function updateMinimap() {
+    // Minimap kamera, aracın pozisyonunu takip eder
+    const carPosition = vehicle.chassisBody.position;
+    minimapCamera.position.set(carPosition.x, 100, carPosition.z);
+    minimapCamera.lookAt(carPosition.x, 0, carPosition.z);
+
+    // Minimap sahnesini render et
+    minimapRenderer.render(scene, minimapCamera);
+}
+
+document.getElementById('start-menu').addEventListener('mousedown', function(event) {
+    if (event.button === 0 && !gameStarted) {
         countdownTimer = setInterval(() => {
             if (countdown > 0) {
                 //updateCountdownText(countdown);
@@ -803,6 +840,7 @@ function animate() {
 
         updateVehicleControls();
         updateCamera();
+        updateMinimap();
 
         const chassisBody = vehicle.chassisBody;
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
