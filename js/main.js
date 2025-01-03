@@ -21,6 +21,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {metallicPaint} from "./material-properties.js";
 
 export let scene, sceneIntro, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
@@ -860,6 +861,7 @@ function initIntro() {
     controls.target.set(0, 1, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.enableZoom = false;
 
     function animateIntro() {
         controls.update();
@@ -892,6 +894,21 @@ function initIntro() {
 
             document.removeEventListener('keydown', this);
             main(); // Ana sahneyi başlat
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'm') {
+            // `sceneIntro` sahnesindeki tüm nesneleri dolaş
+            sceneIntro.traverse((object) => {
+                if (object.isMesh && object.material) {
+                    if (object.material.name === 'BMW:carpaint1') {
+                        // Materyalin rengini değiştir
+                        const randomColor = Math.random() * 0xffffff; // Rastgele renk
+                        metallicPaint(object.material, randomColor);
+
+                    }
+                }
+            });
         }
     });
 }
