@@ -53,6 +53,75 @@ export function loadMap(scene) {
     );
 }
 
+export function loadBike(scene) {
+    fbxLoader.load('public/motorcycle/motorcycle.fbx', (object) => {
+
+        const carLightmotor = new THREE.PointLight(0xFFF0CC, 50, 500);
+        carLightmotor.position.set(0, 10 , 5);
+        scene.add(carLightmotor);
+
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                if (child.name.includes("chassis_chassis")){
+                    metallicPaint(child.material,0xFFFFFF);
+                }
+                if (child.name.includes("chassis_mate")){
+                    metallicPaint(child.material,0xF8CD02);
+                }
+
+                if (child.name.includes("brakelight")) {
+                    const originalMaterial = child.material;
+                    world.addEventListener("postStep", () => {
+                        if (isBraking) {
+                            emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
+                        }else{
+                            child.material = originalMaterial;
+                        }
+                    });
+                }
+                if (child.name.includes("rearlight")) {
+                    emissiveLight(child, 0xFFFFFF, 2);
+                }
+
+                if (child.name.includes("headlightSpot")) {
+                    // Example for emissive lighting effect
+
+                    const headlightSpotMotor = spotlight(
+                        new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                        new THREE.Vector3(0, -0.05, -1)
+                    );
+
+                    // Add it to the scene
+                    scene.add(headlightSpotMotor);
+                    scene.add(headlightSpotMotor.target);
+
+                    // Now each physics step, update the spotlight so it "follows" this child
+                    world.addEventListener("postStep", () => {
+                        const updatedPositionMotor = child.getWorldPosition(new THREE.Vector3());
+                        const updatedDirectionMotor = new THREE.Vector3(0, -0.1, -1); // Varsayılan ileri yön
+                        const updatedQuatMotor = child.getWorldQuaternion(new THREE.Quaternion());
+                        updatedDirectionMotor.applyQuaternion(updatedQuatMotor);
+
+                        headlightSpotMotor.updatePositionAndDirection(
+                            updatedPositionMotor,
+                            updatedPositionMotor.clone().add(updatedDirectionMotor)
+                        );
+                    });
+                }
+                if (child.name.includes("headlight")) {
+                    emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
+
+                }
+            }
+        });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
+    });
+}
+
 export function loadJeep(scene) {
     fbxLoader.load('public/jeep/jeep.fbx', (object) => {
 
@@ -269,7 +338,7 @@ export function loadSportCar(scene) {
                             transparent(child.material, 0x5C0007);
                         }
                         if (child.name.includes("Studio_Car277")){
-                            metallicPaint(child.material);
+                            metallicPaint(child.material,0xF8CD02);
                         }
                         if (child.name.includes("Studio_Car148")){
                             emissiveLight(child, 0xffffff, 20.0);

@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep, loadBike} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -10,6 +10,7 @@ import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export let scene, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
@@ -99,6 +100,9 @@ let cameraLeftTargetX        = -1.2; // Wider camera movement for dramatic effec
 let cameraRightTargetX       = 1.2;
 let cameraAnimationStartTimeX = null;
 let currentCameraX           = cameraStartX;
+let cameraStartY= 2.0;
+let currentCameraY           = cameraStartY;
+
 
 // ================================================
 // 10) TOP SPEED VE İVMELENME AYARLARI
@@ -106,6 +110,9 @@ let currentCameraX           = cameraStartX;
 let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
 let rearMaxSpeed = 70 / 3.6;
 let engineDropFactor = 0.7;
+
+let orbitControls;
+
 
 
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
@@ -204,6 +211,12 @@ function init() {
         }
     });
 
+}
+function createOrbitControls() {
+    if (scene.userData.activeCamera) {
+        orbitControls = new OrbitControls(scene.userData.activeCamera, renderer.domElement);
+        orbitControls.enabled = false; // Varsayılan olarak kapalı
+    }
 }
 
 function setCannonWorld(){
@@ -519,6 +532,7 @@ function updateCamera() {
                 case 'w':
                     if (!isMovingForward) {
                         currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                        currentCameraY = activeCamera.position.y;
                         isMovingForward = true;
                         isBrakingCamera = false;
                         isMovingBackward = false;
@@ -530,6 +544,7 @@ function updateCamera() {
                 case 's':
                     if (!isBrakingCamera) {
                         currentCameraZ = activeCamera.position.z;
+                        currentCameraY = activeCamera.position.y;
                         isMovingForward = false;// Mevcut pozisyonu kaydet
                         isBrakingCamera = true;
                         isMovingBackward = false;
@@ -563,6 +578,7 @@ function updateCamera() {
             case 'w':
                 if (activeCamera) {
                     currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                    currentCameraY = activeCamera.position.y;
                 }
                 // Animasyonu başlat
                 isMovingForward = false;
@@ -575,6 +591,7 @@ function updateCamera() {
             case 's':
                 if (activeCamera) {
                     currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                    currentCameraY = activeCamera.position.y;
                 }
                 // Animasyonu başlat
                 isMovingForward = false;
@@ -606,7 +623,7 @@ function updateCamera() {
         const elapsedTime = currentTime - cameraAnimationStartTime;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera) {
+        if (activeCamera && orbitControls.enabled===false) {
             if (isMovingBackward) {
                 // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
                 const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
@@ -651,6 +668,7 @@ function updateCamera() {
 
                     if (elapsedTime >= cameraAnimationDuration3) {
                         // Animasyon tamamlandıktan sonra da hıza bağlı güncelleme
+                        activeCamera.position.y = THREE.MathUtils.lerp(activeCamera.position.y, cameraStartY, 0.5);
                         activeCamera.position.z = THREE.MathUtils.lerp(
                             activeCamera.position.z,
                             cameraTargetZ,
@@ -660,16 +678,18 @@ function updateCamera() {
                         // Animasyon sırasında
                         const t = Math.min(elapsedTime / cameraAnimationDuration3, 1);
                         const easeT = easeInOutSin(t);
+                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraTargetZ, easeT);
                     }
                 } catch (e) {
                     console.error("Kamera hıza göre güncellenemedi:", e);
                 }
-            } else if (isBrakingCamera) {
+            } else if (isBrakingCamera ) {
                 try {
                     if (isBrakingPhase===0) {
                         const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
                         const easeT = easeInOutSin(t);
+                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
 
                         if (t === 1) {
@@ -703,7 +723,7 @@ function updateCamera() {
         const elapsedTimeX = currentTime - cameraAnimationStartTimeX;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera) {
+        if (activeCamera && orbitControls.enabled===false) {
             if (isMovingLeft) {
                 const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
                 const easeT = easeInOutSin(t);
@@ -789,14 +809,33 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
+document.addEventListener('keydown', (event) => {
+    const activeCamera = scene.userData.activeCamera;
+    if (event.key.toLowerCase() === 'o') {
+        if (activeCamera) {
+            orbitControls.enabled = !orbitControls.enabled;
+            if (orbitControls.enabled) {
+                console.log("OrbitControls etkinleştirildi.");
+            } else {
+                console.log("OrbitControls devre dışı bırakıldı.");
+            }
+        }
+    }
+});
+
+
+
+
 function main() {
     init();
     setCannonWorld();
     loadMap(scene);
     loadHDR(scene, renderer);
-    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+    loadSportCar(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+
     //loadBMW(scene);
     //loadJeep(scene);
+    loadBike(scene);
     animate();
 
 }

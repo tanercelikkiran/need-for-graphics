@@ -9,10 +9,10 @@ export function transparent(material, color) {
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
 
-export function metallicPaint(material) {
+export function metallicPaint(material,color) {
     material.roughness = 0.3; // Cam yüzeyi pürüzsüz olmalı
     material.metalness = 1.0; // Cam için metalik etki gerekmez
-    material.color.set(0xF8CD02); // Hafif bir renk tonu (isteğe bağlı)
+    material.color.set(color); // Hafif bir renk tonu (isteğe bağlı)
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
 
