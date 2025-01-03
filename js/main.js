@@ -1,4 +1,14 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep, loadBike} from './loaders.js';
+import {
+    loadMap,
+    loadSportCar,
+    loadHDR,
+    carMesh,
+    wheelMeshes,
+    loadBMW,
+    loadJeep,
+    loadBike,
+    loadBMWintro
+} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -12,7 +22,7 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-export let scene, renderer, composer, stats;
+export let scene, sceneIntro, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 // ================================================
@@ -810,8 +820,8 @@ function animate() {
 }
 
 document.addEventListener('keydown', (event) => {
-    const activeCamera = scene.userData.activeCamera;
     if (event.key.toLowerCase() === 'o') {
+        const activeCamera = scene.userData.activeCamera;
         if (activeCamera) {
             orbitControls.enabled = !orbitControls.enabled;
             if (orbitControls.enabled) {
@@ -824,7 +834,67 @@ document.addEventListener('keydown', (event) => {
 });
 
 
+function initIntro() {
+    sceneIntro = new THREE.Scene();
 
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    try {
+        loadBMWintro(sceneIntro);
+    } catch (error) {
+        console.error("Model yükleme sırasında hata oluştu:", error);
+    }
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Beyaz ışık, orta yoğunluk
+    sceneIntro.add(ambientLight);
+
+    // Kamerayı ekleyin
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(-5, 3, 0);
+    camera.lookAt(0, 200, 0);
+    sceneIntro.userData.activeCamera = camera;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    function animateIntro() {
+        controls.update();
+        renderer.render(sceneIntro, camera);
+        requestAnimationFrame(animateIntro);
+    }
+
+    animateIntro();
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            // Kaynakları temizleme
+            sceneIntro.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneIntro.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            main(); // Ana sahneyi başlat
+        }
+    });
+}
 
 function main() {
     init();
@@ -840,4 +910,6 @@ function main() {
 
 }
 
-main();
+initIntro();
+
+// main();
