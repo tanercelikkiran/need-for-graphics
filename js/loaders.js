@@ -2,7 +2,14 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
-import {emissiveLight, metallicPaint, pointLight, spotlight, transparent} from "./material-properties.js";
+import {
+    emissiveLight,
+    metallicPaint,
+    neonEmissiveMaterial,
+    pointLight,
+    spotlight,
+    transparent
+} from "./material-properties.js";
 import {isBraking, world} from "./main.js";
 
 let carMesh;
@@ -29,22 +36,39 @@ const rgbeLoader = new RGBELoader(manager);
 
 export function loadMap(scene) {
     gltfLoader.load(
-        'public/cityfinal.glb',
+        'public/city.glb',
         function (gltf) {
             scene.add(gltf.scene);
             console.log('Model loaded successfully!');
 
-            // gltf.scene.traverse(function (child) {
-            //     if (child.isMesh && child.name.includes("PLight")) {
-            //
-            //         // Mevcut konumda PointLight oluştur
-            //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
-            //         pointLight.position.copy(child.position);
-            //
-            //         // PointLight'ı sahneye ekle
-            //         scene.add(pointLight);
-            //     }
-            // });
+            gltf.scene.traverse(function (child) {
+                if (child.name.includes("A1")) {
+                    child.traverse((subChild) => {
+                        if (subChild.isMesh) {
+                            subChild.material = new THREE.MeshStandardMaterial({
+                                color: 0x00ff00,
+                                roughness: 0.2,
+                                metalness: 0.8,
+                            });
+                        }
+                    });
+                }
+                if (child.isMesh && child.name.includes("Collider")) {
+                    child.visible = false; // Make the child invisible
+                }
+
+
+                //     if (child.isMesh && child.name.includes("PLight")) {
+                //
+                //         // Mevcut konumda PointLight oluştur
+                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1);
+                //         pointLight.position.copy(child.position);
+                //
+                //         // PointLight'ı sahneye ekle
+                //         scene.add(pointLight);
+                //     }
+            });
+
         },
         null,
         function (error) {
