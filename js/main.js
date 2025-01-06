@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, createCustomPhongMaterial, createCustomToonMaterial} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -696,6 +696,28 @@ function setCameraComposer() {
 
 function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
+}
+
+let usePhong = true;
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'k' || e.key === 'K') {
+        usePhong = !usePhong;
+        switchMaterials(usePhong);
+    }
+});
+
+function switchMaterials(usePhong) {
+    scene.traverse((child) => {
+        if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.uDiffuseMap) {
+            const texture = child.material.uniforms.uDiffuseMap.value;
+            if (usePhong) {
+                child.material = createCustomPhongMaterial(texture);
+            } else {
+                child.material = createCustomToonMaterial(texture);
+            }
+        }
+    });
 }
 
 //############################################################################################################

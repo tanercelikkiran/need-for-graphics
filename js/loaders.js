@@ -28,12 +28,182 @@ const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
 
+const PhongVertexShader = `
+precision mediump float;
+
+attribute vec3 position;
+attribute vec3 normal;
+attribute vec2 uv;
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat3 normalMatrix;
+
+varying vec3 vNormal;
+varying vec3 vPosition;
+varying vec2 vUV;
+
+void main() {
+    // transform the normal to view space
+    vNormal = normalMatrix * normal;
+
+    // position in view space
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vPosition = mvPosition.xyz;
+
+    // pass uv to fragment
+    vUV = uv;
+
+    // final gl_Position
+    gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const PhongFragmentShader = `
+precision mediump float;
+
+// from vertex shader
+varying vec3 vNormal;
+varying vec3 vPosition;
+varying vec2 vUV;
+
+// uniforms
+uniform sampler2D uDiffuseMap;   // the city/car texture
+uniform vec3 uLightDirection;
+uniform vec3 uLightColor;
+uniform vec3 uAmbientColor;
+uniform float uShininess;
+
+void main() {
+    // sample the texture using vUV
+    vec4 texColor = texture2D(uDiffuseMap, vUV);
+
+    // if the texture has an alpha channel, you can do something with it
+    // but for now, assume it's opaque
+    vec3 baseColor = texColor.rgb;
+
+    // basic Phong lighting
+    vec3 normal = normalize(vNormal);
+    float diffuseFactor = max(dot(normal, -uLightDirection), 0.0);
+
+    // reflection for specular
+    vec3 reflectDir = reflect(uLightDirection, normal);
+    vec3 viewDir = normalize(-vPosition);
+    float specFactor = pow(max(dot(reflectDir, viewDir), 0.0), uShininess);
+
+    // combine
+    vec3 ambient = uAmbientColor * baseColor;
+    vec3 diffuse = diffuseFactor * uLightColor * baseColor;
+    vec3 specular = specFactor * uLightColor;
+
+    vec3 finalColor = ambient + diffuse + specular;
+
+    gl_FragColor = vec4(finalColor, 1.0);
+}
+`;
+
+const ToonVertexShader = `
+precision mediump float;
+
+attribute vec3 position;
+attribute vec3 normal;
+attribute vec2 uv;
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat3 normalMatrix;
+
+varying vec3 vNormal;
+varying vec2 vUV;
+
+void main() {
+    vNormal = normalMatrix * normal;
+    vUV = uv;
+
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const ToonFragmentShader = `
+precision mediump float;
+
+uniform sampler2D uDiffuseMap;
+uniform vec3 uLightDirection;
+uniform vec3 uLightColor;
+uniform vec3 uAmbientColor;
+uniform float uShininess;
+
+varying vec3 vNormal;
+varying vec2 vUV;
+
+void main() {
+    // Sample the texture
+    vec4 texColor = texture2D(uDiffuseMap, vUV);
+
+    // Calculate basic lighting
+    vec3 normal = normalize(vNormal);
+    float diffuseFactor = max(dot(normal, -uLightDirection), 0.0);
+
+    // Toon shading: Step function for discrete shading levels
+    float toonShading = floor(diffuseFactor * 4.0) / 4.0;
+
+    // Combine with light and ambient
+    vec3 ambient = uAmbientColor * texColor.rgb;
+    vec3 diffuse = toonShading * uLightColor * texColor.rgb;
+
+    vec3 finalColor = ambient + diffuse;
+
+    gl_FragColor = vec4(finalColor, texColor.a);
+}
+`;
+export function createCustomToonMaterial(texture) {
+    return new THREE.RawShaderMaterial({
+        vertexShader: ToonVertexShader,
+        fragmentShader: ToonFragmentShader,
+        uniforms: {
+            uDiffuseMap: { value: texture },
+            uLightDirection: { value: new THREE.Vector3(-1, -1, -1).normalize() },
+            uLightColor: { value: new THREE.Color(1, 1, 1) },
+            uAmbientColor: { value: new THREE.Color(0.1, 0.1, 0.1) },
+            uShininess: { value: 16.0 }
+        }
+    });
+}
+
+export function createCustomPhongMaterial(texture) {
+    return new THREE.RawShaderMaterial({
+        vertexShader: PhongVertexShader,
+        fragmentShader: PhongFragmentShader,
+        uniforms: {
+            uDiffuseMap:      { value: texture },
+            uLightDirection:  { value: new THREE.Vector3(-1, -1, -1).normalize() },
+            uLightColor:      { value: new THREE.Color(1, 1, 1) },
+            uAmbientColor:    { value: new THREE.Color(0.1, 0.1, 0.1) },
+            uShininess:       { value: 16.0 }
+        }
+    });
+}
+
 export function loadMap(scene) {
     gltfLoader.load(
         'public/cityfinal.glb',
         function (gltf) {
             scene.add(gltf.scene);
             console.log('Model loaded successfully!');
+            gltf.scene.traverse((child) => {
+                if (child.isMesh && child.material && child.material.map) {
+                    // child.material.map is your base color (diffuse) texture
+                    const cityTexture = child.material.map;
+
+                    // Create a custom shader material that uses that texture
+                    const customCityMaterial = createCustomPhongMaterial(cityTexture);
+
+                    // Apply to this mesh
+                    child.material = customCityMaterial;
+                }
+            });
+
 
             // gltf.scene.traverse(function (child) {
             //     if (child.isMesh && child.name.includes("PLight")) {
@@ -72,6 +242,12 @@ export function loadSportCar(scene) {
                 carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
+                    if (child.isMesh && child.material && child.material.map) {
+                        const carTexture = child.material.map;
+
+                        const customCarMaterial = createCustomPhongMaterial(carTexture);
+                        child.material = customCarMaterial;
+                    }
                     if (child.isMesh){
                         child.castShadow = child.receiveShadow = true;
                         if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
