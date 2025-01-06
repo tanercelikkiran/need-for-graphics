@@ -806,9 +806,6 @@ function animate() {
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
 
-    console.log(carMesh)
-    console.log(wheelMeshes)
-
     stats.begin();
     try {
 
@@ -848,9 +845,9 @@ function main() {
     setCannonWorld();
     loadMap(scene);
     loadHDR(scene, renderer);
-    loadPorsche(scene).then(setCameraComposer).then(createVehicle);
+    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
     //loadBMW(scene).then(setCameraComposer).then(createVehicle);
-    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
+    loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
 main();
