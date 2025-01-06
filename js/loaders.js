@@ -29,29 +29,32 @@ const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
 
 export function loadMap(scene) {
-    gltfLoader.load(
-        'public/cityfinal.glb',
-        function (gltf) {
-            scene.add(gltf.scene);
-            console.log('Model loaded successfully!');
+    return new Promise((resolve) => {
+        gltfLoader.load(
+            'public/city.glb',
+            function (gltf) {
+                scene.add(gltf.scene);
+                console.log('Model loaded successfully!');
 
-            // gltf.scene.traverse(function (child) {
-            //     if (child.isMesh && child.name.includes("PLight")) {
-            //
-            //         // Mevcut konumda PointLight oluştur
-            //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
-            //         pointLight.position.copy(child.position);
-            //
-            //         // PointLight'ı sahneye ekle
-            //         scene.add(pointLight);
-            //     }
-            // });
-        },
-        null,
-        function (error) {
-            console.error('An error happened:', error);
-        }
-    );
+                // gltf.scene.traverse(function (child) {
+                //     if (child.isMesh && child.name.includes("PLight")) {
+                //
+                //         // Mevcut konumda PointLight oluştur
+                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
+                //         pointLight.position.copy(child.position);
+                //
+                //         // PointLight'ı sahneye ekle
+                //         scene.add(pointLight);
+                //     }
+                // });
+                resolve();
+            },
+            null,
+            function (error) {
+                console.error('An error happened:', error);
+            }
+        );
+    });
 }
 
 export function loadJeep(scene) {
@@ -154,7 +157,7 @@ export function loadJeep(scene) {
         } , null, function(error){
             console.error(error);
         });
-        loadWheels(scene, "public/jeep/jeepWheels.fbx" );
+        loadWheels(scene, "public/jeep/jeep.fbx" );
     });
 }
 

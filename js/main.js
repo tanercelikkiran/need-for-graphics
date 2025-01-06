@@ -32,7 +32,7 @@ let currentSteering    = 0;
 // ================================================
 // 3) TEMEL AYARLAR
 // ================================================
-let maxEngineForce = 4500;  // Sports cars have more powerful engines
+let maxEngineForce = 10000;  // Sports cars have more powerful engines
 let engineRamp     = 800;   // Faster throttle response
 let brakeForce     = 50;   // Stronger braking force
 
@@ -110,7 +110,7 @@ const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
-let selectedCarNo = 2;
+let selectedCarNo = 0;
 
 let porscheMass = 900;
 let porscheWheelOptions = {
@@ -151,7 +151,7 @@ let bmwWheelOptions = {
 let jeepMass = 1700;
 let jeepWheelOptions = {
     mass: 15,
-    radius: 0.35,
+    radius: 0.7,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
     suspensionRestLength: 0.3,
@@ -298,6 +298,23 @@ function setCannonWorld(){
     groundBody.aabbNeedsUpdate = true;
 
     cannonDebugger = new CannonDebugger(scene, world);
+}
+
+function createColliders(){
+    const scaleAdjust = 0.90;
+    const divisor = 2 / scaleAdjust;
+    scene.traverse(function(child){
+        if (child.isMesh && child.name.includes("Collider")){
+            child.visible = false;
+            const halfExtents = new CANNON.Vec3(child.scale.x/divisor, child.scale.y/divisor, child.scale.z/divisor);
+            const box = new CANNON.Box(halfExtents);
+            const body = new CANNON.Body({mass:0});
+            body.addShape(box);
+            body.position.copy(child.position);
+            body.quaternion.copy(child.quaternion);
+            world.addBody(body);
+        }
+    });
 }
 
 function createVehicle() {
@@ -800,6 +817,7 @@ function easeInOutSin(t) {
 //############################################################################################################
 
 function animate() {
+    cannonDebugger.update();
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
     lastTime = time;
@@ -843,11 +861,11 @@ function animate() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene);
+    loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
+    loadPorsche(scene).then(setCameraComposer).then(createVehicle);
     //loadBMW(scene).then(setCameraComposer).then(createVehicle);
-    loadJeep(scene).then(setCameraComposer).then(createVehicle);
+    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
 main();
