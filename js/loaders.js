@@ -78,6 +78,64 @@ export function loadMap(scene) {
     });
 }
 
+export function loadBMWintro(scene) {
+    fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
+
+        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
+        carLightBMW.position.set(0, 10 , 5);
+        scene.add(carLightBMW);
+
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                // Apply specific material changes for the BMW model if necessary
+                if (child.name.includes("Glass")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
+                // Add any specific light effects or emissive materials to parts of the car
+                if (child.name.includes("Rearlight")) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        color: 0x550000, // Kırmızı bir ana renk
+                        emissive: 0xff3333, // Emissive kırmızı ton
+                        emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
+                        roughness: 0.3, // Hafif yansımalar için
+                        metalness: 0.1, // Biraz metalik görünüm
+                    });
+
+                }
+                if (child.name.includes("Brakelight")) {
+                    emissiveLight(child, 0xff3333, 10);
+                }
+
+                if (child.name.includes("Headl")) {
+                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
+
+                }
+                if (child.name.includes("RearlightWindow")) {
+                    transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("platelight")){
+                    const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
+                    child.add(pointLight3);
+                }
+            }
+        });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
+    });
+}
+
 export function loadBike(scene) {
     fbxLoader.load('public/motorcycle/motorcycle.fbx', (object) => {
 

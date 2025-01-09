@@ -1,9 +1,9 @@
 import {
     loadMap,
-    loadSportCar,
     loadHDR,
     carMesh,
     wheelMeshes,
+    loadPorsche,
     loadBMW,
     loadJeep,
     loadBike,
@@ -985,12 +985,11 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    loadPorsche(scene).then(setCameraComposer).then(createVehicle);
-    //loadBMW(scene).then(setCameraComposer).then(createVehicle);
+    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
+    loadBMW(scene).then(setCameraComposer).then(createVehicle);
     //loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
 
 initIntro();
-
 // main();
