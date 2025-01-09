@@ -69,7 +69,7 @@ export function loadMap(scene) {
                 //         scene.add(pointLight);
                 //     }
             });
-
+            resolve();
         },
         null,
         function (error) {
