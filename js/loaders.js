@@ -2,13 +2,21 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 import {RGBELoader} from "three/addons/loaders/RGBELoader.js";
-import {emissiveLight, pointLight, spotlight} from "./material-properties.js";
-import {transparent, metallicPaint} from "./material-properties.js";
+import {
+    emissiveLight,
+    metallicPaint,
+    neonEmissiveMaterial,
+    pointLight,
+    spotlight,
+    transparent
+} from "./material-properties.js";
 import {isBraking, world} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];
-export {carMesh, wheelMeshes};
+let bikeMesh;
+let bikeWheelMeshes = [];
+export {carMesh, wheelMeshes , bikeMesh, bikeWheelMeshes};
 
 const manager = new THREE.LoadingManager();
 manager.onStart = () => {
@@ -36,24 +44,178 @@ export function loadMap(scene) {
                 scene.add(gltf.scene);
                 console.log('Model loaded successfully!');
 
-                // gltf.scene.traverse(function (child) {
+            gltf.scene.traverse(function (child) {
+                if (child.name.includes("A1")) {
+                    child.traverse((subChild) => {
+                        if (subChild.isMesh) {
+                            subChild.material = new THREE.MeshStandardMaterial({
+                                color: 0x00ff00,
+                                roughness: 0.2,
+                                metalness: 0.8,
+                            });
+                        }
+                    });
+                }
+                if (child.isMesh && child.name.includes("Collider")) {
+                    child.visible = false; // Make the child invisible
+                }
+
+
                 //     if (child.isMesh && child.name.includes("PLight")) {
                 //
                 //         // Mevcut konumda PointLight oluştur
-                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
+                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1);
                 //         pointLight.position.copy(child.position);
                 //
                 //         // PointLight'ı sahneye ekle
                 //         scene.add(pointLight);
                 //     }
-                // });
-                resolve();
-            },
-            null,
-            function (error) {
-                console.error('An error happened:', error);
+            });
+            resolve();
+        },
+        null,
+        function (error) {
+            console.error('An error happened:', error);
+        });
+    });
+}
+
+export function loadBMWintro(scene) {
+    fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
+
+        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
+        carLightBMW.position.set(0, 10 , 5);
+        scene.add(carLightBMW);
+
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                // Apply specific material changes for the BMW model if necessary
+                if (child.name.includes("Glass")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+
+                // Add any specific light effects or emissive materials to parts of the car
+                if (child.name.includes("Rearlight")) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        color: 0x550000, // Kırmızı bir ana renk
+                        emissive: 0xff3333, // Emissive kırmızı ton
+                        emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
+                        roughness: 0.3, // Hafif yansımalar için
+                        metalness: 0.1, // Biraz metalik görünüm
+                    });
+
+                }
+                if (child.name.includes("Brakelight")) {
+                    emissiveLight(child, 0xff3333, 10);
+                }
+
+                if (child.name.includes("Headl")) {
+                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
+
+                }
+                if (child.name.includes("RearlightWindow")) {
+                    transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("HeadlightWindow")) {
+                    transparent(child.material); // Example of applying a transparent material to a part
+                }
+                if (child.name.includes("platelight")){
+                    const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
+                    child.add(pointLight3);
+                }
             }
-        );
+        });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
+    });
+}
+
+export function loadBike(scene) {
+    return new Promise((resolve) => {
+        fbxLoader.load('public/motorcycle/motorWoutwheels.fbx', (object) => {
+            scene.add(object);
+            bikeMesh = object;
+
+            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
+            carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
+            bikeMesh.add(carCamera);
+
+            scene.userData.activeCamera = carCamera;
+
+            const carLightmotor = new THREE.PointLight(0xFFF0CC, 50, 500);
+            carLightmotor.position.set(0, 10 , 5);
+            scene.add(carLightmotor);
+
+            object.traverse(function(child) {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.name.includes("chassis_chassis")){
+                        metallicPaint(child.material,0xFFFFFF);
+                    }
+                    if (child.name.includes("chassis_mate")){
+                        metallicPaint(child.material,0xF8CD02);
+                    }
+
+                    if (child.name.includes("brakelight")) {
+                        const originalMaterial = child.material;
+                        world.addEventListener("postStep", () => {
+                            if (isBraking) {
+                                emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
+                            }else{
+                                child.material = originalMaterial;
+                            }
+                        });
+                    }
+                    if (child.name.includes("rearlight")) {
+                        emissiveLight(child, 0xFFFFFF, 2);
+                    }
+
+                    if (child.name.includes("headlightSpot")) {
+                        // Example for emissive lighting effect
+
+                        const headlightSpotMotor = spotlight(
+                            new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                            new THREE.Vector3(0, -0.05, -1)
+                        );
+
+                        // Add it to the scene
+                        scene.add(headlightSpotMotor);
+                        scene.add(headlightSpotMotor.target);
+
+                        // Now each physics step, update the spotlight so it "follows" this child
+                        world.addEventListener("postStep", () => {
+                            const updatedPositionMotor = child.getWorldPosition(new THREE.Vector3());
+                            const updatedDirectionMotor = new THREE.Vector3(0, -0.1, -1); // Varsayılan ileri yön
+                            const updatedQuatMotor = child.getWorldQuaternion(new THREE.Quaternion());
+                            updatedDirectionMotor.applyQuaternion(updatedQuatMotor);
+
+                            headlightSpotMotor.updatePositionAndDirection(
+                                updatedPositionMotor,
+                                updatedPositionMotor.clone().add(updatedDirectionMotor)
+                            );
+                        });
+                    }
+                    if (child.name.includes("headlight")) {
+                        emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
+
+                    }
+                }
+            });
+            resolve();
+        } , null, function(error){
+            console.error(error);
+        });
+        loadBikeWheels(scene, "public/motorcycle/motorWheels.fbx" );
     });
 }
 
@@ -377,7 +539,6 @@ export function loadPorsche(scene) {
 export function loadWheels(scene, wheelPath) {
     fbxLoader.load(wheelPath, (object) => {
         object.traverse((child) => {
-            console.log(child)
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
@@ -393,6 +554,27 @@ export function loadWheels(scene, wheelPath) {
                 }
                 if (child.name.includes("wheel-RB")) {
                     wheelMeshes[3] = child;
+                }
+            }
+        });
+        scene.add(object);
+    } , null, function(error){
+        console.error(error);
+    });
+}
+
+export function loadBikeWheels(scene, wheelPath) {
+    fbxLoader.load(wheelPath, (object) => {
+        object.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                if (child.name.includes("wheel-F")) {
+                    bikeWheelMeshes[0] = child;
+                }
+                if (child.name.includes("wheel-B")) {
+                    bikeWheelMeshes[1] = child;
                 }
             }
         });
