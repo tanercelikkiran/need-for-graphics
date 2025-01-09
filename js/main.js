@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes} from './loaders.js';
+import {loadMap, loadPorsche, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -7,16 +7,18 @@ import CannonDebugger from "cannon-es-debugger";
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let scene, renderer, composer, stats;
-export let world, cannonDebugger, vehicle, carSize;
+export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
 // ================================================
 let isAccelerating   = false;
-let isBraking        = false;
+isBraking        = false;
 let isSteeringLeft   = false;
 let isSteeringRight  = false;
 let isHandBraking    = false;
@@ -30,9 +32,9 @@ let currentSteering    = 0;
 // ================================================
 // 3) TEMEL AYARLAR
 // ================================================
-let maxEngineForce = 1500;  // Sports cars have more powerful engines
-let engineRamp     = 300;   // Faster throttle response
-let brakeForce     = 500;   // Stronger braking force
+let maxEngineForce = 10000;  // Sports cars have more powerful engines
+let engineRamp     = 800;   // Faster throttle response
+let brakeForce     = 50;   // Stronger braking force
 
 // ================================================
 // 4) DİREKSİYON VE DAMPING AYARLARI
@@ -59,28 +61,29 @@ let brakeSteerMultiplier = 0.7;    // Slightly more forgiving during braking
 // ================================================
 let handbrakeForce = 400;          // Stronger handbrake for drifting
 let driftSlip      = 0.7;          // Lower friction for drifting
-let normalSlip     = 4.0;          // Slightly more slippery tires for agility
+let normalSlip     = 4.8;          // Slightly more slippery tires for agility
 
 // ================================================
 // 8) KAMERA POZİSYONLARI - DİKEY HAREKET
 // ================================================
-let cameraStartZ            = 6.5;   // Adjusted for a more dynamic view
+let cameraStartZ            = 6.3;   // Adjusted for a more dynamic view
 let cameraTargetZ;                       // Anlık hedef Z (dinamik)
-let maxCameraTargetZ        = 8.0;   // Camera zooms out further
-let minCameraTargetZ        = 6.8;
-let brakingCameraZ          = 5.5;   // Closer view during braking
+let maxCameraTargetZ        = 7.8;   // Camera zooms out further
+let minCameraTargetZ        = 6.6;
+let brakingCameraZ          = 5.3;   // Closer view during braking
 let rearingCameraZ          = 5.8;
-let backingCameraZ          = 7.0;
-let speedFactor             = 0.08;  // Faster camera zooming
-let cameraBackZ             = 6.3;   // Slightly forward position on stop
+let backingCameraZ          = 6.8;
+let speedFactor             = 0.03;  // Faster camera zooming
+let cameraBackZ             = 6.0;   // Slightly forward position on stop
 let cameraAnimationDuration3 = 1500; // Faster animations
-let cameraAnimationDuration2 = 400;
+let cameraAnimationDuration2 = 500;
 let cameraAnimationDuration1 = 800;
 let cameraAnimationStartTime = null; // Animasyon için referans zaman
 let isMovingForward         = false;
 let isMovingBackward        = false;
 let isBackingMorvard        = false; // (Kod içinde özel durumu varsa)
 let isMovingToIdle          = false;
+let isBrakingCamera         = false;
 let isStopped               = false;
 let isBrakingPhase          = 0;     // Fren aşamasını izleme
 let currentCameraZ          = cameraStartZ;
@@ -96,9 +99,72 @@ let cameraRightTargetX       = 1.2;
 let cameraAnimationStartTimeX = null;
 let currentCameraX           = cameraStartX;
 
+// ================================================
+// 10) TOP SPEED VE İVMELENME AYARLARI
+// ================================================
+let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
+let rearMaxSpeed = 70 / 3.6;
+let engineDropFactor = 0.7;
+
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
+
+let selectedCarNo = 0;
+
+let porscheMass = 900;
+let porscheWheelOptions = {
+    mass: 15,
+    radius: 0.35,
+    directionLocal: new CANNON.Vec3(0, -1, 0),
+    suspensionStiffness: 30,
+    suspensionRestLength: 0.3,
+    frictionSlip: 5,
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.01,
+    axleLocal: new CANNON.Vec3(-1, 0, 0),
+    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
+    maxSuspensionTravel: 0.3,
+    customSlidingRotationalSpeed: -30
+}
+
+let bmwMass = 1100;
+let bmwWheelOptions = {
+    mass: 15,
+    radius: 0.35,
+    directionLocal: new CANNON.Vec3(0, -1, 0),
+    suspensionStiffness: 30,
+    suspensionRestLength: 0.3,
+    frictionSlip: 5,
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.01,
+    axleLocal: new CANNON.Vec3(-1, 0, 0),
+    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
+    maxSuspensionTravel: 0.3,
+    customSlidingRotationalSpeed: -30
+}
+
+let jeepMass = 1700;
+let jeepWheelOptions = {
+    mass: 15,
+    radius: 0.7,
+    directionLocal: new CANNON.Vec3(0, -1, 0),
+    suspensionStiffness: 30,
+    suspensionRestLength: 0.3,
+    frictionSlip: 5,
+    dampingRelaxation: 2.3,
+    dampingCompression: 4.4,
+    maxSuspensionForce: 100000,
+    rollInfluence: 0.01,
+    axleLocal: new CANNON.Vec3(-1, 0, 0),
+    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
+    maxSuspensionTravel: 0.3,
+    customSlidingRotationalSpeed: -30
+}
 
 function init() {
     scene = new THREE.Scene();
@@ -114,6 +180,10 @@ function init() {
     const renderScene = new RenderPass(scene, null);
     composer = new EffectComposer(renderer);
     composer.addPass(renderScene);
+
+    const fxaaPass = new ShaderPass(FXAAShader);
+    fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+    composer.addPass(fxaaPass);
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -230,15 +300,52 @@ function setCannonWorld(){
     cannonDebugger = new CannonDebugger(scene, world);
 }
 
+function createColliders(){
+    const scaleAdjust = 0.90;
+    const divisor = 2 / scaleAdjust;
+    scene.traverse(function(child){
+        if (child.isMesh && child.name.includes("Collider")){
+            child.visible = false;
+            const halfExtents = new CANNON.Vec3(child.scale.x/divisor, child.scale.y/divisor, child.scale.z/divisor);
+            const box = new CANNON.Box(halfExtents);
+            const body = new CANNON.Body({mass:0});
+            body.addShape(box);
+            body.position.copy(child.position);
+            body.quaternion.copy(child.quaternion);
+            world.addBody(body);
+        }
+    });
+}
+
 function createVehicle() {
+
+    let vehicleMass = 0;
+    let wheelOptions = {};
+
+    switch (selectedCarNo) {
+        case 0:
+            vehicleMass = porscheMass;
+            wheelOptions = porscheWheelOptions;
+            break;
+        case 1:
+            vehicleMass = bmwMass;
+            wheelOptions = bmwWheelOptions;
+            break;
+        case 2:
+            vehicleMass = jeepMass;
+            wheelOptions = jeepWheelOptions;
+            break;
+    }
+
     carSize = new THREE.Vector3();
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
     boundingBox.getSize(carSize);
 
     const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.1, carSize.z / 2));
     const chassisBody = new CANNON.Body({
-        mass: 1500,
+        mass: vehicleMass,
     });
+
     const chassisOffset = new CANNON.Vec3(0, 0.2, 0);
     chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
@@ -252,23 +359,6 @@ function createVehicle() {
         indexUpAxis: 1,
         indexForwardAxis: 2
     });
-
-    const wheelOptions = {
-        mass: 15,
-        radius: 0.35,
-        directionLocal: new CANNON.Vec3(0, -1, 0),
-        suspensionStiffness: 30,
-        suspensionRestLength: 0.3,
-        frictionSlip: 5,
-        dampingRelaxation: 2.3,
-        dampingCompression: 4.4,
-        maxSuspensionForce: 100000,
-        rollInfluence: 0.01,
-        axleLocal: new CANNON.Vec3(-1, 0, 0),
-        chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
-        maxSuspensionTravel: 0.3,
-        customSlidingRotationalSpeed: -30
-    }
 
     let wheelCenter = new THREE.Vector3();
     let wheelSize = new THREE.Vector3();
@@ -318,12 +408,6 @@ function createVehicle() {
                 wheelBodies[index].threemesh.position.copy(wheelBody.position);
                 wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
             }
-
-            switch (index) {
-                case 2:
-                    //rotation
-                    wheelBodies[index].threemesh.rotation.z += -Math.PI;
-            }
         });
     });
 
@@ -337,6 +421,7 @@ function updateVehicleControls() {
     const velocity = vehicle.chassisBody.velocity;
     // Sadece XZ düzlemindeki hızı (m/s)
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+
 
     //---------------------------
     // 2) Direksiyon oranını hesapla
@@ -391,12 +476,20 @@ function updateVehicleControls() {
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
         // Basitçe "geri" yaklaşımlardan biri:
+
         currentEngineForce = Math.max(
             currentEngineForce - engineRamp,
-            -maxEngineForce / 2
-        );
+            -maxEngineForce*1
+        )
     } else {
         // Ne gaz ne fren
+        const dampingFactor = 0.995; // Hızı azaltmak için katsayı
+        const velocity = vehicle.chassisBody.velocity;
+        vehicle.chassisBody.velocity.set(
+            velocity.x * dampingFactor,
+            velocity.y,
+            velocity.z * dampingFactor
+        );
         if (currentEngineForce > 0) {
             currentEngineForce = Math.max(currentEngineForce - engineRamp, 0);
         } else {
@@ -407,9 +500,11 @@ function updateVehicleControls() {
     //---------------------------
     // 4) Fren Uygula?
     //---------------------------
+
+
     let brakingValue = 0;
     // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
-    if (isBraking && currentEngineForce > 0) {
+    if (isBraking > 0) {
         brakingValue = brakeForce;
     }
 
@@ -432,6 +527,27 @@ function updateVehicleControls() {
     }
 
     //---------------------------
+    // 5.5) İvmelenme
+    //---------------------------
+    if (isBraking>0) {
+        if (speed >= rearMaxSpeed) {
+            currentEngineForce = 0;
+        } else {
+            const speedRatio = speed / rearMaxSpeed;
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
+        }
+    }else {
+        if (speed >= maxSpeed) {
+            currentEngineForce = 0;
+        } else {
+            const speedRatio = speed / maxSpeed;
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
+        }
+    }
+
+    //---------------------------
     // 6) Araca Uygula
     //---------------------------
     // Frenleri sıfırla
@@ -442,7 +558,7 @@ function updateVehicleControls() {
     // (dört tekerleğe fren yapmak istiyorsan 2 ve 3. index'e de setBrake uygula)
 
     // 3) Normal fren (ör. S tuşu) varsa ön tekerleklere uygula
-    if (brakingValue > 0) {
+    if (isBraking) {
         vehicle.setBrake(brakingValue, 0);  // front-left
         vehicle.setBrake(brakingValue, 1);  // front-right
     }
@@ -463,7 +579,6 @@ function updateVehicleControls() {
 }
 
 function updateCamera() {
-
     document.addEventListener('keydown', (event) => {
         const activeCamera = scene.userData.activeCamera;
         if (activeCamera) {
@@ -472,7 +587,7 @@ function updateCamera() {
                     if (!isMovingForward) {
                         currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
                         isMovingForward = true;
-                        isBraking = false;
+                        isBrakingCamera = false;
                         isMovingBackward = false;
                         isMovingToIdle = false;
                         isBackingMorvard = false;
@@ -480,10 +595,10 @@ function updateCamera() {
                     }
                     break;
                 case 's':
-                    if (!isBraking) {
+                    if (!isBrakingCamera) {
                         currentCameraZ = activeCamera.position.z;
                         isMovingForward = false;// Mevcut pozisyonu kaydet
-                        isBraking = true;
+                        isBrakingCamera = true;
                         isMovingBackward = false;
                         isMovingToIdle = false;
                         isBackingMorvard = false;
@@ -520,7 +635,7 @@ function updateCamera() {
                 isMovingForward = false;
                 isMovingBackward = true;
                 isMovingToIdle = true;//
-                isBraking = false;
+                isBrakingCamera = false;
                 isBackingMorvard = false;
                 cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
                 break;
@@ -532,7 +647,7 @@ function updateCamera() {
                 isMovingForward = false;
                 isMovingBackward = false;
                 isMovingToIdle = true;//
-                isBraking = false;
+                isBrakingCamera = false;
                 isBackingMorvard = true;
                 isBrakingPhase=0;
                 cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
@@ -617,10 +732,9 @@ function updateCamera() {
                 } catch (e) {
                     console.error("Kamera hıza göre güncellenemedi:", e);
                 }
-            } else if (isBraking) {
+            } else if (isBrakingCamera) {
                 try {
                     if (isBrakingPhase===0) {
-                        const velocity = vehicle.chassisBody.velocity.length();
                         const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
                         const easeT = easeInOutSin(t);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
@@ -641,7 +755,7 @@ function updateCamera() {
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, rearingCameraZ, easeT);
 
                         if (t === 1) {
-                            isBraking = false; // Animasyon tamamlandı
+                            isBrakingCamera = false; // Animasyon tamamlandı
                             cameraAnimationStartTime = null;
                         }
                     }
@@ -703,11 +817,13 @@ function easeInOutSin(t) {
 //############################################################################################################
 
 function animate() {
+    cannonDebugger.update();
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
+
     stats.begin();
     try {
 
@@ -718,8 +834,9 @@ function animate() {
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
-        const velocity = vehicle.chassisBody.velocity.length();
-        if (velocity > 0 && velocity < 0.02 && !isMovingForward && !isMovingBackward) {
+        const velocity = vehicle.chassisBody.velocity;
+        const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
                 isStopped = true;
@@ -744,10 +861,11 @@ function animate() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene);
+    loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    loadSportCar(scene).then(setCameraComposer).then(createVehicle);
+    loadPorsche(scene).then(setCameraComposer).then(createVehicle);
+    //loadBMW(scene).then(setCameraComposer).then(createVehicle);
+    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
-
 main();
