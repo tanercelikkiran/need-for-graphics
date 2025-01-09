@@ -301,7 +301,7 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    const scaleAdjust = 0.90;
+    const scaleAdjust = 1.5;
     const divisor = 2 / scaleAdjust;
     scene.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
