@@ -1085,9 +1085,9 @@ function main() {
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
     //loadPorsche(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
-    //loadBMW(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
+    loadBMW(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
     //loadJeep(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
-    loadBike(scene).then(setCameraComposer).then(createBikeVehicle).then(createOrbitControls);
+    //loadBike(scene).then(setCameraComposer).then(createBikeVehicle).then(createOrbitControls);
     animate();
 }
 

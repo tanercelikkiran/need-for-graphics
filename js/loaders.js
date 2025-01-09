@@ -141,8 +141,8 @@ export function loadBMWintro(scene) {
 export function loadBike(scene) {
     return new Promise((resolve) => {
         fbxLoader.load('public/motorcycle/motorWoutwheels.fbx', (object) => {
-            scene.add(object);
             bikeMesh = object;
+            scene.add(object);
 
             const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
             carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
