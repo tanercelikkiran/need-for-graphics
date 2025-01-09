@@ -9,6 +9,14 @@ export function transparent(material, color) {
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
 
+export function neonEmissiveMaterial(material, color, intensity) {
+    material.color.set(color);
+    material.emissive = new THREE.Color(color);
+    material.emissiveIntensity = intensity;
+    material.roughness = 0.2; // Slight roughness for light diffusion
+    material.metalness = 0.8; // Slight metallic effect for glow reflection
+}
+
 export function metallicPaint(material) {
     material.roughness = 0.3; // Cam yüzeyi pürüzsüz olmalı
     material.metalness = 1.0; // Cam için metalik etki gerekmez
