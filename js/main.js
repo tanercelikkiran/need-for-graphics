@@ -1,4 +1,14 @@
-import {loadMap, loadPorsche, loadHDR, carMesh, wheelMeshes, loadBMW, loadJeep} from './loaders.js';
+import {
+    loadMap,
+    loadSportCar,
+    loadHDR,
+    carMesh,
+    wheelMeshes,
+    loadBMW,
+    loadJeep,
+    loadBike,
+    loadBMWintro
+} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -10,8 +20,10 @@ import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {metallicPaint} from "./material-properties.js";
 
-export let scene, renderer, composer, stats;
+export let scene, sceneIntro, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 // ================================================
@@ -32,7 +44,7 @@ let currentSteering    = 0;
 // ================================================
 // 3) TEMEL AYARLAR
 // ================================================
-let maxEngineForce = 10000;  // Sports cars have more powerful engines
+let maxEngineForce = 4500;  // Sports cars have more powerful engines
 let engineRamp     = 800;   // Faster throttle response
 let brakeForce     = 50;   // Stronger braking force
 
@@ -98,6 +110,9 @@ let cameraLeftTargetX        = -1.2; // Wider camera movement for dramatic effec
 let cameraRightTargetX       = 1.2;
 let cameraAnimationStartTimeX = null;
 let currentCameraX           = cameraStartX;
+let cameraStartY= 2.0;
+let currentCameraY           = cameraStartY;
+
 
 // ================================================
 // 10) TOP SPEED VE İVMELENME AYARLARI
@@ -105,6 +120,10 @@ let currentCameraX           = cameraStartX;
 let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
 let rearMaxSpeed = 70 / 3.6;
 let engineDropFactor = 0.7;
+
+let orbitControls;
+
+
 
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
@@ -259,6 +278,12 @@ function init() {
     });
 
 }
+function createOrbitControls() {
+    if (scene.userData.activeCamera) {
+        orbitControls = new OrbitControls(scene.userData.activeCamera, renderer.domElement);
+        orbitControls.enabled = false; // Varsayılan olarak kapalı
+    }
+}
 
 function setCannonWorld(){
     world = new CANNON.World();
@@ -345,7 +370,6 @@ function createVehicle() {
     const chassisBody = new CANNON.Body({
         mass: vehicleMass,
     });
-
     const chassisOffset = new CANNON.Vec3(0, 0.2, 0);
     chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
@@ -421,7 +445,6 @@ function updateVehicleControls() {
     const velocity = vehicle.chassisBody.velocity;
     // Sadece XZ düzlemindeki hızı (m/s)
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-
 
     //---------------------------
     // 2) Direksiyon oranını hesapla
@@ -586,6 +609,7 @@ function updateCamera() {
                 case 'w':
                     if (!isMovingForward) {
                         currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                        currentCameraY = activeCamera.position.y;
                         isMovingForward = true;
                         isBrakingCamera = false;
                         isMovingBackward = false;
@@ -597,6 +621,7 @@ function updateCamera() {
                 case 's':
                     if (!isBrakingCamera) {
                         currentCameraZ = activeCamera.position.z;
+                        currentCameraY = activeCamera.position.y;
                         isMovingForward = false;// Mevcut pozisyonu kaydet
                         isBrakingCamera = true;
                         isMovingBackward = false;
@@ -630,6 +655,7 @@ function updateCamera() {
             case 'w':
                 if (activeCamera) {
                     currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                    currentCameraY = activeCamera.position.y;
                 }
                 // Animasyonu başlat
                 isMovingForward = false;
@@ -642,6 +668,7 @@ function updateCamera() {
             case 's':
                 if (activeCamera) {
                     currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
+                    currentCameraY = activeCamera.position.y;
                 }
                 // Animasyonu başlat
                 isMovingForward = false;
@@ -673,7 +700,7 @@ function updateCamera() {
         const elapsedTime = currentTime - cameraAnimationStartTime;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera) {
+        if (activeCamera && orbitControls.enabled===false) {
             if (isMovingBackward) {
                 // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
                 const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
@@ -718,6 +745,7 @@ function updateCamera() {
 
                     if (elapsedTime >= cameraAnimationDuration3) {
                         // Animasyon tamamlandıktan sonra da hıza bağlı güncelleme
+                        activeCamera.position.y = THREE.MathUtils.lerp(activeCamera.position.y, cameraStartY, 0.5);
                         activeCamera.position.z = THREE.MathUtils.lerp(
                             activeCamera.position.z,
                             cameraTargetZ,
@@ -727,6 +755,7 @@ function updateCamera() {
                         // Animasyon sırasında
                         const t = Math.min(elapsedTime / cameraAnimationDuration3, 1);
                         const easeT = easeInOutSin(t);
+                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraTargetZ, easeT);
                     }
                 } catch (e) {
@@ -737,6 +766,7 @@ function updateCamera() {
                     if (isBrakingPhase===0) {
                         const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
                         const easeT = easeInOutSin(t);
+                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
                         activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
 
                         if (t === 1) {
@@ -770,7 +800,7 @@ function updateCamera() {
         const elapsedTimeX = currentTime - cameraAnimationStartTimeX;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera) {
+        if (activeCamera && orbitControls.enabled===false) {
             if (isMovingLeft) {
                 const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
                 const easeT = easeInOutSin(t);
@@ -823,7 +853,6 @@ function animate() {
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
-
     stats.begin();
     try {
 
@@ -858,6 +887,99 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
+document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'o') {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            orbitControls.enabled = !orbitControls.enabled;
+            if (orbitControls.enabled) {
+                console.log("OrbitControls etkinleştirildi.");
+            } else {
+                console.log("OrbitControls devre dışı bırakıldı.");
+            }
+        }
+    }
+});
+
+
+function initIntro() {
+    sceneIntro = new THREE.Scene();
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    try {
+        loadBMWintro(sceneIntro);
+    } catch (error) {
+        console.error("Model yükleme sırasında hata oluştu:", error);
+    }
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Beyaz ışık, orta yoğunluk
+    sceneIntro.add(ambientLight);
+
+    // Kamerayı ekleyin
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(-5, 3, 0);
+    camera.lookAt(0, 200, 0);
+    sceneIntro.userData.activeCamera = camera;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enableZoom = false;
+
+    function animateIntro() {
+        controls.update();
+        renderer.render(sceneIntro, camera);
+        requestAnimationFrame(animateIntro);
+    }
+
+    animateIntro();
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            // Kaynakları temizleme
+            sceneIntro.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneIntro.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            main(); // Ana sahneyi başlat
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'm') {
+            // `sceneIntro` sahnesindeki tüm nesneleri dolaş
+            sceneIntro.traverse((object) => {
+                if (object.isMesh && object.material) {
+                    if (object.material.name === 'BMW:carpaint1') {
+                        // Materyalin rengini değiştir
+                        const randomColor = Math.random() * 0xffffff; // Rastgele renk
+                        metallicPaint(object.material, randomColor);
+
+                    }
+                }
+            });
+        }
+    });
+}
+
 function main() {
     init();
     setCannonWorld();
@@ -868,4 +990,7 @@ function main() {
     //loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
-main();
+
+initIntro();
+
+// main();
