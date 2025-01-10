@@ -197,7 +197,7 @@ export function loadJeep(scene) {
                         new THREE.Vector3(0, 0, 0), // we'll override in postStep
                         new THREE.Vector3(0, -0.05, -1)
                     );
-
+                    headlightSpotJeep.castShadow=true;
                     // Add it to the scene
                     scene.add(headlightSpotJeep);
                     scene.add(headlightSpotJeep.target);
@@ -244,10 +244,7 @@ export function loadJeep(scene) {
 
 export function loadBMWintro(scene) {
     fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
-
-        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
-        carLightBMW.position.set(0, 10 , 5);
-        scene.add(carLightBMW);
+        
 
         object.traverse(function(child) {
             if (child.isMesh) {
@@ -356,6 +353,7 @@ export function loadBMW(scene) {
                         new THREE.Vector3(0, 0, 0), // we'll override in postStep
                         new THREE.Vector3(0, -0.05, -1)
                     );
+                    headlightSpotBMW.castShadow=true;
 
                     // Add it to the scene
                     scene.add(headlightSpotBMW);
@@ -439,6 +437,7 @@ export function loadSportCar(scene) {
                                 new THREE.Vector3(0, 0, 0), // we'll override in postStep
                                 new THREE.Vector3(0, 0, -10)
                             );
+                            headlightSpot.castShadow=true;
 
                             // Add it to the scene
                             scene.add(headlightSpot);
@@ -535,7 +534,7 @@ export function loadSportWheels(scene) {
 export function loadHDR(scene) {
     rgbeLoader.load('public/hdri.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = null;
-        scene.background = null;
+        scene.environment = texture;
+        scene.background = texture;
     });
 }
