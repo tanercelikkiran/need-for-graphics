@@ -113,7 +113,6 @@ let currentCameraX           = cameraStartX;
 let cameraStartY= 2.0;
 let currentCameraY           = cameraStartY;
 
-
 // ================================================
 // 10) TOP SPEED VE İVMELENME AYARLARI
 // ================================================
@@ -122,8 +121,6 @@ let rearMaxSpeed = 70 / 3.6;
 let engineDropFactor = 0.7;
 
 let orbitControls;
-
-
 
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
@@ -278,6 +275,7 @@ function init() {
     });
 
 }
+
 function createOrbitControls() {
     if (scene.userData.activeCamera) {
         orbitControls = new OrbitControls(scene.userData.activeCamera, renderer.domElement);
@@ -326,12 +324,10 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    const scaleAdjust = 1.5;
-    const divisor = 2 / scaleAdjust;
     scene.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
             child.visible = false;
-            const halfExtents = new CANNON.Vec3(child.scale.x/divisor, child.scale.y/divisor, child.scale.z/divisor);
+            const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
             const box = new CANNON.Box(halfExtents);
             const body = new CANNON.Body({mass:0});
             body.addShape(box);
@@ -340,6 +336,16 @@ function createColliders(){
             world.addBody(body);
         }
     });
+}
+
+function getUpAxis(body) {
+    const localUp = new CANNON.Vec3(0, 1, 0); // Local up in body space
+    let worldUp = new CANNON.Vec3(); // Placeholder for world up
+
+    body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
+    console.log(worldUp);
+
+    return worldUp; // This is the normalized up axis
 }
 
 function createVehicle() {
@@ -860,7 +866,8 @@ function animate() {
         updateCamera();
 
         const chassisBody = vehicle.chassisBody;
-        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
+        let worldUp = getUpAxis(chassisBody);
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity;
