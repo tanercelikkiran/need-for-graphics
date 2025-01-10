@@ -107,7 +107,7 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
     renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
-    renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
+    renderer.toneMappingExposure = 0.2; // Tonemapping parlaklık ayarı
     renderer.shadowMap.enabled = false;
     document.body.appendChild(renderer.domElement);
 
@@ -117,11 +117,11 @@ function init() {
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.8,
         0.4,
+        1,
         0.2
     );
-   // composer.addPass(bloomPass);
+    composer.addPass(bloomPass);
 
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     skyGeo.scale(-1, 1, 1); // flip faces inward if needed

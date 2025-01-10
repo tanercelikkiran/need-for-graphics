@@ -403,14 +403,14 @@ void main() {
 }
 `;
 
-export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.5, 0.5, 0.5)) {
+export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4)) {
     return new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         vertexShader: FogVertexShader,
         fragmentShader: FogFragmentShader,
         uniforms: {
             uDiffuseMap: { value: diffuseMap },
-            uFogNear: { value: 12.0 },
+            uFogNear: { value: 1.0 },
             uFogFar: { value: 50.0 },
             uFogColor: { value: fogColor }
         }
@@ -687,14 +687,12 @@ export function loadSportCar(scene) {
                         }
                     }
                 });
+                resolve();
             },
             null, function(error){
                 console.error(error);
             });
         loadSportWheels(scene);
-        setTimeout(() => {
-            resolve();
-        }, 8000);
     });
 }
 
