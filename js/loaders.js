@@ -42,6 +42,10 @@ export function loadMap(scene) {
             console.log('Model loaded successfully!');
 
             gltf.scene.traverse(function (child) {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
                 if (child.name.includes("A1")) {
                     child.traverse((subChild) => {
                         if (subChild.isMesh) {
@@ -405,9 +409,9 @@ export function loadSportCar(scene) {
 
                 scene.userData.activeCamera = carCamera;
 
-                const carLight = new THREE.PointLight(0xFFF0CC, 50, 500);
-                carLight.position.set(0, 10 , 5);
-                carMesh.add(carLight);
+                // const carLight = new THREE.PointLight(0xFFF0CC, 50, 500);
+                // carLight.position.set(0, 10 , 5);
+                // carMesh.add(carLight);
 
                 carMesh.traverse( function(child){
                     if (child.isMesh){
@@ -531,8 +535,7 @@ export function loadSportWheels(scene) {
 export function loadHDR(scene) {
     rgbeLoader.load('public/hdri.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        scene.background = texture;
-        scene.environment.intensity = 0.2;
+        scene.environment = null;
+        scene.background = null;
     });
 }

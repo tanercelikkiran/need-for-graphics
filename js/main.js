@@ -130,15 +130,49 @@ const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
+function addLights(scene) {
+    // Ambient Light (genel yumuşak aydınlatma)
+
+    // Directional Light (güneş ışığı etkisi)
+    const sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    sunLight.position.set(1000, 2000, 1000); // Güneşin pozisyonu (X, Y, Z)
+    sunLight.castShadow = true;
+
+    // Gölgelerin çözünürlüğü ve sınırları
+    sunLight.shadow.mapSize.width = 2048; // Genişlik
+    sunLight.shadow.mapSize.height = 2048; // Yükseklik
+    sunLight.shadow.camera.near = 0.05; // En yakın mesafe
+    sunLight.shadow.camera.far = 3000; // En uzak mesafe
+
+    // Gölgeler için kamera sınırları (örneğin yer seviyesinde)
+    sunLight.shadow.camera.left = -300;
+    sunLight.shadow.camera.right = 300;
+    sunLight.shadow.camera.top = 300;
+    sunLight.shadow.camera.bottom = -300;
+
+    sunLight.shadow.bias = -0.0001;
+    sunLight.shadow.radius = 2;
+
+    scene.add(sunLight);
+
+    // Hemisphere Light (gökyüzü ve zemin etkisi)
+    const hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4);
+    hemisphereLight.position.set(0, 50, 0);
+    scene.add(hemisphereLight);
+}
+
 function init() {
     scene = new THREE.Scene();
+
+    addLights(scene);
 
     renderer = new THREE.WebGLRenderer({antialias: false});
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
     renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
     renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true; // Gölge haritalarını etkinleştir
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     const renderScene = new RenderPass(scene, null);
@@ -169,6 +203,7 @@ function init() {
         }
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
@@ -922,7 +957,7 @@ function main() {
 
     //loadBMW(scene);
     //loadJeep(scene);
-    loadBike(scene);
+    //loadBike(scene);
     animate();
 
 }
