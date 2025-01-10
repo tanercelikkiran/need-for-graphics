@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, createCustomPhongMaterial, createCustomToonMaterial, createFogMaterial} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, createCustomPhongMaterial, createFogMaterial} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -726,7 +726,7 @@ function switchMaterials(usePhong) {
             if (usePhong) {
                 child.material = createCustomPhongMaterial(texture);
             } else {
-                child.material = createCustomToonMaterial(texture);
+                child.material = createFogMaterial(texture);
             }
         }
     });

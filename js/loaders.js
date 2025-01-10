@@ -102,264 +102,6 @@ void main() {
 }
 `;
 
-const ToonVertexShader = `
-precision mediump float;
-
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec2 uv;
-
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat3 normalMatrix;
-
-varying vec3 vNormal;
-varying vec2 vUV;
-
-void main() {
-    vNormal = normalMatrix * normal;
-    vUV = uv;
-
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * mvPosition;
-}
-`;
-
-const ToonFragmentShader = `
-precision mediump float;
-
-uniform sampler2D uDiffuseMap;
-uniform vec3 uLightDirection;
-uniform vec3 uLightColor;
-uniform vec3 uAmbientColor;
-uniform float uShininess;
-
-varying vec3 vNormal;
-varying vec2 vUV;
-
-void main() {
-    // Sample the texture
-    vec4 texColor = texture2D(uDiffuseMap, vUV);
-
-    // Calculate basic lighting
-    vec3 normal = normalize(vNormal);
-    float diffuseFactor = max(dot(normal, -uLightDirection), 0.0);
-
-    // Toon shading: Step function for discrete shading levels
-    float toonShading = floor(diffuseFactor * 4.0) / 4.0;
-
-    // Combine with light and ambient
-    vec3 ambient = uAmbientColor * texColor.rgb;
-    vec3 diffuse = toonShading * uLightColor * texColor.rgb;
-
-    vec3 finalColor = ambient + diffuse;
-
-    gl_FragColor = vec4(finalColor, texColor.a);
-}
-`;
-
-const PBRVertexShader = `
-precision highp float;
-
-// Attributes
-in vec3 position;
-in vec3 normal;
-in vec2 uv;
-
-// Uniforms
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat3 normalMatrix;
-
-// Varyings (passed to fragment shader)
-out vec3 vWorldPosition;
-out vec3 vNormal;
-out vec2 vUV;
-
-void main() {
-    // Transform position to clip space
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-
-    // Pass the world-space position (approx) to the fragment
-    // (Strictly, "world position" would require a separate modelMatrix * position,
-    // but for many use-cases modelView is okay if the camera doesn't move too wildly.)
-    vWorldPosition = mvPosition.xyz;
-
-    // Transform normal to view space
-    vNormal = normalMatrix * normal;
-
-    vUV = uv;
-
-    gl_Position = projectionMatrix * mvPosition;
-}`;
-
-const PBRFragmentShader = `
-precision highp float;
-
-// Varyings from vertex shader
-in vec3 vWorldPosition;
-in vec3 vNormal;
-in vec2 vUV;
-
-// Outputs
-out vec4 outColor;
-
-// Uniforms
-uniform sampler2D uAlbedoMap;
-uniform samplerCube uEnvMap;       // If you want environment reflections
-uniform float uMetalness;
-uniform float uRoughness;
-uniform vec3 uCameraPosition;      // For reflections, etc.
-
-// Basic lighting uniform
-uniform vec3 uLightDirection;
-uniform vec3 uLightColor;
-uniform vec3 uAmbientColor;
-
-// A simple approximation for PBR lighting
-const float PI = 3.14159265359;
-
-// Cook-Torrance microfacet terms (simplified)
-float D_GGX(float NoH, float roughness) {
-    float alpha = roughness * roughness;
-    float alphaSqr = alpha * alpha;
-    float denom = (NoH * NoH) * (alphaSqr - 1.0) + 1.0;
-    return alphaSqr / (PI * denom * denom);
-}
-
-float G_SmithSchlickGGX(float NoV, float NoL, float roughness) {
-    float r = (roughness + 1.0);
-    float k = (r * r) / 8.0; // Disney uses (roughness+1)^2 / 8
-
-    float g1V = NoV / (NoV * (1.0 - k) + k);
-    float g1L = NoL / (NoL * (1.0 - k) + k);
-    return g1V * g1L;
-}
-
-vec3 F_Schlick(vec3 F0, float VoH) {
-    return F0 + (1.0 - F0) * pow(1.0 - VoH, 5.0);
-}
-
-void main() {
-    // Albedo (base color)
-    vec3 baseColor = texture(uAlbedoMap, vUV).rgb;
-
-    // Normal in view space
-    vec3 N = normalize(vNormal);
-
-    // Light direction
-    vec3 L = normalize(-uLightDirection); // In view space
-    vec3 V = normalize(uCameraPosition - vWorldPosition); // Approx view dir
-    vec3 H = normalize(V + L);
-
-    float NoV = max(dot(N, V), 0.0);
-    float NoL = max(dot(N, L), 0.0);
-    float NoH = max(dot(N, H), 0.0);
-    float VoH = max(dot(V, H), 0.0);
-
-    // Fresnel reflectance at zero incidence (F0)
-    // Typically: F0 = 0.04 for insulators, or baseColor for metals
-    vec3 F0 = mix(vec3(0.04), baseColor, uMetalness);
-
-    // Calculate reflectance using Schlick’s approximation
-    vec3 F = F_Schlick(F0, VoH);
-
-    // Distribution term
-    float D = D_GGX(NoH, uRoughness);
-
-    // Geometry term
-    float G = G_SmithSchlickGGX(NoV, NoL, uRoughness);
-
-    // Specular
-    vec3 numerator = D * G * F;
-    float denominator = 4.0 * NoV * NoL + 0.0001;
-    vec3 specular = numerator / denominator;
-
-    // kS is Fresnel
-    vec3 kS = F;
-    // kD is diffuse reflection
-    vec3 kD = (vec3(1.0) - kS) * (1.0 - uMetalness);
-
-    // Lambertian diffuse
-    vec3 diffuseTerm = kD * baseColor / PI;
-
-    // Combine diffuse + specular with the light
-    vec3 color = (diffuseTerm + specular) * uLightColor * NoL;
-
-    // Add simple ambient
-    color += uAmbientColor * baseColor;
-
-    // Sample environment map for reflection
-    // (Reflect the view direction around the normal)
-    vec3 R = reflect(-V, N);
-    vec3 envColor = texture(uEnvMap, R).rgb; // For a cubemap
-    // Mix environment reflection based on Fresnel
-    color = mix(color, envColor, kS * 0.1);  // 0.1 is an environment factor
-
-    outColor = vec4(color, 1.0);
-}`;
-
-const RimVertexShader = `
-in vec3 position;
-in vec3 normal;
-in vec2 uv;
-
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-
-out vec3 vNormal;
-out vec3 vWorldPosition;
-out vec2 vUV;
-
-void main() {
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vNormal = normal;
-    vWorldPosition = mvPosition.xyz;
-    vUV = uv;
-    gl_Position = projectionMatrix * mvPosition;
-}
-`;
-
-const RimFragmentShader = `
-precision highp float;
-
-in vec3 vNormal;
-in vec3 vWorldPosition;
-in vec2 vUV;
-
-out vec4 outColor;
-
-uniform vec3 uCameraPosition;
-uniform vec3 uRimColor;
-uniform float uRimPower;
-uniform float uRimIntensity;
-
-uniform vec3 uLightDirection;
-uniform vec3 uLightColor;
-uniform vec3 uAmbientColor;
-
-uniform sampler2D uDiffuseMap;
-
-void main() {
-    vec3 N = normalize(vNormal);
-    vec3 V = normalize(uCameraPosition - vWorldPosition);
-
-    float rimFactor = 1.0 - max(dot(N, V), 0.0);
-    rimFactor = pow(rimFactor, uRimPower) * uRimIntensity;
-    rimFactor = clamp(rimFactor, 0.0, 1.0);
-
-    vec3 baseColor = texture(uDiffuseMap, vUV).rgb;
-
-    float diffuseFactor = max(dot(N, -uLightDirection), 0.0);
-    vec3 diffuse = diffuseFactor * uLightColor * baseColor;
-    vec3 ambient = uAmbientColor * baseColor;
-
-    vec3 finalColor = diffuse + ambient + (rimFactor * uRimColor);
-
-    outColor = vec4(finalColor, 1.0);
-}
-`;
-
 const FogVertexShader = `
 precision highp float;
 
@@ -391,9 +133,16 @@ uniform sampler2D uDiffuseMap;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform vec3 uFogColor;
+uniform bool uHasTexture;
+uniform vec3 uSolidColor;
 
 void main() {
-    vec3 baseColor = texture(uDiffuseMap, vUV).rgb;
+    vec3 baseColor;
+    if (uHasTexture) {
+        baseColor = texture(uDiffuseMap, vUV).rgb; // Use the texture color
+    } else {
+        baseColor = uSolidColor; // Fallback to solid color
+    }
 
     // Linear fog factor
     float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);
@@ -403,92 +152,22 @@ void main() {
 }
 `;
 
-export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4)) {
+export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
     return new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         vertexShader: FogVertexShader,
         fragmentShader: FogFragmentShader,
         uniforms: {
             uDiffuseMap: { value: diffuseMap },
-            uFogNear: { value: 1.0 },
+            uFogNear: { value: 15.0 },
             uFogFar: { value: 50.0 },
-            uFogColor: { value: fogColor }
+            uFogColor: { value: fogColor },
+            uSolidColor: { value: solidColor }, // Add solid color
+            uHasTexture: { value: !!diffuseMap }, // Check if a texture is provided
         }
     });
 }
 
-export function createRimLightTexturedMaterial(params) {
-    const {
-        cameraPosition = new THREE.Vector3(0, 0, 5),
-        rimColor = new THREE.Color(1.0, 1.0, 1.0),
-        rimPower = 2.0,
-        rimIntensity = 1.0,
-        lightDirection = new THREE.Vector3(-1, -1, -1).normalize(),
-        lightColor = new THREE.Color(1, 1, 1),
-        ambientColor = new THREE.Color(0.1, 0.1, 0.1),
-        diffuseMap = null // your texture
-    } = params;
-
-    return new THREE.RawShaderMaterial({
-        glslVersion: THREE.GLSL3, // important for #version 300 es
-        vertexShader: RimVertexShader,
-        fragmentShader: RimFragmentShader,
-        uniforms: {
-            uCameraPosition: { value: cameraPosition },
-            uRimColor: { value: rimColor },
-            uRimPower: { value: rimPower },
-            uRimIntensity: { value: rimIntensity },
-            uLightDirection: { value: lightDirection },
-            uLightColor: { value: lightColor },
-            uAmbientColor: { value: ambientColor },
-            uDiffuseMap: { value: diffuseMap } // the texture you want to use
-        },
-        // optional: side, transparent, etc.
-    });
-}
-export function createCustomToonMaterial(texture) {
-    return new THREE.RawShaderMaterial({
-        vertexShader: ToonVertexShader,
-        fragmentShader: ToonFragmentShader,
-        uniforms: {
-            uDiffuseMap: { value: texture },
-            uLightDirection: { value: new THREE.Vector3(-1, -1, -1).normalize() },
-            uLightColor: { value: new THREE.Color(1, 1, 1) },
-            uAmbientColor: { value: new THREE.Color(0.1, 0.1, 0.1) },
-            uShininess: { value: 16.0 }
-        }
-    });
-}
-export function createCustomPBRMaterial({
-                                            albedoTexture,
-                                            envMap,
-                                            cameraPosition,
-                                            lightDirection = new THREE.Vector3(-1, -1, -1).normalize(),
-                                            lightColor = new THREE.Color(1, 1, 1),
-                                            ambientColor = new THREE.Color(0.1, 0.1, 0.1),
-                                            metalness = 0.5,
-                                            roughness = 0.5
-                                        } = {}) {
-    return new THREE.RawShaderMaterial({
-        glslVersion : THREE.GLSL3,
-        vertexShader: PBRVertexShader,
-        fragmentShader: PBRFragmentShader,
-        uniforms: {
-            uAlbedoMap:       { value: albedoTexture },
-            uEnvMap:          { value: envMap },
-            uCameraPosition:  { value: cameraPosition },
-            uLightDirection:  { value: lightDirection },
-            uLightColor:      { value: lightColor },
-            uAmbientColor:    { value: ambientColor },
-            uMetalness:       { value: metalness },
-            uRoughness:       { value: roughness }
-        },
-        // Make sure you use these if your geometry includes tangents or advanced usage
-        // or if you want correct color space:
-        // glslVersion: THREE.GLSL3,
-        // side: THREE.DoubleSide,
-    });
-}
 
 export function createCustomPhongMaterial(texture) {
     return new THREE.RawShaderMaterial({
@@ -521,28 +200,6 @@ export function loadMap(scene) {
 
                     // Apply to this mesh
                     child.material = customCityMaterial;
-                    // const rimMaterial = createRimLightTexturedMaterial({
-                    //     cameraPosition: new THREE.Vector3(1, 2, 1),
-                    //     rimColor: new THREE.Color(1, 1, 1),
-                    //     rimPower: 0.1,
-                    //     rimIntensity: 0.05,
-                    //     lightDirection: new THREE.Vector3(1, 2, 1).normalize(),
-                    //     lightColor: new THREE.Color(1, 1, 0.8),
-                    //     ambientColor: new THREE.Color(0.1, 0.1, 0.15),
-                    //     diffuseMap: cityTexture
-                    // });
-                    // child.material = rimMaterial;
-
-                   //  child.material = createCustomPBRMaterial({
-                   //      albedoTexture: child.material.map,   // Reuse the old diffuse map
-                   //      envMap: scene.environment,           // If you already loaded a cubemap or equirect env
-                   //      cameraPosition: new THREE.Vector3(0, 5, 10), // Or dynamically update from your camera
-                   //      metalness: 0.8,
-                   //      roughness: 0.2,
-                   //      lightDirection: new THREE.Vector3(-1, -1, -1).normalize(),
-                   //      lightColor: new THREE.Color(1, 1, 1),
-                   //      ambientColor: new THREE.Color(0.1, 0.1, 0.1),
-                   //  });
                 }
             });
 
