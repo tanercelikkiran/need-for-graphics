@@ -837,7 +837,7 @@ function updateCamera() {
                 // Animasyonu başlat
                 isMovingForward = false;
                 isMovingBackward = false;
-                isMovingToIdle = true;//
+                isMovingToIdle = true;
                 isBrakingCamera = false;
                 isBackingMorvard = true;
                 isBrakingPhase=0;
