@@ -1,4 +1,4 @@
-import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, createCustomPhongMaterial, createCustomToonMaterial} from './loaders.js';
+import {loadMap, loadSportCar, loadHDR, carMesh, wheelMeshes, createCustomPhongMaterial, createCustomToonMaterial, createFogMaterial} from './loaders.js';
 
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
@@ -121,7 +121,18 @@ function init() {
         0.4,
         0.2
     );
-    composer.addPass(bloomPass);
+   // composer.addPass(bloomPass);
+
+    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+    skyGeo.scale(-1, 1, 1); // flip faces inward if needed
+
+// 2) Use the SAME FogMaterial you used for objects
+// or you can modify it if you want a different effect
+    const skyFogMaterial = createFogMaterial(null);
+// You might skip the texture and just set a baseColor in the shader.
+
+    const skyMesh = new THREE.Mesh(skyGeo, skyFogMaterial);
+    scene.add(skyMesh);
 
     stats = new Stats();
     stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
@@ -707,6 +718,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+
 function switchMaterials(usePhong) {
     scene.traverse((child) => {
         if (child.isMesh && child.material && child.material.uniforms && child.material.uniforms.uDiffuseMap) {
@@ -719,6 +731,7 @@ function switchMaterials(usePhong) {
         }
     });
 }
+
 
 //############################################################################################################
 //####  MAIN FUNCTION  #######################################################################################

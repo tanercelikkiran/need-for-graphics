@@ -360,6 +360,63 @@ void main() {
 }
 `;
 
+const FogVertexShader = `
+precision highp float;
+
+in vec3 position;
+in vec2 uv;
+
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+
+out vec2 vUV;
+out float vFogDepth;
+
+void main() {
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vFogDepth = -mvPosition.z;  // "distance" in camera's forward direction
+    vUV = uv;
+    gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const FogFragmentShader = `
+precision highp float;
+
+in vec2 vUV;
+in float vFogDepth;
+out vec4 outColor;
+
+uniform sampler2D uDiffuseMap;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform vec3 uFogColor;
+
+void main() {
+    vec3 baseColor = texture(uDiffuseMap, vUV).rgb;
+
+    // Linear fog factor
+    float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);
+    vec3 finalColor = mix(baseColor, uFogColor, fogFactor*0.9);
+
+    outColor = vec4(finalColor, 1.0);
+}
+`;
+
+export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.5, 0.5, 0.5)) {
+    return new THREE.RawShaderMaterial({
+        glslVersion: THREE.GLSL3,
+        vertexShader: FogVertexShader,
+        fragmentShader: FogFragmentShader,
+        uniforms: {
+            uDiffuseMap: { value: diffuseMap },
+            uFogNear: { value: 12.0 },
+            uFogFar: { value: 50.0 },
+            uFogColor: { value: fogColor }
+        }
+    });
+}
+
 export function createRimLightTexturedMaterial(params) {
     const {
         cameraPosition = new THREE.Vector3(0, 0, 5),
@@ -460,21 +517,21 @@ export function loadMap(scene) {
                     const cityTexture = child.material.map;
 
                     // Create a custom shader material that uses that texture
-                    const customCityMaterial = createCustomPhongMaterial(cityTexture);
+                    const customCityMaterial = createFogMaterial(cityTexture);
 
                     // Apply to this mesh
-                    //child.material = customCityMaterial;
-                    const rimMaterial = createRimLightTexturedMaterial({
-                        cameraPosition: new THREE.Vector3(1, 2, 1),
-                        rimColor: new THREE.Color(1, 1, 1),
-                        rimPower: 0.1,
-                        rimIntensity: 0.05,
-                        lightDirection: new THREE.Vector3(1, 2, 1).normalize(),
-                        lightColor: new THREE.Color(1, 1, 0.8),
-                        ambientColor: new THREE.Color(0.1, 0.1, 0.15),
-                        diffuseMap: cityTexture
-                    });
-                    child.material = rimMaterial;
+                    child.material = customCityMaterial;
+                    // const rimMaterial = createRimLightTexturedMaterial({
+                    //     cameraPosition: new THREE.Vector3(1, 2, 1),
+                    //     rimColor: new THREE.Color(1, 1, 1),
+                    //     rimPower: 0.1,
+                    //     rimIntensity: 0.05,
+                    //     lightDirection: new THREE.Vector3(1, 2, 1).normalize(),
+                    //     lightColor: new THREE.Color(1, 1, 0.8),
+                    //     ambientColor: new THREE.Color(0.1, 0.1, 0.15),
+                    //     diffuseMap: cityTexture
+                    // });
+                    // child.material = rimMaterial;
 
                    //  child.material = createCustomPBRMaterial({
                    //      albedoTexture: child.material.map,   // Reuse the old diffuse map
