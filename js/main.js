@@ -7,7 +7,7 @@ import {
     loadBMW,
     loadJeep,
     loadBike,
-    loadBMWintro, bikeWheelMeshes, bikeMesh
+    loadBMWintro
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -22,9 +22,42 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {metallicPaint} from "./material-properties.js";
+import {DepthTexture} from "three";
 
 export let scene, sceneIntro, renderer, composer, stats;
-export let world, cannonDebugger, vehicle, carSize, bikeSize, isBraking;
+export let world, cannonDebugger, vehicle, carSize, isBraking;
+
+let motionBlurPass;
+
+const motionBlurShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'tDepth': { value: null },
+        'delta': { value: 0.5 },
+        'velocityFactor': { value: 1.0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform sampler2D tDepth;
+        uniform float delta;
+        uniform float velocityFactor;
+        varying vec2 vUv;
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float depth = texture2D(tDepth, vUv).r;
+            vec2 velocity = vec2(velocityFactor * delta * depth); // Basit velocity
+            vec4 blur = texture2D(tDiffuse, vUv + velocity);
+            gl_FragColor = mix(color, blur, delta);
+        }
+    `
+};
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
@@ -99,6 +132,14 @@ let isBrakingCamera         = false;
 let isStopped               = false;
 let isBrakingPhase          = 0;     // Fren aşamasını izleme
 let currentCameraZ          = cameraStartZ;
+let nameCameraBool                  = false;
+let cameraLookAtStart = new THREE.Vector3(); // Başlangıç bakış noktası
+let cameraLookAtEnd = new THREE.Vector3();   // Hedef bakış noktası
+let cameraLookAtStartTime = null;            // Animasyon başlangıç zamanı
+const cameraLookAtDuration = 3000;
+const cameraLookAtDuration2 = 6000;
+let startQuaternion = new THREE.Quaternion(); // Başlangıç dönüşü
+let endQuaternion = new THREE.Quaternion();
 
 // ================================================
 // 9) KAMERA POZİSYONLARI - YATAY HAREKET
@@ -109,6 +150,7 @@ let cameraStartX             = 0;
 let cameraLeftTargetX        = -1.2; // Wider camera movement for dramatic effect
 let cameraRightTargetX       = 1.2;
 let cameraAnimationStartTimeX = null;
+let cameraAnimationStartTimeC = null;
 let currentCameraX           = cameraStartX;
 let cameraStartY= 2.0;
 let currentCameraY           = cameraStartY;
@@ -120,13 +162,23 @@ let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
 let rearMaxSpeed = 70 / 3.6;
 let engineDropFactor = 0.7;
 
+// ================================================
+// 11) TURBO GO VROOOOOOOOM
+// ================================================
+
+let turboLevel = 10000; // Nitro'nun başlangıç değeri
+let isTurboActive = false; // Nitro kullanım durumu
+const turboDecayRate = 100 / (5 * 60);
+let turboVroom= false;
+let startTurboTime = null;
+
 let orbitControls;
 
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
-let selectedCarNo = 2;
+let selectedCarNo = 0;
 
 let porscheMass = 900;
 let porscheWheelOptions = {
@@ -182,15 +234,49 @@ let jeepWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
+
+function addLights(scene) {
+    // Ambient Light (genel yumuşak aydınlatma)
+
+    // Directional Light (güneş ışığı etkisi)
+    const sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    sunLight.position.set(1000, 2000, 1000); // Güneşin pozisyonu (X, Y, Z)
+    sunLight.castShadow = true;
+
+    // Gölgelerin çözünürlüğü ve sınırları
+    sunLight.shadow.mapSize.width = 2048; // Genişlik
+    sunLight.shadow.mapSize.height = 2048; // Yükseklik
+    sunLight.shadow.camera.near = 0.05; // En yakın mesafe
+    sunLight.shadow.camera.far = 3000; // En uzak mesafe
+
+    // Gölgeler için kamera sınırları (örneğin yer seviyesinde)
+    sunLight.shadow.camera.left = -300;
+    sunLight.shadow.camera.right = 300;
+    sunLight.shadow.camera.top = 300;
+    sunLight.shadow.camera.bottom = -300;
+
+    sunLight.shadow.bias = -0.0001;
+    sunLight.shadow.radius = 2;
+
+    scene.add(sunLight);
+
+    // Hemisphere Light (gökyüzü ve zemin etkisi)
+    const hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4);
+    hemisphereLight.position.set(0, 50, 0);
+    scene.add(hemisphereLight);
+}
 function init() {
     scene = new THREE.Scene();
+
+    addLights(scene);
 
     renderer = new THREE.WebGLRenderer({antialias: false});
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
     renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
     renderer.toneMappingExposure = 1.2; // Tonemapping parlaklık ayarı
-    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.enabled = true; // Gölge haritalarını etkinleştir
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     const renderScene = new RenderPass(scene, null);
@@ -208,6 +294,14 @@ function init() {
         0.2
     );
     composer.addPass(bloomPass);
+
+    motionBlurPass = new ShaderPass(motionBlurShader);
+    motionBlurPass.uniforms['delta'].value = 200; // Blur miktarı
+    motionBlurPass.uniforms['velocityFactor'].value = 15; // Hız ile artan blur
+    composer.renderTarget1.depthTexture = new DepthTexture();
+    composer.renderTarget2.depthTexture = new DepthTexture();
+    composer.addPass(motionBlurPass);
+    motionBlurPass.enabled = false;
 
     stats = new Stats();
     stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
@@ -275,6 +369,7 @@ function init() {
     });
 
 }
+
 function createOrbitControls() {
     if (scene.userData.activeCamera) {
         orbitControls = new OrbitControls(scene.userData.activeCamera, renderer.domElement);
@@ -323,12 +418,10 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    const scaleAdjust = 1.5;
-    const divisor = 2 / scaleAdjust;
     scene.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
             child.visible = false;
-            const halfExtents = new CANNON.Vec3(child.scale.x/divisor, child.scale.y/divisor, child.scale.z/divisor);
+            const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
             const box = new CANNON.Box(halfExtents);
             const body = new CANNON.Body({mass:0});
             body.addShape(box);
@@ -339,7 +432,17 @@ function createColliders(){
     });
 }
 
-function createCarVehicle() {
+function getUpAxis(body) {
+    const localUp = new CANNON.Vec3(0, 1, 0); // Local up in body space
+    let worldUp = new CANNON.Vec3(); // Placeholder for world up
+
+    body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
+    console.log(worldUp);
+
+    return worldUp; // This is the normalized up axis
+}
+
+function createVehicle() {
 
     let vehicleMass = 0;
     let wheelOptions = {};
@@ -386,102 +489,6 @@ function createCarVehicle() {
     let wheelBodies = [];
 
     wheelMeshes.forEach(function(wheelMesh){
-        const boundingBox = new THREE.Box3().setFromObject(wheelMesh);
-        boundingBox.getCenter(wheelCenter);
-        boundingBox.getSize(wheelSize);
-
-        const shape = new CANNON.Cylinder(wheelSize.y / 2, wheelSize.y / 2, wheelSize.x, 20);
-        const wheelBody = new CANNON.Body({
-            mass: wheelOptions.mass,
-            type: CANNON.Body.KINEMATIC,
-        });
-        wheelBody.collisionFilterGroup = 0;
-        const q = new CANNON.Quaternion();
-        q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
-        wheelBody.addShape(shape, new CANNON.Vec3(), q);
-        wheelBody.position.copy(wheelCenter);
-        wheelBody.threemesh = wheelMesh;
-        world.addBody(wheelBody);
-        wheelBodies.push(wheelBody);
-
-        wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
-
-        vehicle.addWheel({
-            body: wheelBody,
-            ...wheelOptions,
-        });
-    });
-
-    vehicle.wheelBodies = wheelBodies;
-
-    world.addEventListener('postStep', function () {
-        vehicle.wheelBodies.forEach((wheelBody, index) => {
-            // Lastiklerin fiziksel pozisyon ve dönüşünü güncelle
-            vehicle.updateWheelTransform(index);
-            const wheelTransform = vehicle.wheelInfos[index].worldTransform;
-
-            // Fizik motoru lastiklerinin pozisyonunu ve dönüşünü uygulayın
-            wheelBody.position.copy(wheelTransform.position);
-            wheelBody.quaternion.copy(wheelTransform.quaternion);
-
-            // Görsel lastikleri fizik motoruyla senkronize edin
-            if (wheelBodies[index].threemesh) {
-                wheelBodies[index].threemesh.position.copy(wheelBody.position);
-                wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
-            }
-        });
-    });
-
-    vehicle.addToWorld(world);
-}
-
-function createBikeVehicle() {
-
-    let vehicleMass = 200;
-    let wheelOptions = {
-        mass: 15,
-        radius: 0.35,
-        directionLocal: new CANNON.Vec3(0, -1, 0),
-        suspensionStiffness: 30,
-        suspensionRestLength: 0.3,
-        frictionSlip: 5,
-        dampingRelaxation: 2.3,
-        dampingCompression: 4.4,
-        maxSuspensionForce: 100000,
-        rollInfluence: 0.01,
-        axleLocal: new CANNON.Vec3(-1, 0, 0),
-        chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
-        maxSuspensionTravel: 0.3,
-        customSlidingRotationalSpeed: -30
-    }
-
-    bikeSize = new THREE.Vector3();
-    const boundingBox = new THREE.Box3().setFromObject(bikeMesh);
-    boundingBox.getSize(bikeSize);
-
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(bikeSize.x / 2, (bikeSize.y / 2) - 0.1, bikeSize.z / 2));
-    const chassisBody = new CANNON.Body({
-        mass: vehicleMass,
-    });
-    const chassisOffset = new CANNON.Vec3(0, 0.2, 0);
-    chassisBody.addShape(chassisShape,chassisOffset);
-    let pos = bikeMesh.position.clone();
-    chassisBody.position.copy(pos);
-    chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
-    chassisBody.threemesh = bikeMesh;
-
-    vehicle = new CANNON.RaycastVehicle({
-        chassisBody: chassisBody,
-        indexRightAxis: 0,
-        indexUpAxis: 1,
-        indexForwardAxis: 2
-    });
-
-    let wheelCenter = new THREE.Vector3();
-    let wheelSize = new THREE.Vector3();
-    let wheelBodies = [];
-
-    bikeWheelMeshes.forEach(function(wheelMesh){
         const boundingBox = new THREE.Box3().setFromObject(wheelMesh);
         boundingBox.getCenter(wheelCenter);
         boundingBox.getSize(wheelSize);
@@ -694,6 +701,42 @@ function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 1);
 }
 
+document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'shift' && turboLevel > 0) {
+        isTurboActive = true;
+    }
+});
+
+document.addEventListener('keyup', (event) => {
+    if (event.key.toLowerCase() === 'shift') {
+        isTurboActive = false;
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'k') {
+        motionBlurPass.enabled = !motionBlurPass.enabled;
+    }
+});
+
+let turboBaseForce = maxEngineForce; // Nitro yokken motor gücü
+
+function updateTurbo(deltaTime) {
+    if (isTurboActive && turboLevel > 0 && isAccelerating) {
+        turboVroom=true;
+        maxEngineForce = turboBaseForce * 1.5;
+        turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalır
+        if (turboLevel <= 0) {
+            turboLevel = 0;
+            isTurboActive = false; // Turbo sıfırlandığında devre dışı
+            turboVroom=false;
+        }
+    } else {
+        maxEngineForce = turboBaseForce; // Nitro aktif değilse motor gücü varsayılana döner
+        turboVroom=false;
+    }
+}
+
 function updateCamera() {
     document.addEventListener('keydown', (event) => {
         const activeCamera = scene.userData.activeCamera;
@@ -737,6 +780,34 @@ function updateCamera() {
                         isMovingRight = true;
                         isMovingLeft = false;
                         cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
+                    }
+                    break;
+                case 'n':
+                    if (!nameCameraBool){
+                        currentCameraX = activeCamera.position.x;
+                        currentCameraY = activeCamera.position.y;
+                        currentCameraZ = activeCamera.position.z;
+                        carMesh.remove(activeCamera); // Arabadan çıkar
+                        scene.add(activeCamera);      // Sahneye ekle
+                        orbitControls.enabled = false; // OrbitControls'u devre dışı bırak
+                        nameCameraBool=true;
+                        cameraLookAtStart.copy(activeCamera.position.clone().add(activeCamera.getWorldDirection(new THREE.Vector3())));
+                        cameraLookAtEnd.set(60, 0, 130); // Hedef nokta
+                        startQuaternion.copy(activeCamera.quaternion); // Mevcut dönüş
+                        activeCamera.lookAt(cameraLookAtEnd);          // Hedefe bak
+                        endQuaternion.copy(activeCamera.quaternion);   // Hedef dönüş
+                        activeCamera.quaternion.copy(startQuaternion);
+                        cameraLookAtStartTime = performance.now();
+                        cameraAnimationStartTimeC = performance.now();
+                    }else{
+                        currentCameraX = activeCamera.position.x;
+                        currentCameraY = activeCamera.position.y;
+                        currentCameraZ = activeCamera.position.z;
+
+                        scene.remove(activeCamera); // Sahneden çıkar
+                        carMesh.add(activeCamera); // Arabaya ekle
+                        nameCameraBool=false;
+                        cameraAnimationStartTimeC = performance.now();
                     }
                     break;
             }
@@ -793,7 +864,7 @@ function updateCamera() {
         const elapsedTime = currentTime - cameraAnimationStartTime;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera && orbitControls.enabled===false) {
+        if (activeCamera && orbitControls.enabled===false && nameCameraBool===false) {
             if (isMovingBackward) {
                 // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
                 const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
@@ -830,10 +901,21 @@ function updateCamera() {
             } else if (isMovingForward) {
                 try {
                     const velocity = vehicle.chassisBody.velocity.length();
+                    let turboEffect = 0; // Başlangıç değeri
+                    if (turboVroom) {
+                        if (startTurboTime === null) {
+                            startTurboTime = performance.now(); // Turbo başladığında zamanı kaydet
+                        }
+                        const turboElapsed = Math.min((performance.now() - startTurboTime) / 5000, 1); // 2 saniyede maksimuma ulaş
+                        turboEffect = THREE.MathUtils.lerp(0.8, 2.4, turboElapsed); // 1'den 3'e doğru artış
+                    } else {
+                        startTurboTime = null; // Turbo durduğunda sıfırla
+                    }
+
                     cameraTargetZ = THREE.MathUtils.clamp(
-                        maxCameraTargetZ - velocity * speedFactor,
+                        maxCameraTargetZ - velocity * speedFactor + turboEffect, // turboEffect burada ekleniyor
                         minCameraTargetZ,
-                        maxCameraTargetZ
+                        maxCameraTargetZ + 3 // Turbo etkisiyle maksimum değer biraz artırıldı
                     );
 
                     if (elapsedTime >= cameraAnimationDuration3) {
@@ -893,7 +975,7 @@ function updateCamera() {
         const elapsedTimeX = currentTime - cameraAnimationStartTimeX;
         const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera && orbitControls.enabled===false) {
+        if (activeCamera && orbitControls.enabled===false && nameCameraBool===false) {
             if (isMovingLeft) {
                 const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
                 const easeT = easeInOutSin(t);
@@ -919,6 +1001,31 @@ function updateCamera() {
                 if (t === 1) {
                     cameraAnimationStartTimeX = null; // Animasyon tamamlandı
                 }
+            }
+        }
+    }
+    if (cameraAnimationStartTimeC!== null && nameCameraBool){
+        const elapsedTimeC=currentTime-cameraAnimationStartTimeC;
+        const activeCamera = scene.userData.activeCamera;
+
+        if (activeCamera){
+            const t = Math.min(elapsedTimeC / 3000, 1); // 1 saniyelik animasyon
+            const easeT = easeInOutSin(t);
+
+            // Hedef pozisyon ve rotasyon
+            const targetPosition = new THREE.Vector3(60, 60, 40);
+
+            // Pozisyonu ve rotasyonu hesapla
+            activeCamera.position.lerpVectors(
+                new THREE.Vector3(currentCameraX, currentCameraY, currentCameraZ),
+                targetPosition,
+                easeT
+            );
+
+
+            // Animasyonu sonlandır
+            if (t === 1) {
+                cameraAnimationStartTimeC = null;
             }
         }
     }
@@ -948,22 +1055,19 @@ function animate() {
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
     stats.begin();
     try {
-
+        updateTurbo(deltaTime);
         updateVehicleControls();
         updateCamera();
 
         const chassisBody = vehicle.chassisBody;
-        if (chassisBody.threemesh === bikeMesh) {
-            chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (bikeSize.y)/2, chassisBody.position.z));
-        }
-        else {
-            chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - (carSize.y)/2, chassisBody.position.z));
-        }
-
+        let worldUp = getUpAxis(chassisBody);
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity;
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        motionBlurPass.uniforms['velocityFactor'].value = speed*100;
+        console.log(motionBlurPass.uniforms['tDiffuse'].value);
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
@@ -975,8 +1079,40 @@ function animate() {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
         const activeCamera=scene.userData.activeCamera;
-        const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y+0.9, chassisBody.position.z);
-        activeCamera.lookAt(lookAtTarget);
+        if (nameCameraBool) {
+            if (cameraLookAtStartTime !== null) {
+                const elapsedTime = performance.now() - cameraLookAtStartTime;
+                const t = Math.min(elapsedTime / cameraLookAtDuration, 1); // 0 ile 1 arasında interpolasyon oranı
+                const elapsedTime2 = performance.now() - cameraLookAtStartTime;
+                const t2 = Math.min(elapsedTime2 / cameraLookAtDuration2, 1);
+
+                // Hedef bakış noktasını interpolasyonla güncelle
+                const interpolatedLookAt = new THREE.Vector3().lerpVectors(cameraLookAtStart, cameraLookAtEnd, t);
+
+                // Kameranın mevcut pozisyonu sabit kalıyor
+                const cameraPosition = activeCamera.position.clone();
+
+                // Kameranın hedef yönünü hesapla
+                const targetDirection = new THREE.Vector3().subVectors(interpolatedLookAt, cameraPosition).normalize();
+
+                // Kameranın quaternion dönüşünü hesapla
+                const quaternion = new THREE.Quaternion().setFromUnitVectors(
+                    activeCamera.getWorldDirection(new THREE.Vector3()).normalize(),
+                    targetDirection
+                );
+
+                // Kameranın dönüşünü yumuşakça güncelle
+                activeCamera.quaternion.slerp(quaternion, t2);
+
+                // Animasyon tamamlandıysa sıfırla
+                if (t === 1) {
+                    cameraLookAtStartTime = null; // Animasyon tamamlandı
+                }
+            }
+        } else {
+            const lookAtTarget = new THREE.Vector3(chassisBody.position.x, chassisBody.position.y + 0.9, chassisBody.position.z);
+            activeCamera.lookAt(lookAtTarget); // Arabaya bak
+        }
         composer.render();
     }
     catch (e) {
@@ -1014,11 +1150,26 @@ function initIntro() {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Beyaz ışık, orta yoğunluk
-    sceneIntro.add(ambientLight);
+    const spotLight = new THREE.SpotLight(0xffffff, 250);
+    const lightTarget = new THREE.Object3D();
+    lightTarget.position.set(0, 1, 0); // Işığın hedef noktası
+    sceneIntro.add(lightTarget);
+    spotLight.target = lightTarget;
+    sceneIntro.add(spotLight);
+
+    // Küresel koordinatlar
+    let radius = 10; // Küre yarıçapı
+    let theta = 3*Math.PI / 4; // Yatay açı
+    let phi = Math.PI / 4; // Dikey açı
+
+    spotLight.position.x = lightTarget.position.x + radius * Math.sin(phi) * Math.cos(theta);
+    spotLight.position.y = lightTarget.position.y + radius * Math.cos(phi);
+    spotLight.position.z = lightTarget.position.z + radius * Math.sin(phi) * Math.sin(theta);
+
+    spotLight.target.updateMatrixWorld();
 
     // Kamerayı ekleyin
-    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(-5, 3, 0);
     camera.lookAt(0, 200, 0);
     sceneIntro.userData.activeCamera = camera;
@@ -1028,6 +1179,48 @@ function initIntro() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enableZoom = false;
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        const step = Math.PI / 60; // Açı artışı/düşüşü
+        const radiusStep = 0.3;
+        const intensityStep=20;
+
+        switch (key) {
+            case 'arrowup':
+                phi = Math.max(0.1, phi - step); // Yukarı basınca (phi değerini azalt, 0.1'in altına düşmesin)
+                break;
+            case 'arrowdown':
+                phi = Math.min(Math.PI - 0.1, phi + step); // Aşağı basınca (phi değerini artır, π'nin üstüne çıkmasın)
+                break;
+            case 'arrowleft':
+                theta += step; // Sola basınca (theta değerini azalt)
+                break;
+            case 'arrowright':
+                theta -= step; // Sağa basınca (theta değerini artır)
+                break;
+            case 'y': // Kamera merkeze yaklaşır
+                radius = Math.max(2.4, radius - radiusStep); // Minimum radius 2
+                break;
+            case 'u': // Kamera merkezden uzaklaşır
+                radius = Math.min(50, radius + radiusStep); // Maksimum radius 50
+                break;
+            case 'g': // Parlaklığı artırır
+                spotLight.intensity = Math.min(1000, spotLight.intensity + intensityStep); // Maksimum 10
+                break;
+            case 'h': // Parlaklığı azaltır
+                spotLight.intensity = Math.max(10, spotLight.intensity - intensityStep); // Minimum 0
+                break;
+        }
+
+        // Spot ışığın pozisyonunu küresel koordinatlara göre hesapla
+        spotLight.position.x = lightTarget.position.x + radius * Math.sin(phi) * Math.cos(theta);
+        spotLight.position.y = lightTarget.position.y + radius * Math.cos(phi);
+        spotLight.position.z = lightTarget.position.z + radius * Math.sin(phi) * Math.sin(theta);
+
+        // Işığın hedefe bakmasını sağla
+        spotLight.target.updateMatrixWorld();
+    });
 
     function animateIntro() {
         controls.update();
@@ -1084,10 +1277,9 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    //loadPorsche(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
-    loadBMW(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
-    //loadJeep(scene).then(setCameraComposer).then(createCarVehicle).then(createOrbitControls);
-    //loadBike(scene).then(setCameraComposer).then(createBikeVehicle).then(createOrbitControls);
+    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
+    loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
     animate();
 }
 
