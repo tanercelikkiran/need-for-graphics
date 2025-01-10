@@ -6,8 +6,8 @@ import {
     loadPorsche,
     loadBMW,
     loadJeep,
-    loadBike,
-    loadBMWintro
+    loadBMWintro,
+    loadMoveableObjects,
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -24,7 +24,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
-export let scene, sceneIntro, renderer, composer, stats;
+export let scene, sceneIntro, sceneSandbox, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 let motionBlurPass;
@@ -1135,7 +1135,6 @@ document.addEventListener('keydown', (event) => {
         }
     }
 });
-
 
 function initIntro() {
     sceneIntro = new THREE.Scene();

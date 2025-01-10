@@ -40,7 +40,6 @@ export function loadMap(scene) {
             'public/city.glb',
             function (gltf) {
                 scene.add(gltf.scene);
-                console.log('Model loaded successfully!');
 
             gltf.scene.traverse(function (child) {
                 if (child.isMesh) {
@@ -82,8 +81,22 @@ export function loadMap(scene) {
     });
 }
 
+export function loadHDR(scene) {
+    rgbeLoader.load('public/hdri.hdr', function (texture) {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.environment = texture;
+        scene.background = texture;
+        scene.environment.intensity = 0.2;
+    });
+}
+
 export function loadBMWintro(scene) {
     fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
+
+        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
+        carLightBMW.position.set(0, 10 , 5);
+        scene.add(carLightBMW);
+
         object.traverse(function(child) {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -135,75 +148,6 @@ export function loadBMWintro(scene) {
     });
 }
 
-export function loadBike(scene) {
-    fbxLoader.load('public/motorcycle/motorcycle.fbx', (object) => {
-
-        const carLightmotor = new THREE.PointLight(0xFFF0CC, 50, 500);
-        carLightmotor.position.set(0, 10 , 5);
-        scene.add(carLightmotor);
-
-        object.traverse(function(child) {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                if (child.name.includes("chassis_chassis")){
-                    metallicPaint(child.material,0xFFFFFF);
-                }
-                if (child.name.includes("chassis_mate")){
-                    metallicPaint(child.material,0xF8CD02);
-                }
-
-                if (child.name.includes("brakelight")) {
-                    const originalMaterial = child.material;
-                    world.addEventListener("postStep", () => {
-                        if (isBraking) {
-                            emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                        }else{
-                            child.material = originalMaterial;
-                        }
-                    });
-                }
-                if (child.name.includes("rearlight")) {
-                    emissiveLight(child, 0xFFFFFF, 2);
-                }
-
-                if (child.name.includes("headlightSpot")) {
-                    // Example for emissive lighting effect
-
-                    const headlightSpotMotor = spotlight(
-                        new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                        new THREE.Vector3(0, -0.05, -1)
-                    );
-
-                    // Add it to the scene
-                    scene.add(headlightSpotMotor);
-                    scene.add(headlightSpotMotor.target);
-
-                    // Now each physics step, update the spotlight so it "follows" this child
-                    world.addEventListener("postStep", () => {
-                        const updatedPositionMotor = child.getWorldPosition(new THREE.Vector3());
-                        const updatedDirectionMotor = new THREE.Vector3(0, -0.1, -1); // Varsayılan ileri yön
-                        const updatedQuatMotor = child.getWorldQuaternion(new THREE.Quaternion());
-                        updatedDirectionMotor.applyQuaternion(updatedQuatMotor);
-
-                        headlightSpotMotor.updatePositionAndDirection(
-                            updatedPositionMotor,
-                            updatedPositionMotor.clone().add(updatedDirectionMotor)
-                        );
-                    });
-                }
-                if (child.name.includes("headlight")) {
-                    emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
-
-                }
-            }
-        });
-        scene.add(object);
-    } , null, function(error){
-        console.error(error);
-    });
-}
-
 export function loadJeep(scene) {
     return new Promise((resolve) => {
         fbxLoader.load('public/jeep/jeepWnowheels.fbx', (object) => {
@@ -221,7 +165,7 @@ export function loadJeep(scene) {
             carLightjeep.position.set(0, 10, 5);
             scene.add(carLightjeep);
 
-            object.traverse(function (child) {
+            object.traverse(function(child) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
@@ -231,7 +175,7 @@ export function loadJeep(scene) {
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            } else {
+                            }else{
                                 child.material = originalMaterial;
                             }
                         });
@@ -247,7 +191,7 @@ export function loadJeep(scene) {
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 child.material.emissiveIntensity = 10;
-                            } else {
+                            }else{
                                 child.material.emissiveIntensity = 5;
                             }
                         });
@@ -294,7 +238,7 @@ export function loadJeep(scene) {
                     if (child.name.includes("Trunklight")) {
                         emissiveLight(child, 0xFFFFFF, 5);
                     }
-                    if (child.name.includes("platelight")) {
+                    if (child.name.includes("platelight")){
                         const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
                         child.add(pointLight4);
                     }
@@ -314,7 +258,7 @@ export function loadBMW(scene) {
             carMesh = object;
             scene.add(object);
 
-            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 400);
             carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
             carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
             carMesh.add(carCamera);
@@ -550,10 +494,45 @@ export function loadWheels(scene, wheelPath) {
     });
 }
 
-export function loadHDR(scene) {
-    rgbeLoader.load('public/hdri.hdr', function (texture) {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        scene.background = texture;
+export function loadMoveableObjects(scene) {
+    loadObject(scene, "public/moveableObjects/barrel/scene.gltf");
+    loadObject(scene, "public/moveableObjects/crate-box/crate.fbx");
+    loadObject(scene, "public/moveableObjects/concrete_barrier_hq.glb");
+    loadObject(scene, "public/moveableObjects/plastic_chair.glb");
+    loadObject(scene, "public/moveableObjects/stop-sign-ts.glb");
+    loadObject(scene, "public/moveableObjects/traffic_cone_game_ready.glb");
+    loadObject(scene, "public/moveableObjects/trash_can.glb");
+}
+
+function loadObject(scene, objectPath) {
+    return new Promise((resolve) => {
+        if (objectPath.includes(".fbx")) {
+            fbxLoader.load(objectPath, (object) => {
+                scene.add(object);
+                object.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                resolve();
+            }, null, function (error) {
+                console.error(error);
+            });
+        }
+        else if (objectPath.includes(".glb") || objectPath.includes(".gltf")) {
+            gltfLoader.load(objectPath, (gltf) => {
+                scene.add(gltf.scene);
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                resolve();
+            }, null, function (error) {
+                console.error(error);
+            });
+        }
     });
 }
