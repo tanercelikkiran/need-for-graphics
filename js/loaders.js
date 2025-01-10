@@ -84,11 +84,6 @@ export function loadMap(scene) {
 
 export function loadBMWintro(scene) {
     fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
-
-        const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
-        carLightBMW.position.set(0, 10 , 5);
-        scene.add(carLightBMW);
-
         object.traverse(function(child) {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -223,10 +218,10 @@ export function loadJeep(scene) {
             scene.userData.activeCamera = carCamera;
 
             const carLightjeep = new THREE.PointLight(0xFFF0CC, 50, 500);
-            carLightjeep.position.set(0, 10 , 5);
+            carLightjeep.position.set(0, 10, 5);
             scene.add(carLightjeep);
 
-            object.traverse(function(child) {
+            object.traverse(function (child) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
@@ -236,7 +231,7 @@ export function loadJeep(scene) {
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            }else{
+                            } else {
                                 child.material = originalMaterial;
                             }
                         });
@@ -252,7 +247,7 @@ export function loadJeep(scene) {
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 child.material.emissiveIntensity = 10;
-                            }else{
+                            } else {
                                 child.material.emissiveIntensity = 5;
                             }
                         });
@@ -262,14 +257,14 @@ export function loadJeep(scene) {
                     if (child.name.includes("HeadlightSpot")) {
                         // Example for emissive lighting effect
 
-                    const headlightSpotJeep = spotlight(
-                        new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                        new THREE.Vector3(0, -0.05, -1)
-                    );
-                    headlightSpotJeep.castShadow=true;
-                    // Add it to the scene
-                    scene.add(headlightSpotJeep);
-                    scene.add(headlightSpotJeep.target);
+                        const headlightSpotJeep = spotlight(
+                            new THREE.Vector3(0, 0, 0), // we'll override in postStep
+                            new THREE.Vector3(0, -0.05, -1)
+                        );
+                        headlightSpotJeep.castShadow = true;
+                        // Add it to the scene
+                        scene.add(headlightSpotJeep);
+                        scene.add(headlightSpotJeep.target);
 
                         // Now each physics step, update the spotlight so it "follows" this child
                         world.addEventListener("postStep", () => {
@@ -287,82 +282,28 @@ export function loadJeep(scene) {
                     if (child.name.includes("Headlight")) {
                         emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
 
+                    }
+                    if (child.name.includes("LicensePlate")) {
+                        child.material = new THREE.MeshStandardMaterial({
+                            color: 0xffffff,
+                            emissive: 0x000000,
+                            roughness: 0.5,
+                            metalness: 0.1,
+                        });
+                    }
+                    if (child.name.includes("Trunklight")) {
+                        emissiveLight(child, 0xFFFFFF, 5);
+                    }
+                    if (child.name.includes("platelight")) {
+                        const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
+                        child.add(pointLight4);
+                    }
                 }
-                if (child.name.includes("LicensePlate")) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        color: 0xffffff,
-                        emissive: 0x000000,
-                        roughness: 0.5,
-                        metalness: 0.1,
-                    });
-                }
-                if (child.name.includes("Trunklight")) {
-                    emissiveLight(child, 0xFFFFFF, 5); 
-                }
-                if (child.name.includes("platelight")){
-                    const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                    child.add(pointLight4);
-                }
-            }
+            });
+            scene.add(object);
+        }, null, function (error) {
+            console.error(error);
         });
-        scene.add(object);
-    } , null, function(error){
-        console.error(error);
-    });
-}
-
-export function loadBMWintro(scene) {
-    fbxLoader.load('public/bmw/bmwfinal.fbx', (object) => {
-
-
-        object.traverse(function(child) {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-
-                // Apply specific material changes for the BMW model if necessary
-                if (child.name.includes("Glass")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-
-                if (child.name.includes("HeadlightWindow")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-
-                // Add any specific light effects or emissive materials to parts of the car
-                if (child.name.includes("Rearlight")) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        color: 0x550000, // Kırmızı bir ana renk
-                        emissive: 0xff3333, // Emissive kırmızı ton
-                        emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
-                        roughness: 0.3, // Hafif yansımalar için
-                        metalness: 0.1, // Biraz metalik görünüm
-                    });
-
-                }
-                if (child.name.includes("Brakelight")) {
-                    emissiveLight(child, 0xff3333, 10);
-                }
-
-                if (child.name.includes("Headl")) {
-                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
-
-                }
-                if (child.name.includes("RearlightWindow")) {
-                    transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
-                }
-                if (child.name.includes("HeadlightWindow")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-                if (child.name.includes("platelight")){
-                    const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                    child.add(pointLight3);
-                }
-            }
-        });
-        scene.add(object);
-    } , null, function(error){
-        console.error(error);
     });
 }
 
