@@ -101,56 +101,13 @@ void main() {
     gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
-
-const FogVertexShader = `
-precision highp float;
-
-in vec3 position;
-in vec2 uv;
-
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-
-out vec2 vUV;
-out float vFogDepth;
-
-void main() {
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vFogDepth = -mvPosition.z;  // "distance" in camera's forward direction
-    vUV = uv;
-    gl_Position = projectionMatrix * mvPosition;
+function loadShader(url) {
+    return fetch(url).then(response => response.text());
 }
-`;
 
-const FogFragmentShader = `
-precision highp float;
+const FogVertexShader = await loadShader("shaders/FogVertex.glsl");
 
-in vec2 vUV;
-in float vFogDepth;
-out vec4 outColor;
-
-uniform sampler2D uDiffuseMap;
-uniform float uFogNear;
-uniform float uFogFar;
-uniform vec3 uFogColor;
-uniform bool uHasTexture;
-uniform vec3 uSolidColor;
-
-void main() {
-    vec3 baseColor;
-    if (uHasTexture) {
-        baseColor = texture(uDiffuseMap, vUV).rgb; // Use the texture color
-    } else {
-        baseColor = uSolidColor; // Fallback to solid color
-    }
-
-    // Linear fog factor
-    float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);
-    vec3 finalColor = mix(baseColor, uFogColor, fogFactor*0.9);
-
-    outColor = vec4(finalColor, 1.0);
-}
-`;
+const FogFragmentShader = await loadShader("shaders/FogFragment.glsl");
 
 export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
     return new THREE.RawShaderMaterial({

@@ -709,7 +709,7 @@ function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
-let usePhong = true;
+let usePhong = false;
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'k' || e.key === 'K') {
