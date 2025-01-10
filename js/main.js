@@ -26,7 +26,6 @@ import {DepthTexture} from "three";
 
 export let scene, sceneIntro, sceneSandbox, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
-
 let motionBlurPass;
 
 const motionBlurShader = {
