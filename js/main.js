@@ -871,9 +871,11 @@ function easeInOutSin(t) {
 
 function updateTimer(deltaTime) {
     elapsedTime += deltaTime;
-    const minutes = Math.floor(elapsedTime / 60);
-    const seconds = Math.floor(elapsedTime % 60);
-    document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const totalSeconds = Math.floor(elapsedTime / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    const miliseconds= Math.floor(elapsedTime % 1000);
+    document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
 }
 
 function updateRemainingTime(deltaTime) {
@@ -939,7 +941,7 @@ function animate() {
     cannonDebugger.update();
 
     const time = performance.now();
-    const deltaTime = (time - lastTime) / 1000; // Convert to seconds
+    const deltaTime = (time - lastTime) // Convert to seconds
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);

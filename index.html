@@ -43,19 +43,21 @@
 
         #timer {
             position: absolute;
-            top: 2%;
-            right: 2%;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
+            top: 8%;
+            right: 9.5%;
             padding: 1rem;
             border-radius: 0.5rem;
-            font-family: Arial, sans-serif;
-            font-size: 1vw;
+            font-family: 'Platformone', sans-serif;
+            font-size: 1.6vw;
+            font-weight: normal;
+            color: #1dd8b7;
+            text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
+            display: inline-block;
         }
 
         #time-remaining {
             position: absolute;
-            top: 7.2%;
+            top: 3.4%;
             left: 50%; /* Ortalamak için */
             transform: translateX(-50%); /* Ortalamak için */
             text-align: center;
@@ -67,7 +69,7 @@
 
         #time-value {
             font-family: 'Digital7', sans-serif;
-            font-size: 4.5vw;
+            font-size: 5.5vw;
             font-weight: normal;
             color: #1dd8b7;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
@@ -188,12 +190,21 @@
 
         #neontimer {
             position: absolute;
-            top: -1%;
+            top: 1%;
             left: 50%;
             transform: translateX(-50%);
-            width: 60%; /* Oranları otomatik olarak ayarla */
+            width: 40%; /* Oranları otomatik olarak ayarla */
             height: auto;
             display: none;
+        }
+
+        #scoreboard {
+            position: absolute;
+            top: 8%;
+            right: 2%;
+            width: 19.16%; /* Oranları otomatik olarak ayarla */
+            height: auto;
+            /*display: none;*/
         }
 
     </style>
@@ -210,7 +221,7 @@
 </head>
 <body>
 <div id="game-gui">
-    <div id="timer">Time: 00:00</div>
+    <div id="timer">Time: 00:00:00</div>
     <div id="minimap"></div>
 </div>
 
@@ -242,6 +253,8 @@
 <img id="neonline" src="public/neonline.png" alt="PNG Image">
 
 <img id="neontimer" src="public/neontimer.png" alt="PNG Image">
+
+<img id="scoreboard" src="public/scoreboard.png" alt="PNG Image">
 
 <script src="js/main.js" type="module"></script>
 <script src="js/material-properties.js" type="module"></script>
