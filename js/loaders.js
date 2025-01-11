@@ -34,79 +34,7 @@ const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
 
-const PhongVertexShader = `
-precision mediump float;
 
-attribute vec3 position;
-attribute vec3 normal;
-attribute vec2 uv;
-
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat3 normalMatrix;
-
-varying vec3 vNormal;
-varying vec3 vPosition;
-varying vec2 vUV;
-
-void main() {
-    // transform the normal to view space
-    vNormal = normalMatrix * normal;
-
-    // position in view space
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    vPosition = mvPosition.xyz;
-
-    // pass uv to fragment
-    vUV = uv;
-
-    // final gl_Position
-    gl_Position = projectionMatrix * mvPosition;
-}
-`;
-
-const PhongFragmentShader = `
-precision mediump float;
-
-// from vertex shader
-varying vec3 vNormal;
-varying vec3 vPosition;
-varying vec2 vUV;
-
-// uniforms
-uniform sampler2D uDiffuseMap;   // the city/car texture
-uniform vec3 uLightDirection;
-uniform vec3 uLightColor;
-uniform vec3 uAmbientColor;
-uniform float uShininess;
-
-void main() {
-    // sample the texture using vUV
-    vec4 texColor = texture2D(uDiffuseMap, vUV);
-
-    // if the texture has an alpha channel, you can do something with it
-    // but for now, assume it's opaque
-    vec3 baseColor = texColor.rgb;
-
-    // basic Phong lighting
-    vec3 normal = normalize(vNormal);
-    float diffuseFactor = max(dot(normal, -uLightDirection), 0.0);
-
-    // reflection for specular
-    vec3 reflectDir = reflect(uLightDirection, normal);
-    vec3 viewDir = normalize(-vPosition);
-    float specFactor = pow(max(dot(reflectDir, viewDir), 0.0), uShininess);
-
-    // combine
-    vec3 ambient = uAmbientColor * baseColor;
-    vec3 diffuse = diffuseFactor * uLightColor * baseColor;
-    vec3 specular = specFactor * uLightColor;
-
-    vec3 finalColor = ambient + diffuse + specular;
-
-    gl_FragColor = vec4(finalColor, 1.0);
-}
-`;
 function loadShader(url) {
     return fetch(url).then(response => response.text());
 }
@@ -115,13 +43,15 @@ const FogVertexShader = await loadShader("shaders/FogVertex.glsl");
 
 const FogFragmentShader = await loadShader("shaders/FogFragment.glsl");
 
+
+
 export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
     return new THREE.RawShaderMaterial({
         glslVersion: THREE.GLSL3,
         vertexShader: FogVertexShader,
         fragmentShader: FogFragmentShader,
         uniforms: {
-            uDiffuseMap: { value: diffuseMap },
+            diffuseMap: { value: diffuseMap },
             uFogNear: { value: 15.0 },
             uFogFar: { value: 50.0 },
             uFogColor: { value: fogColor },
@@ -131,21 +61,71 @@ export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.
     });
 }
 
+const ShadowVertexShader = await loadShader("shaders/ShadowVertex.glsl");
 
-export function createCustomPhongMaterial(texture) {
+const ShadowFragmentShader = await loadShader("shaders/ShadowFragment.glsl");
+
+export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
+    // The directional light’s camera is used for shadow generation.
+    // We'll read from dirLight.shadow.map and pass it to the shader
+    const shadowMap = sunLight.shadow.map ? sunLight.shadow.map.texture : null;
+
+    // For the direction, if you want "light from above" you do -light.position
+    // or simply normalize the direction you want:
+    const lightDir = new THREE.Vector3().copy(sunLight.position).normalize().multiplyScalar(-1);
+
+    // For the shadow camera, we need the view and projection matrices
+    // We can compute them once, or each frame if the light moves
+    const lightCam = sunLight.shadow.camera;
+    lightCam.updateProjectionMatrix(); // ensure up to date
+    lightCam.updateMatrixWorld();      // ensure up to date
+
+    // Typically:
+    // lightViewMatrix       = inverse(lightCam.matrixWorld)
+    // lightProjectionMatrix = lightCam.projectionMatrix
+    //
+    // Three.js doesn't store it as "viewMatrix" directly, so we compute:
+    const lightViewMatrix = new THREE.Matrix4().copy(lightCam.matrixWorldInverse);
+    // The camera's world inverse is set by the renderer, but we can force-update:
+    // If it's still not correct, you can compute it manually:
+    // lightViewMatrix.invert(lightCam.matrixWorld);
+    const lightProjMatrix = lightCam.projectionMatrix;
+
     return new THREE.RawShaderMaterial({
-
-        vertexShader: PhongVertexShader,
-        fragmentShader: PhongFragmentShader,
+        glslVersion: THREE.GLSL3,
+        vertexShader:   ShadowVertexShader,
+        fragmentShader: ShadowFragmentShader,
         uniforms: {
-            uDiffuseMap:      { value: texture },
-            uLightDirection:  { value: new THREE.Vector3(-1, -1, -1).normalize() },
-            uLightColor:      { value: new THREE.Color(1, 1, 1) },
-            uAmbientColor:    { value: new THREE.Color(0.1, 0.1, 0.1) },
-            uShininess:       { value: 5.0 }
+            // Basic directional light
+            dirLightColor:    { value: sunLight.color },
+            dirLightDirection:{ value: lightDir },
+
+            // Hemisphere
+            hemiSkyColor:     { value: hemisphereLight .color },
+            hemiGroundColor:  { value: hemisphereLight .groundColor },
+            hemiIntensity:    { value: hemisphereLight .intensity },
+            hemiUp:           { value: new THREE.Vector3(0,1,0) }, // Up vector
+
+            // Shadow
+            shadowMap:        { value: shadowMap },
+            shadowBias:       { value: 0.001 }, // Tweak if you see acne
+            shadowDarkness:   { value: 0.6 },   // 0 => fully lit, 1 => pitch black
+            shadowMapSize:    { value: sunLight.shadow.mapSize.width },
+
+            // Light projection
+            lightViewMatrix:       { value: lightViewMatrix },
+            lightProjectionMatrix: { value: lightProjMatrix },
+
+            // Diffuse
+            diffuseMap: { value: diffuseTexture },
+
+            // We also need standard matrices:
+
         }
     });
 }
+
+
 
 export function loadMap(scene) {
     return new Promise((resolve) => {
