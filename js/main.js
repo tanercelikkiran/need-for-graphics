@@ -8,8 +8,8 @@ import {
     loadJeep,
     loadBike,
     loadBMWintro,
-    createCustomPhongMaterial,
-    createFogMaterial
+    createFogMaterial,
+    createShadowMaterial
 } from './loaders.js';
 
 
@@ -31,7 +31,6 @@ export let scene, sceneIntro, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 let motionBlurPass;
-let xMaterial;
 
 const motionBlurShader = {
     uniforms: {
@@ -273,6 +272,7 @@ function addLights(scene) {
 
 
 }
+
 function init() {
     scene = new THREE.Scene();
 
@@ -303,16 +303,11 @@ function init() {
     );
     composer.addPass(bloomPass);
 
-//     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
-//     skyGeo.scale(-1, 1, 1); // flip faces inward if needed
-//
-// // 2) Use the SAME FogMaterial you used for objects
-// // or you can modify it if you want a different effect
-//     const skyFogMaterial = createFogMaterial(null);
-// // You might skip the texture and just set a baseColor in the shader.
-//
-//     const skyMesh = new THREE.Mesh(skyGeo, skyFogMaterial);
-//     scene.add(skyMesh);
+    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+    skyGeo.scale(-1, 1, 1); // flip faces inward if needed
+    const skyFogMaterial = createFogMaterial(null);
+    skyMesh = new THREE.Mesh(skyGeo, skyFogMaterial);
+    scene.add(skyMesh);
 
     motionBlurPass = new ShaderPass(motionBlurShader);
     motionBlurPass.uniforms['delta'].value = 200; // Blur miktarı
@@ -456,7 +451,6 @@ function getUpAxis(body) {
     let worldUp = new CANNON.Vec3(); // Placeholder for world up
 
     body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
-    console.log(worldUp);
 
     return worldUp; // This is the normalized up axis
 }
@@ -1061,240 +1055,36 @@ function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
-let usePhong = false;
+let useShadow = false;
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'k' || e.key === 'K') {
-        usePhong = !usePhong;
-        switchMaterials(usePhong);
+        useShadow = !useShadow;
+        switchMaterials(useShadow);
     }
 });
 
+let skyMesh;
+function switchMaterials(useShadow) {
 
-function switchMaterials(usePhong) {
+
     scene.traverse((child) => {
-        if (child.isMesh && child.material && child.material.uniforms && (child.material.uniforms.uDiffuseMap ||  child.material.uniforms.diffuseMap)) {
-            const texture = child.material.uniforms.uDiffuseMap.value;
-            child.material.side = THREE.DoubleSide;
-            if (usePhong) {
-                // child.material = createCustomPhongMaterial(texture);
-                const fragmentShader = `
-       precision highp float;
-
-// Directional Light
-uniform vec3  dirLightColor;
-uniform vec3  dirLightDirection; // Should be normalized
-uniform sampler2D shadowMap;
-
-// Hemisphere Light
-uniform vec3  hemiSkyColor;
-uniform vec3  hemiGroundColor;
-uniform float hemiIntensity;
-uniform vec3  hemiUp;          // Typically (0,1,0)
-
-// Texturing
-uniform sampler2D diffuseMap;
-
-// Shadow & Projection Info
-uniform float shadowBias;      // e.g., 0.001
-uniform float shadowDarkness;  // e.g., 0.6 for how dark the shadow is
-uniform float shadowMapSize;   // e.g., 2048 or 1024
-
-in vec3 vWorldPos;
-in vec3 vWorldNormal;
-in vec2 vUV;
-in vec4 vShadowCoord;
-
-out vec4 fragColor;
-
-////////////////////////////////////////////////
-// Simple 3×3 PCF sampling
-float sampleShadowPCF(sampler2D smap, vec2 uv, float compare, float texelSize) {
-    float shadow = 0.0;
-    // Offsets: -1, 0, +1
-    for(int x=-1; x<=1; x++){
-        for(int y=-1; y<=1; y++){
-            vec2 offset = vec2(float(x), float(y)) * texelSize;
-            float texDepth = texture(smap, uv + offset).r;
-            // If texDepth < compare => in shadow
-            shadow += (texDepth + shadowBias < compare) ? 1.0 : 0.0;
-        }
-    }
-    // 9 samples total => average
-    return shadow / 9.0;
-}
-
-void main() {
-    ////////////////////////////////////////////////////
-    // 1) Basic Diffuse from Directional Light
-    ////////////////////////////////////////////////////
-    vec3  N    = normalize(vWorldNormal);
-    vec3  L    = normalize(-dirLightDirection); // direction *towards* the surface
-    float diff = max(dot(N, L), 0.0);
-
-    ////////////////////////////////////////////////////
-    // 2) Hemisphere Light (ambient-like)
-    ////////////////////////////////////////////////////
-    // dot(N, Up) => -1..+1. Transform that to 0..1
-    float ndotUp = dot(N, normalize(hemiUp));
-    float hemiFactor = 0.5 * ndotUp + 0.5; // range 0..1
-    vec3 hemiColor = mix(hemiGroundColor, hemiSkyColor, hemiFactor);
-    vec3 hemisphere = hemiColor * hemiIntensity;
-
-    ////////////////////////////////////////////////////
-    // 3) Shadow Calculation
-    ////////////////////////////////////////////////////
-    // Convert from clip-space to normalized [0..1]
-    // vShadowCoord.xyz / vShadowCoord.w => lightCoord
-    vec3 shadowCoord = vShadowCoord.xyz / vShadowCoord.w * 0.5 + 0.5;
-
-    // If outside shadow map, skip (no shadow)
-    if(shadowCoord.x < 0.0 || shadowCoord.x > 1.0 ||
-       shadowCoord.y < 0.0 || shadowCoord.y > 1.0 ||
-       shadowCoord.z < 0.0 || shadowCoord.z > 1.0) {
-        // Outside the shadow map => not in shadow
-    } else {
-        // Sample depth
-        // PCF: gather multiple taps around the current pixel
-        float texelSize = 1.0 / shadowMapSize; // e.g. 1/2048
-        float shadowPct = sampleShadowPCF(shadowMap, shadowCoord.xy, shadowCoord.z, texelSize);
-        // shadowPct = fraction of samples that are in shadow => 0..1
-        //  => 0 => fully lit, 9 => fully shadowed
-        // We'll invert that because if all samples are in shadow => shadowPct=9
-        float shadowFactor = 1.0 - (shadowPct / 1.0); 
-        // If shadowFactor=0 => fully in shadow
-        // If shadowFactor=1 => fully lit
-
-        // Mix in how dark you want the shadow
-        diff *= mix(1.0, shadowDarkness, 1.0 - shadowFactor);
-    }
-
-    ////////////////////////////////////////////////////
-    // 4) Sample the Diffuse Texture
-    ////////////////////////////////////////////////////
-    vec4 texColor = texture(diffuseMap, vUV);
-
-    ////////////////////////////////////////////////////
-    // 5) Final Color = Lambert + Hemisphere + Texture
-    ////////////////////////////////////////////////////
-    // Directional Diffuse
-    vec3 directDiffuse = texColor.rgb * diff * dirLightColor;
-
-    // Add hemisphere as ambient
-    vec3 finalColor = directDiffuse + hemisphere * texColor.rgb;
-
-    fragColor = vec4(finalColor, texColor.a);
-}
-`;
-                const vertexShader = `precision highp float;
-
-// Matrices
-uniform mat4 modelMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat4 lightViewMatrix;       // Light's view matrix
-uniform mat4 lightProjectionMatrix; // Light's projection matrix
-
-in vec3 position;
-in vec3 normal;
-in vec2 uv;
-
-out vec3 vWorldPos;       // Pass world position to fragment
-out vec3 vWorldNormal;    // Pass normal in world space
-out vec2 vUV;             // Pass UV
-out vec4 vShadowCoord;    // Light's clip space position
-
-void main() {
-    // Compute world-space position
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPos     = worldPos.xyz;
-
-    // For correct lighting, transform normal by normalMatrix if needed.
-    // For simplicity, assume no non-uniform scale. If you do, pass
-    // a normalMatrix = inverseTranspose(modelMatrix) as uniform.
-    vec3 worldNormal = mat3(modelMatrix) * normal;
-    vWorldNormal     = normalize(worldNormal);
-
-    // Pass UV
-    vUV = uv;
-
-    // Calculate shadow coordinate (light clip space)
-    // 1) transform to light view space
-    vec4 lightViewPos = lightViewMatrix * worldPos;
-    // 2) transform to light projection space
-    vShadowCoord = lightProjectionMatrix * lightViewPos;
-
-    // Standard camera clip-space position
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
-}
-`;
-                function createCustomShadowMaterial(diffuseTexture) {
-                    // The directional light’s camera is used for shadow generation.
-                    // We'll read from dirLight.shadow.map and pass it to the shader
-                    const shadowMap = sunLight.shadow.map ? sunLight.shadow.map.texture : null;
-
-                    // For the direction, if you want "light from above" you do -light.position
-                    // or simply normalize the direction you want:
-                    const lightDir = new THREE.Vector3().copy(sunLight.position).normalize().multiplyScalar(-1);
-
-                    // For the shadow camera, we need the view and projection matrices
-                    // We can compute them once, or each frame if the light moves
-                    const lightCam = sunLight.shadow.camera;
-                    lightCam.updateProjectionMatrix(); // ensure up to date
-                    lightCam.updateMatrixWorld();      // ensure up to date
-
-                    // Typically:
-                    // lightViewMatrix       = inverse(lightCam.matrixWorld)
-                    // lightProjectionMatrix = lightCam.projectionMatrix
-                    //
-                    // Three.js doesn't store it as "viewMatrix" directly, so we compute:
-                    const lightViewMatrix = new THREE.Matrix4().copy(lightCam.matrixWorldInverse);
-                    // The camera's world inverse is set by the renderer, but we can force-update:
-                    // If it's still not correct, you can compute it manually:
-                    // lightViewMatrix.invert(lightCam.matrixWorld);
-                    const lightProjMatrix = lightCam.projectionMatrix;
-
-                    return new THREE.RawShaderMaterial({
-                        glslVersion: THREE.GLSL3,
-                        vertexShader:   vertexShader,
-                        fragmentShader: fragmentShader,
-                        uniforms: {
-                            // Basic directional light
-                            dirLightColor:    { value: sunLight.color },
-                            dirLightDirection:{ value: lightDir },
-
-                            // Hemisphere
-                            hemiSkyColor:     { value: hemisphereLight .color },
-                            hemiGroundColor:  { value: hemisphereLight .groundColor },
-                            hemiIntensity:    { value: hemisphereLight .intensity },
-                            hemiUp:           { value: new THREE.Vector3(0,1,0) }, // Up vector
-
-                            // Shadow
-                            shadowMap:        { value: shadowMap },
-                            shadowBias:       { value: 0.001 }, // Tweak if you see acne
-                            shadowDarkness:   { value: 0.6 },   // 0 => fully lit, 1 => pitch black
-                            shadowMapSize:    { value: sunLight.shadow.mapSize.width },
-
-                            // Light projection
-                            lightViewMatrix:       { value: lightViewMatrix },
-                            lightProjectionMatrix: { value: lightProjMatrix },
-
-                            // Diffuse
-                            diffuseMap: { value: diffuseTexture },
-
-                            // We also need standard matrices:
-
-                        }
-                    });
-                }
-                xMaterial = createCustomShadowMaterial(texture)
+        if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
+            console.log(child.material);
+            const texture = child.material.uniforms.diffuseMap.value;
+            if (useShadow) {
+                renderer.toneMappingExposure = 0.5;
                 child.castShadow = true;
                 child.receiveShadow = true;
-                child.material = xMaterial;
+                child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
 
+                scene.remove(skyMesh);
             } else {
                 renderer.toneMappingExposure = 0.2;
                 child.material = createFogMaterial(texture);
+                const skyFogMaterial = createFogMaterial(null);
+                skyMesh.material = skyFogMaterial;
+                scene.add(skyMesh)
             }
         }
     });
@@ -1317,7 +1107,7 @@ function animate() {
         updateTurbo(deltaTime);
         updateVehicleControls();
         updateCamera();
-        console.log(turboLevel);
+
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
@@ -1327,7 +1117,6 @@ function animate() {
         const velocity = vehicle.chassisBody.velocity;
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
         motionBlurPass.uniforms['velocityFactor'].value = speed*100;
-        console.log(motionBlurPass.uniforms['tDiffuse'].value);
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
