@@ -1,8 +1,9 @@
 import {
-    loadMap,
-    loadHDR,
     carMesh,
     wheelMeshes,
+    loadedModelList,
+    loadMap,
+    loadHDR,
     loadPorsche,
     loadBMW,
     loadJeep,
@@ -417,7 +418,7 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    scene.traverse(function(child){
+    sceneSandbox.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
             child.visible = false;
             const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
@@ -1253,6 +1254,32 @@ function initIntro() {
             main(); // Ana sahneyi başlat
         }
     });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === '9') {
+            // Kaynakları temizleme
+            sceneIntro.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneIntro.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            sandBox(); // Sandbox sahnesini başlat
+        }
+    });
     document.addEventListener('keydown', (event) => {
         if (event.key.toLowerCase() === 'm') {
             // `sceneIntro` sahnesindeki tüm nesneleri dolaş
@@ -1268,6 +1295,194 @@ function initIntro() {
             });
         }
     });
+}
+
+let selectedObject = null;
+let selectedModel = loadedModelList[0];
+let isDragging = false;
+let dragPlane; // Plane to project mouse movements
+let offset = new THREE.Vector3(); // Offset between object center and mouse position
+let dragMode = "move"; // "move" or "rotate"
+let objects = []; // Array of objects to interact with
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let objectMaterial = new CANNON.Material();
+
+// Yeni bir obje oluştur
+function createNewObject(selectedModel, camera) {
+    const object = selectedModel.clone();
+    // Kameranın pozisyonunu ve yönünü al
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    camera.getWorldPosition(position);
+    camera.getWorldQuaternion(quaternion);
+    object.position.set(position.x, position.y, position.z);
+    scene.add(object);
+}
+
+// Add the object to the physics world
+function placeObject(object) {
+    let size = new THREE.Vector3();
+    let boundingBox = new THREE.Box3().setFromObject(object);
+    boundingBox.getSize(size);
+
+    const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
+    const boxBody = new CANNON.Body({
+        mass: 1,
+    });
+    boxBody.addShape(boxShape);
+    boxBody.position.copy(object.position);
+    boxBody.quaternion.copy(object.quaternion);
+    boxBody.threemesh = object;
+    boxBody.material = objectMaterial;
+
+    world.addBody(boxBody);
+}
+
+function sandBox() {
+    sceneSandbox = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 5, 10);
+    camera.lookAt(0, 0, 0);
+    sceneSandbox.userData.activeCamera = camera;
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Ortam ışığı
+    sceneSandbox.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(10, 10, 10);
+    sceneSandbox.add(directionalLight);
+
+    try {
+        setCannonWorld();
+        loadMap(sceneSandbox).then(createColliders);
+        loadMoveableObjects(sceneSandbox);
+    } catch (error) {
+        console.error("Model yükleme sırasında hata oluştu:", error);
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            // Kaynakları temizleme
+            sceneSandbox.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneSandbox.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            main(); // Ana sahneyi başlat
+        }
+    });
+
+    // Mouse down event: select or start dragging
+    document.addEventListener('mousedown', (event) => {
+        // Left mouse button (move) or right mouse button (rotate)
+        if (event.button === 0) dragMode = "move";
+        if (event.button === 2) dragMode = "rotate";
+
+        // Calculate mouse position in normalized device coordinates
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Raycast to find intersected objects
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(objects);
+
+        if (intersects.length > 0) {
+            // Select object
+            selectedObject = intersects[0].object;
+
+            // Create a drag plane at the intersection point
+            dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectionPoint = intersects[0].point;
+            dragPlane.setFromNormalAndCoplanarPoint(
+                camera.getWorldDirection(new THREE.Vector3()).negate(),
+                intersectionPoint
+            );
+
+            isDragging = true;
+            controls.enabled = false; // Disable orbit controls
+        } else {
+            // No object selected
+            if (selectedObject) {
+                selectedObject = null;
+            }
+            controls.enabled = true; // Enable orbit controls
+        }
+    });
+
+// Mouse move event: manipulate object
+    document.addEventListener('mousemove', (event) => {
+        if (!isDragging || !selectedObject) return;
+
+        if (dragMode === "move") {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Project the mouse onto a drag plane
+            raycaster.setFromCamera(mouse, camera);
+            const intersectionPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
+
+            if (intersectionPoint) {
+                // Update object position
+                selectedObject.position.copy(intersectionPoint);
+            }
+        } else if (dragMode === "rotate") {
+            // Rotate the object based on mouse movement
+            selectedObject.rotation.y += event.movementX * 0.01; // Rotate around Y-axis
+            selectedObject.rotation.x += event.movementY * 0.01; // Rotate around X-axis
+        }
+    });
+
+// Mouse up event: release object
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            dragMode = "move"; // Reset to move mode
+        }
+        controls.enabled = true; // Re-enable orbit controls
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'l') {
+            createNewObject(selectedModel, camera);
+        } else if (event.key === 'p') {
+            placeObject(selectedObject);
+        }
+    } );
+
+
+    function animateSandbox() {
+        controls.update();
+        renderer.render(sceneSandbox, camera);
+        requestAnimationFrame(animateSandbox);
+    }
+
+    animateSandbox();
 }
 
 function main() {

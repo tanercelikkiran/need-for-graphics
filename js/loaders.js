@@ -11,10 +11,21 @@ import {
     transparent
 } from "./material-properties.js";
 import {isBraking, world} from "./main.js";
+import * as CANNON from "cannon-es";
 
 let carMesh;
 let wheelMeshes = [];
-export {carMesh, wheelMeshes};
+let loadedModelList = {
+    barrier : null,
+    barrel : null,
+    chair : null,
+    crate : null,
+    longCrate : null,
+    stopSign : null,
+    trafficCone : null,
+    trashCan : null,
+}
+export {carMesh, wheelMeshes, loadedModelList};
 
 const manager = new THREE.LoadingManager();
 manager.onStart = () => {
@@ -495,44 +506,52 @@ export function loadWheels(scene, wheelPath) {
 }
 
 export function loadMoveableObjects(scene) {
-    loadObject(scene, "public/moveableObjects/barrel/scene.gltf");
-    loadObject(scene, "public/moveableObjects/crate-box/crate.fbx");
-    loadObject(scene, "public/moveableObjects/concrete_barrier_hq.glb");
-    loadObject(scene, "public/moveableObjects/plastic_chair.glb");
-    loadObject(scene, "public/moveableObjects/stop-sign-ts.glb");
-    loadObject(scene, "public/moveableObjects/traffic_cone_game_ready.glb");
-    loadObject(scene, "public/moveableObjects/trash_can.glb");
+    // loadObject(scene, "public/moveableObjects/oil_barrel_2.glb");
+    // loadObject(scene, "public/moveableObjects/simple_crate.glb");
+    // loadObject(scene, "public/moveableObjects/simple_long_crate.glb");
+    // loadObject(scene, "public/moveableObjects/concrete_barrier_hq.glb");
+    // loadObject(scene, "public/moveableObjects/plastic_chair.glb");
+    // loadObject(scene, "public/moveableObjects/stop-sign-ts.glb");
+    // loadObject(scene, "public/moveableObjects/traffic_cone_game_ready.glb");
+    // loadObject(scene, "public/moveableObjects/trash_can.glb");
 }
 
 function loadObject(scene, objectPath) {
-    return new Promise((resolve) => {
-        if (objectPath.includes(".fbx")) {
-            fbxLoader.load(objectPath, (object) => {
-                scene.add(object);
-                object.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                resolve();
-            }, null, function (error) {
-                console.error(error);
-            });
+    gltfLoader.load(objectPath, (gltf) => {
+        scene.add(gltf.scene);
+        switch (objectPath) {
+            case "public/moveableObjects/oil_barrel_2.glb":
+                loadedModelList.barrel = gltf.scene;
+                break;
+            case "public/moveableObjects/simple_crate.glb":
+                loadedModelList.crate = gltf.scene;
+                break;
+            case "public/moveableObjects/simple_long_crate.glb":
+                loadedModelList.longCrate = gltf.scene;
+                break;
+            case "public/moveableObjects/concrete_barrier_hq.glb":
+                loadedModelList.barrier = gltf.scene;
+                break;
+            case "public/moveableObjects/plastic_chair.glb":
+                loadedModelList.chair = gltf.scene;
+                break;
+            case "public/moveableObjects/stop-sign-ts.glb":
+                loadedModelList.stopSign = gltf.scene;
+                break;
+            case "public/moveableObjects/traffic_cone_game_ready.glb":
+                loadedModelList.trafficCone = gltf.scene;
+                break;
+            case "public/moveableObjects/trash_can.glb":
+                loadedModelList.trashCan = gltf.scene;
+                break;
         }
-        else if (objectPath.includes(".glb") || objectPath.includes(".gltf")) {
-            gltfLoader.load(objectPath, (gltf) => {
-                scene.add(gltf.scene);
-                gltf.scene.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                resolve();
-            }, null, function (error) {
-                console.error(error);
-            });
-        }
+        gltf.scene.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }, null, function (error) {
+        console.error(error);
     });
 }
