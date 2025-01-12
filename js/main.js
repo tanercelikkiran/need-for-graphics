@@ -1217,7 +1217,7 @@ function animate() {
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
-        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - carSize.y/2, chassisBody.position.z));
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity;
