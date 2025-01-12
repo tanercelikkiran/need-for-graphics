@@ -13,9 +13,6 @@ import {
 import {isBraking, world} from "./main.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
-import {emissiveLight, pointLight, spotlight} from "./material-properties.js";
-import {transparent, metallicPaint} from "./material-properties.js";
-import {world} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];

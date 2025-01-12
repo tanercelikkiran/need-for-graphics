@@ -178,6 +178,13 @@ const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
+let elapsedTime = 0;
+let gameStarted=false;
+let countdown=3;
+let countdownTimer;
+const totalTime = 600;
+let remainingTime=totalTime;
+let gameOver=false;
 
 let selectedCarNo = 0;
 
@@ -369,12 +376,6 @@ function init() {
         }
     });
 
-}
-function createOrbitControls() {
-    if (scene.userData.activeCamera) {
-        orbitControls = new OrbitControls(scene.userData.activeCamera, renderer.domElement);
-        orbitControls.enabled = false; // Varsayılan olarak kapalı
-    }
 }
 
 function createOrbitControls() {
@@ -1079,7 +1080,7 @@ function updateTimer(deltaTime) {
 
 function updateRemainingTime(deltaTime) {
     if (!gameOver) {
-        remainingTime -= deltaTime;
+        remainingTime -= deltaTime/1000;
         if (remainingTime <= 0) {
             remainingTime = 0;
             gameOver = true;
