@@ -466,7 +466,7 @@ function createVehicle() {
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
     boundingBox.getSize(carSize);
 
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.1, carSize.z / 2));
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.5, carSize.z / 2));
     const chassisBody = new CANNON.Body({
         mass: vehicleMass,
     });
@@ -1061,7 +1061,7 @@ function animate() {
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
-        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - carSize.y/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity;
@@ -1491,8 +1491,8 @@ function main() {
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
     //loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    //loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    //loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
 }
 
