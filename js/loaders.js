@@ -198,9 +198,6 @@ export function loadPorscheIntro(scene) {
                 if (child.name.includes("Studio_Car276")){
                     transparent(child.material, 0x5C0007);
                 }
-                if (child.name.includes("Studio_Car277")){
-                    metallicPaint(child.material);
-                }
                 if (child.name.includes("Studio_Car148")){
                     emissiveLight(child, 0xffffff, 20.0);
                 }
@@ -248,18 +245,20 @@ export function loadJeep(scene) {
 
             scene.userData.activeCamera = carCamera;
 
-
-            object.traverse(function (child) {
+            object.traverse(function(child) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
 
+                    if (child.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material'){
+                        metallicPaint(child.material,carColor);
+                    }
                     if (child.name.includes("Brakelight")) {
                         const originalMaterial = child.material;
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            } else {
+                            }else{
                                 child.material = originalMaterial;
                             }
                         });
@@ -275,7 +274,7 @@ export function loadJeep(scene) {
                         world.addEventListener("postStep", () => {
                             if (isBraking) {
                                 child.material.emissiveIntensity = 10;
-                            } else {
+                            }else{
                                 child.material.emissiveIntensity = 5;
                             }
                         });
@@ -322,17 +321,17 @@ export function loadJeep(scene) {
                     if (child.name.includes("Trunklight")) {
                         emissiveLight(child, 0xFFFFFF, 5);
                     }
-                    if (child.name.includes("platelight")) {
+                    if (child.name.includes("platelight")){
                         const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
                         child.add(pointLight4);
                     }
                 }
             });
             resolve();
-        }, null, function (error) {
+        } , null, function(error){
             console.error(error);
         });
-        loadWheels(scene, "public/jeep/jeepWheels.fbx" );
+        loadWheels(scene, "public/jeep/jeep.fbx" );
     });
 }
 
@@ -473,7 +472,7 @@ export function loadPorsche(scene) {
                         transparent(child.material, 0x5C0007);
                     }
                     if (child.name.includes("Studio_Car277")){
-                        metallicPaint(child.material);
+                        metallicPaint(child.material,carColor);
                     }
                     if (child.name.includes("Studio_Car148")){
                         emissiveLight(child, 0xffffff, 20.0);

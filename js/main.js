@@ -190,7 +190,7 @@ let remainingTime=totalTime;
 let scoreTime=600;
 let gameOver=false;
 
-let selectedCarNo = 2;
+let selectedCarNo = 0;
 
 let porscheMass = 900;
 let porscheWheelOptions = {
@@ -1318,7 +1318,7 @@ function initIntro() {
         }
     }
 
-    const spotLight = new THREE.SpotLight(0xffffff, 5000,0,Math.PI,0.5);
+    const spotLight = new THREE.SpotLight(0xffffff, 10000,0,Math.PI,0.5);
     const lightTarget = new THREE.Object3D();
     lightTarget.position.set(0, 1, 0); // Işığın hedef noktası
     sceneIntro.add(lightTarget);
@@ -1342,6 +1342,18 @@ function initIntro() {
     camera.lookAt(0, 200, 0);
     sceneIntro.userData.activeCamera = camera;
 
+    const renderScene = new RenderPass(sceneIntro, camera);
+    const introComposer = new EffectComposer(renderer);
+    introComposer.addPass(renderScene);
+
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.8, // strength
+        0.4, // radius
+        0.2  // threshold
+    );
+    introComposer.addPass(bloomPass);
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.enableDamping = true;
@@ -1352,7 +1364,7 @@ function initIntro() {
         const key = event.key.toLowerCase();
         const step = Math.PI / 60; // Açı artışı/düşüşü
         const radiusStep = 0.3;
-        const intensityStep=400;
+        const intensityStep=800;
 
         switch (key) {
             case 'arrowup':
@@ -1377,7 +1389,7 @@ function initIntro() {
                 spotLight.intensity = Math.min(40000, spotLight.intensity + intensityStep); // Maksimum 10
                 break;
             case 'h': // Parlaklığı azaltır
-                spotLight.intensity = Math.max(400, spotLight.intensity - intensityStep); // Minimum 0
+                spotLight.intensity = Math.max(800, spotLight.intensity - intensityStep); // Minimum 0
                 break;
         }
 
@@ -1392,7 +1404,7 @@ function initIntro() {
 
     function animateIntro() {
         controls.update();
-        renderer.render(sceneIntro, camera);
+        introComposer.render();
         requestAnimationFrame(animateIntro);
     }
 
@@ -1463,6 +1475,14 @@ function initIntro() {
                             // Materyalin rengini değiştir
                             metallicPaint(object.material, carColor);
                         }
+                        else if (object.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material') {
+                            // Materyalin rengini değiştir
+                            metallicPaint(object.material, carColor);
+                        }
+                        else if (object.name.includes("Studio_Car277")) {
+                            // Materyalin rengini değiştir
+                            metallicPaint(object.material, carColor);
+                        }
                     }
                 });
             });
@@ -1490,14 +1510,13 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    // if (selectedCarNo===0){
-    //     loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    // }else if (selectedCarNo===1){
-    //     loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    // }else if (selectedCarNo===2){
-    //     loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    // }
-    loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    if (selectedCarNo===0){
+        loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    }else if (selectedCarNo===1){
+        loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    }else if (selectedCarNo===2){
+        loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    }
     animate();
 }
 
