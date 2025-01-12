@@ -418,7 +418,7 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    sceneSandbox.traverse(function(child){
+    scene.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
             child.visible = false;
             const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
@@ -1491,8 +1491,8 @@ function main() {
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
     //loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    //loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    //loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
 }
 
