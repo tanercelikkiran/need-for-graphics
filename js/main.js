@@ -27,10 +27,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
-export let scene, sceneIntro, renderer, composer, stats;
-export let world, cannonDebugger, vehicle, carSize, isBraking,useShadow;
+export let scene, sceneIntro, renderer, composer, stats,motionBlurPass,bloomPass;
+export let world, cannonDebugger, vehicle, carSize, isBraking,useShadow,skyMesh,sunLight,hemisphereLight;
 
-let motionBlurPass;
 
 const motionBlurShader = {
     uniforms: {
@@ -238,8 +237,7 @@ let jeepWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let sunLight;
-let hemisphereLight;
+
 function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
 
@@ -295,10 +293,10 @@ function init() {
     fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
     composer.addPass(fxaaPass);
 
-    const bloomPass = new UnrealBloomPass(
+    bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.8,
         0.4,
-        1,
         0.2
     );
     composer.addPass(bloomPass);
@@ -1055,43 +1053,43 @@ function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
-useShadow = 0;
+useShadow = 2;
+
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'k' || e.key === 'K') {
-        useShadow +=1;
-        if (useShadow>2){
-            useShadow=0;
-        }
-        switchMaterials(useShadow);
+        useShadow = (useShadow+1)%4;
     }
 });
 
-let skyMesh;
-function switchMaterials(useShadow) {
-
-
-    scene.traverse((child) => {
-        if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
-            console.log(child.material);
-            const texture = child.material.uniforms.diffuseMap.value;
-            if (useShadow===1) {
-                renderer.toneMappingExposure = 0.5;
-                child.castShadow = true;
-                child.receiveShadow = true;
-                child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
-
-                scene.remove(skyMesh);
-            } else if (useShadow===0){
-                renderer.toneMappingExposure = 0.2;
-                child.material = createFogMaterial(texture);
-                const skyFogMaterial = createFogMaterial(null);
-                skyMesh.material = skyFogMaterial;
-                scene.add(skyMesh)
-            }
-        }
-    });
-}
+// export function switchMaterials(useShadow) {
+//
+//     scene.traverse((child) => {
+//         if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
+//             const texture = child.material.uniforms.diffuseMap.value;
+//             if (useShadow===0) {
+//                 child.castShadow = true;
+//                 child.receiveShadow = true;
+//                 child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
+//                 console.log("Çalışıyorum wuhuuuu");
+//                 scene.remove(skyMesh);
+//                 renderer.toneMappingExposure = 0.5;
+//             } else if (useShadow===1){
+//
+//                 child.material = createFogMaterial(texture);
+//                 const skyFogMaterial = createFogMaterial(null);
+//                 skyMesh.material = skyFogMaterial;
+//                 if (!scene.children.includes(skyMesh)) {
+//                     scene.add(skyMesh);
+//                 }
+//                 renderer.toneMappingExposure = 0.2;
+//             }
+//             else if (useShadow===2){
+//                 renderer.toneMappingExposure = 1.2;
+//             }
+//         }
+//     });
+// }
 
 
 //############################################################################################################

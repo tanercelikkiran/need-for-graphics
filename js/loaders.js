@@ -10,7 +10,16 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {isBraking, world,useShadow} from "./main.js";
+import {
+    isBraking,
+    world,
+    useShadow,
+    scene,
+    renderer,
+    skyMesh,
+    hemisphereLight,
+    sunLight, motionBlurPass, bloomPass
+} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];
@@ -197,10 +206,40 @@ export function loadMap(scene) {
                         } else {
                             if (originalMaterials.has(child)) {
                                 child.material = originalMaterials.get(child);
+                                renderer.toneMappingExposure=1.2;
+                                scene.remove(skyMesh);
+                                bloomPass.strength=0.8;
+                                bloomPass.radius=0.4;
+                            }
+                            if (useShadow>2) {
+                                motionBlurPass.enabled=true;
                             }
                         }
                     }
+                    if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
+                        const texture = child.material.uniforms.diffuseMap.value;
+                        if (useShadow===0) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
+                            scene.remove(skyMesh);
+                            renderer.toneMappingExposure = 0.5;
+                            motionBlurPass.enabled=false;
+                            bloomPass.strength=0.4;
+                            bloomPass.radius=1.0;
+                        } else if (useShadow===1){
+
+                            child.material = createFogMaterial(texture);
+                            const skyFogMaterial = createFogMaterial(null);
+                            skyMesh.material = skyFogMaterial;
+                            if (!scene.children.includes(skyMesh)) {
+                                scene.add(skyMesh);
+                            }
+                            renderer.toneMappingExposure = 0.2;
+                        }
+                    }
                 });
+
             });
 
             resolve();
