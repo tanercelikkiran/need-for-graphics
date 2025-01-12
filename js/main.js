@@ -437,7 +437,6 @@ function getUpAxis(body) {
     let worldUp = new CANNON.Vec3(); // Placeholder for world up
 
     body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
-    console.log(worldUp);
 
     return worldUp; // This is the normalized up axis
 }
