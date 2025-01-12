@@ -213,7 +213,7 @@ let porscheWheelOptions = {
 let bmwMass = 1100;
 let bmwWheelOptions = {
     mass: 15,
-    radius: 0.35,
+    radius: 0.4,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
     suspensionRestLength: 0.3,
@@ -231,7 +231,7 @@ let bmwWheelOptions = {
 let jeepMass = 1700;
 let jeepWheelOptions = {
     mass: 15,
-    radius: 0.7,
+    radius: 0.5,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
     suspensionRestLength: 0.3,
@@ -389,6 +389,11 @@ function createOrbitControls() {
     }
 }
 
+const groundMaterial = new CANNON.Material("groundMaterial");
+const bodyMaterial = new CANNON.Material("bodyMaterial");
+const wheelMaterial = new CANNON.Material("wheelMaterial");
+const colliderMaterial = new CANNON.Material("colliderMaterial");
+
 function setCannonWorld(){
     world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
@@ -404,27 +409,15 @@ function setCannonWorld(){
         console.log("End Contact:", event.bodyA, event.bodyB);
     });
 
-    const groundMaterial = new CANNON.Material("groundMaterial");
-    const wheelMaterial = new CANNON.Material("wheelMaterial");
-    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
-        wheelMaterial,
-        groundMaterial,
-        {
-            friction: 0.3,
-            restitution: 0,
-            contactEquationStiffness: 1000
-        }
-    );
-    world.addContactMaterial(wheelGroundContactMaterial);
-
 // Create the ground plane
     const groundBody = new CANNON.Body({
         type: CANNON.Body.STATIC,
         shape: new CANNON.Plane(),
     });
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal
-    world.addBody(groundBody);
+    groundBody.material = groundMaterial;
+    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal\
     groundBody.aabbNeedsUpdate = true;
+    world.addBody(groundBody);
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
@@ -444,12 +437,35 @@ function createColliders(){
     });
 }
 
+function createFrictionPairs(){
+    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
+        wheelMaterial,
+        groundMaterial,
+        {
+            friction: 0.3,
+            restitution: 0,
+            contactEquationStiffness: 1000
+        }
+    );
+    world.addContactMaterial(wheelGroundContactMaterial);
+
+    const wheelColliderContactMaterial = new CANNON.ContactMaterial(
+        wheelMaterial,
+        colliderMaterial,
+        {
+            friction: 0.5,
+            restitution: 0,
+            contactEquationStiffness: 1000
+        }
+    );
+    world.addContactMaterial(wheelColliderContactMaterial);
+}
+
 function getUpAxis(body) {
     const localUp = new CANNON.Vec3(0, 1, 0); // Local up in body space
     let worldUp = new CANNON.Vec3(); // Placeholder for world up
 
     body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
-    console.log(worldUp);
 
     return worldUp; // This is the normalized up axis
 }
@@ -504,6 +520,7 @@ function createVehicle() {
     chassisBody.position.copy(pos);
     chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
     chassisBody.threemesh = carMesh;
+    chassisBody.material = bodyMaterial;
 
     vehicle = new CANNON.RaycastVehicle({
         chassisBody: chassisBody,
@@ -532,6 +549,7 @@ function createVehicle() {
         wheelBody.addShape(shape, new CANNON.Vec3(), q);
         wheelBody.position.copy(wheelCenter);
         wheelBody.threemesh = wheelMesh;
+        wheelBody.material = wheelMaterial;
         world.addBody(wheelBody);
         wheelBodies.push(wheelBody);
 
@@ -606,7 +624,7 @@ function updateVehicleControls() {
 
     let steerFactor = nonLinearFactor * linearFactor;
     // steerFactor aşırı düşük olmasın
-    if (steerFactor < 0.05) steerFactor = 0.05;
+    if (steerFactor < 0.5) steerFactor = 0.5;
 
     // 2D) Frenliyorsak (isBraking) direksiyon limitini biraz daha kıs
     if (isBraking) {
@@ -1178,7 +1196,6 @@ function updateMinimap() {
 //############################################################################################################
 
 function animate() {
-    cannonDebugger.update();
     if (gameOver){
         return;
     }
@@ -1195,18 +1212,18 @@ function animate() {
         updateTurbo(deltaTime);
         updateVehicleControls();
         updateCamera();
-        console.log(turboLevel);
+        //console.log(turboLevel);
         updateMinimap();
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
-        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
+        chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - carSize.y/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         const velocity = vehicle.chassisBody.velocity;
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
         motionBlurPass.uniforms['velocityFactor'].value = speed*100;
-        console.log(motionBlurPass.uniforms['tDiffuse'].value);
+        //console.log(motionBlurPass.uniforms['tDiffuse'].value);
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
@@ -1525,6 +1542,7 @@ function main() {
     init();
     setCannonWorld();
     loadMap(scene).then(createColliders);
+    createFrictionPairs();
     loadHDR(scene, renderer);
     if (selectedCarNo===0){
         loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
