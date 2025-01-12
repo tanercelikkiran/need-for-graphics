@@ -28,7 +28,7 @@ import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
 export let scene, sceneIntro, renderer, composer, stats;
-export let world, cannonDebugger, vehicle, carSize, isBraking;
+export let world, cannonDebugger, vehicle, carSize, isBraking,useShadow;
 
 let motionBlurPass;
 
@@ -1055,11 +1055,14 @@ function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
 
-let useShadow = false;
+useShadow = 0;
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'k' || e.key === 'K') {
-        useShadow = !useShadow;
+        useShadow +=1;
+        if (useShadow>2){
+            useShadow=0;
+        }
         switchMaterials(useShadow);
     }
 });
@@ -1072,14 +1075,14 @@ function switchMaterials(useShadow) {
         if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
             console.log(child.material);
             const texture = child.material.uniforms.diffuseMap.value;
-            if (useShadow) {
+            if (useShadow===1) {
                 renderer.toneMappingExposure = 0.5;
                 child.castShadow = true;
                 child.receiveShadow = true;
                 child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
 
                 scene.remove(skyMesh);
-            } else {
+            } else if (useShadow===0){
                 renderer.toneMappingExposure = 0.2;
                 child.material = createFogMaterial(texture);
                 const skyFogMaterial = createFogMaterial(null);

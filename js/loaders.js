@@ -10,7 +10,7 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {isBraking, world} from "./main.js";
+import {isBraking, world,useShadow} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];
@@ -128,6 +128,7 @@ export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
 
 
 export function loadMap(scene) {
+    const originalMaterials = new Map();
     return new Promise((resolve) => {
         gltfLoader.load(
             'public/city.glb',
@@ -139,6 +140,9 @@ export function loadMap(scene) {
 
 
             gltf.scene.traverse(function (child) {
+                if (!originalMaterials.has(child)) {
+                    originalMaterials.set(child, child.material);
+                }
                 if (child.isMesh && child.material && child.material.map) {
                     // child.material.map is your base color (diffuse) texture
                     const cityTexture = child.material.map;
@@ -180,6 +184,25 @@ export function loadMap(scene) {
                 //         scene.add(pointLight);
                 //     }
             });
+            world.addEventListener("postStep", () => {
+                gltf.scene.traverse(function (child) {
+                    if (child.isMesh && child.material) {
+                        if (useShadow<2) {
+
+                            if (child.material.map) {
+                                const cityTexture = child.material.map;
+                                const customCityMaterial = createFogMaterial(cityTexture);
+                                child.material = customCityMaterial;
+                            }
+                        } else {
+                            if (originalMaterials.has(child)) {
+                                child.material = originalMaterials.get(child);
+                            }
+                        }
+                    }
+                });
+            });
+
             resolve();
         },
         null,
