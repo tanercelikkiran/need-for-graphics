@@ -478,11 +478,27 @@ function createVehicle() {
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
     boundingBox.getSize(carSize);
 
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.1, carSize.z / 2));
+
+    let chassisShape;
+    if(selectedCarNo===0){
+        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
+    }else if (selectedCarNo===1){
+        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
+    }else if (selectedCarNo===2){
+        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.20, carSize.z / 2));
+    }
+
     const chassisBody = new CANNON.Body({
         mass: vehicleMass,
     });
-    const chassisOffset = new CANNON.Vec3(0, 0.2, 0);
+    let chassisOffset;
+    if(selectedCarNo===0){
+        chassisOffset = new CANNON.Vec3(0, 0.12, 0);
+    }else if (selectedCarNo===1){
+        chassisOffset = new CANNON.Vec3(0, 0.10, 0);
+    }else if (selectedCarNo===2){
+        chassisOffset = new CANNON.Vec3(0, 0.45, 0);
+    }
     chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
     chassisBody.position.copy(pos);
@@ -519,7 +535,7 @@ function createVehicle() {
         world.addBody(wheelBody);
         wheelBodies.push(wheelBody);
 
-        wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, 0, wheelCenter.z);
+        wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, -0.12, wheelCenter.z);
 
         vehicle.addWheel({
             body: wheelBody,
