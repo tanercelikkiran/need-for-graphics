@@ -1490,9 +1490,9 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
-    loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
+    //loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    //loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
 }
 
