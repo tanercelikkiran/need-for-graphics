@@ -17,12 +17,52 @@ export function neonEmissiveMaterial(material, color, intensity) {
     material.metalness = 0.8; // Slight metallic effect for glow reflection
 }
 
-export function metallicPaint(material,color) {
-    material.roughness = 0.3; // Cam yüzeyi pürüzsüz olmalı
-    material.metalness = 1.0; // Cam için metalik etki gerekmez
-    material.color.set(color); // Hafif bir renk tonu (isteğe bağlı)
-    material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
+export function metallicPaint(material, color) {
+    // Kullanıcının verdiği rengi ayarla
+    material.color.set(color); // Ana renk
+
+    // Varsayılan metalik özellikler
+    material.metalness = 1.0; // Tam metalik görünüm
+    material.roughness = 0.2; // Hafif pürüzsüzlük
+    material.envMapIntensity = 1.5; // Ortam haritası yansıma yoğunluğu
+
+
+    // Sheen (ipeksi parlaklık)
+    material.sheen = 1.0; // Sheen yoğunluğu
+    material.sheenColor = new THREE.Color(color).multiplyScalar(1.2); // Rengin hafif aydınlatılmış tonu
+    material.sheenRoughness = 0.3; // Sheen pürüzlülüğü
+
+    // Normal Map ve ayrıntılar (isteğe bağlı)
+    material.normalMap = null; // Varsayılan olarak yok
+    material.normalScale = new THREE.Vector2(1, 1); // Normal haritası ölçeği
+
+    // Ortam haritası (envMap)
+    material.envMap = null; // Varsayılan olarak yok
+
+    // Fresnel Etkisi (dinamik renk değişimi)
+    material.onBeforeCompile = (shader) => {
+        shader.uniforms.uFresnelPower = { value: 2.0 }; // Fresnel yoğunluğu
+        shader.uniforms.uFresnelColor = { value: new THREE.Color(color).multiplyScalar(1.5) }; // Fresnel renk tonu
+        shader.fragmentShader = shader.fragmentShader.replace(
+            `void main() {`,
+            `
+            uniform float uFresnelPower;
+            uniform vec3 uFresnelColor;
+            void main() {
+                float fresnel = pow(1.0 - dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), uFresnelPower);
+                gl_FragColor.rgb += uFresnelColor * fresnel;
+            `
+        );
+    };
+
+    // Diğer ışık ve yüzey detayları
+    material.reflectivity = 0.5; // Yansıma yoğunluğu
+    material.specularIntensity = 1.0; // Parlama yoğunluğu
+    material.specularTint = new THREE.Color(0xffffff); // Beyaz parlama
+    material.lightMapIntensity = 1.0; // Işık haritası yoğunluğu
+    material.aoMapIntensity = 1.0; // Ortam ışığı yoğunluğu (AO)
 }
+
 
 export function pointLight(position, color, intensity, distance, decay) {
     const pointLight = new THREE.PointLight(color, intensity, distance, decay);

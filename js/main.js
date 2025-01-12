@@ -6,8 +6,8 @@ import {
     loadPorsche,
     loadBMW,
     loadJeep,
-    loadBike,
-    loadBMWintro
+    loadBMWintro,
+    loadPorscheIntro, loadJeepIntro
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -24,10 +24,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
-export let scene, sceneIntro, renderer, composer, stats;
+export let scene, sceneIntro, renderer, composer, stats,carColor;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 
 let motionBlurPass;
+
+carColor= 0x5C0007;
 
 const motionBlurShader = {
     uniforms: {
@@ -166,11 +168,12 @@ let engineDropFactor = 0.7;
 // 11) TURBO GO VROOOOOOOOM
 // ================================================
 
-let turboLevel = 10000; // Nitro'nun başlangıç değeri
+let turboLevel = 100; // Nitro'nun başlangıç değeri
 let isTurboActive = false; // Nitro kullanım durumu
 const turboDecayRate = 100 / (5 * 60);
 let turboVroom= false;
 let startTurboTime = null;
+let score=0;
 
 let orbitControls;
 
@@ -184,9 +187,10 @@ let countdown=3;
 let countdownTimer;
 const totalTime = 600;
 let remainingTime=totalTime;
+let scoreTime=600;
 let gameOver=false;
 
-let selectedCarNo = 0;
+let selectedCarNo = 2;
 
 let porscheMass = 900;
 let porscheWheelOptions = {
@@ -709,6 +713,8 @@ function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 1);
     updateSpeedometer();
     updateSpeedSlider();
+    updateTurbometer();
+    updateTurboSlider();
 }
 function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
@@ -725,6 +731,16 @@ function updateSpeedSlider() {
     const tSpeed=304/3.6;
     const fillPercentage= (speed/tSpeed)*100;
     sliderFill.style.width = `${fillPercentage}%`;
+}
+
+function updateTurbometer() {
+    const turbometerText = document.getElementById('turbo-value');
+    turbometerText.textContent = `Turbo ${turboLevel.toFixed(0)}%`;
+}
+
+function updateTurboSlider() {
+    const turbosliderFill = document.getElementById('turbo-slider-fill');
+    turbosliderFill.style.width = `${turboLevel}%`;
 }
 
 document.addEventListener('keydown', (event) => {
@@ -1074,8 +1090,19 @@ function updateTimer(deltaTime) {
     const totalSeconds = Math.floor(elapsedTime / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.floor(totalSeconds % 60);
-    const miliseconds= Math.floor(elapsedTime % 1000);
+    const miliseconds= Math.floor(elapsedTime/10 % 100);
     document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
+}
+
+function updateScore(deltaTime) {
+    scoreTime-= deltaTime/1000;
+    const velocity = vehicle.chassisBody.velocity;
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const seconds = Math.floor(scoreTime % 600);
+    score+=speed*0.0000000000005;
+    const secondssqr = Math.pow(seconds, 4)
+    const finalScore=score*secondssqr;
+    document.getElementById('score').textContent =`Score: ${finalScore.toFixed(0)}`;
 }
 
 function updateRemainingTime(deltaTime) {
@@ -1142,7 +1169,8 @@ function animate() {
     cannonDebugger.update();
 
     const time = performance.now();
-    const deltaTime = (time - lastTime) // Convert to seconds
+    const deltaTime = (time - lastTime)/1000; // Convert to seconds
+    const milDeltaTime = (time - lastTime);
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
@@ -1174,8 +1202,9 @@ function animate() {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
         const activeCamera=scene.userData.activeCamera;
-        updateTimer(deltaTime);
-        updateRemainingTime(deltaTime);
+        updateTimer(milDeltaTime);
+        updateRemainingTime(milDeltaTime);
+        updateScore(milDeltaTime);
         if (nameCameraBool) {
             if (cameraLookAtStartTime !== null) {
                 const elapsedTime = performance.now() - cameraLookAtStartTime;
@@ -1243,11 +1272,53 @@ function initIntro() {
 
     try {
         loadBMWintro(sceneIntro);
+        loadPorscheIntro(sceneIntro);
+        loadJeepIntro(sceneIntro);
     } catch (error) {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
 
-    const spotLight = new THREE.SpotLight(0xffffff, 250);
+
+    document.getElementById("start-text-2").addEventListener("click", () => {
+        selectedCarNo = (selectedCarNo+1)%3
+        updateCarVisibility(); // Görünürlüğü güncelle
+    });
+
+    function updateCarVisibility() {
+        let bmwModel, porscheModel,jeepModel;
+
+        // Sahnedeki modelleri bul
+        sceneIntro.traverse((child) => {
+            if (child.isObject3D && child.children.length > 0) {
+                if (!bmwModel && child.name.includes("BMW")) {
+                    bmwModel = child;
+                }
+                if (!porscheModel && child.name.includes("Porsche")) {
+                    porscheModel = child;
+                }
+                if (!jeepModel && child.name.includes("Jeep")) {
+                    jeepModel = child;
+                }
+            }
+        });
+
+        // Görünürlüğü ayarla
+        if (selectedCarNo === 0) {
+            if (bmwModel) bmwModel.visible = true;
+            if (porscheModel) porscheModel.visible = false;
+            if (jeepModel) jeepModel.visible = false;
+        } else if (selectedCarNo === 1) {
+            if (bmwModel) bmwModel.visible = false;
+            if (porscheModel) porscheModel.visible = true;
+            if (jeepModel) jeepModel.visible = false;
+        }else if (selectedCarNo === 2) {
+            if (bmwModel) bmwModel.visible = false;
+            if (porscheModel) porscheModel.visible = false;
+            if (jeepModel) jeepModel.visible = true;
+        }
+    }
+
+    const spotLight = new THREE.SpotLight(0xffffff, 5000,0,Math.PI,0.5);
     const lightTarget = new THREE.Object3D();
     lightTarget.position.set(0, 1, 0); // Işığın hedef noktası
     sceneIntro.add(lightTarget);
@@ -1255,8 +1326,8 @@ function initIntro() {
     sceneIntro.add(spotLight);
 
     // Küresel koordinatlar
-    let radius = 10; // Küre yarıçapı
-    let theta = 3*Math.PI / 4; // Yatay açı
+    let radius = 40; // Küre yarıçapı
+    let theta = Math.PI/2; // Yatay açı
     let phi = Math.PI / 4; // Dikey açı
 
     spotLight.position.x = lightTarget.position.x + radius * Math.sin(phi) * Math.cos(theta);
@@ -1266,8 +1337,8 @@ function initIntro() {
     spotLight.target.updateMatrixWorld();
 
     // Kamerayı ekleyin
-    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(-5, 3, 0);
+    const camera = new THREE.PerspectiveCamera(12, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0.55, 0.30, -21);
     camera.lookAt(0, 200, 0);
     sceneIntro.userData.activeCamera = camera;
 
@@ -1275,13 +1346,13 @@ function initIntro() {
     controls.target.set(0, 1, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.enableZoom = false;
+    // controls.enableZoom = false;
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
         const step = Math.PI / 60; // Açı artışı/düşüşü
         const radiusStep = 0.3;
-        const intensityStep=20;
+        const intensityStep=400;
 
         switch (key) {
             case 'arrowup':
@@ -1303,10 +1374,10 @@ function initIntro() {
                 radius = Math.min(50, radius + radiusStep); // Maksimum radius 50
                 break;
             case 'g': // Parlaklığı artırır
-                spotLight.intensity = Math.min(1000, spotLight.intensity + intensityStep); // Maksimum 10
+                spotLight.intensity = Math.min(40000, spotLight.intensity + intensityStep); // Maksimum 10
                 break;
             case 'h': // Parlaklığı azaltır
-                spotLight.intensity = Math.max(10, spotLight.intensity - intensityStep); // Minimum 0
+                spotLight.intensity = Math.max(400, spotLight.intensity - intensityStep); // Minimum 0
                 break;
         }
 
@@ -1331,7 +1402,9 @@ function initIntro() {
         const timeValue = document.getElementById('time-remaining');
         const speedometer = document.getElementById('speedometer');
         const  neonLine= document.getElementById('neonline');
+        const  neonLine2= document.getElementById('neonline2');
         const neonTimer = document.getElementById('neontimer');
+        const turbometer = document.getElementById('turbometer');
         if (event.button === 0 && !gameStarted) {
             countdownTimer = setInterval(() => {
                 if (countdown > 0) {
@@ -1367,7 +1440,10 @@ function initIntro() {
                     timeValue.style.display = 'block';
                     speedometer.style.display = 'block';
                     neonLine.style.display = 'block';
+                    neonLine2.style.display = 'block';
                     neonTimer.style.display = 'block';
+                    turbometer.style.display = 'block';
+
 
                 }
             }, 1000);
@@ -1375,44 +1451,34 @@ function initIntro() {
     });
     document.getElementById('start-text-3').addEventListener('mousedown', function(event) {
         if (event.button === 0 && !gameStarted) {
-            const startMenu = document.getElementById('start-menu');
             const colorPicker = document.getElementById('color-picker');
-            startMenu.style.display = 'none'; // Ana menüyü gizle
-            colorPicker.style.display = 'block'; // Color picker'ı göster
+            colorPicker.style.display = 'block'; // Color picker'ı görünür yap
             colorPicker.click(); // Programmatically trigger the color picker
             colorPicker.addEventListener('input', (event) => {
                 const selectedColor = event.target.value; // Seçilen renk
+                carColor=selectedColor;
                 sceneIntro.traverse((object) => {
                     if (object.isMesh && object.material) {
                         if (object.material.name === 'BMW:carpaint1') {
                             // Materyalin rengini değiştir
-                            const color = colorPicker.value; // Rastgele renk
-                            metallicPaint(object.material, selectedColor);
-                            document.addEventListener('keydown', (event) => {
-                                if (event.key.toLowerCase() === 'm') {
-                                    colorPicker.style.display = 'none'; // Color picker'ı gizle
-                                    startMenu.style.display = 'block'; // Ana menüyü geri getir
-                                }
-                            });
-
+                            metallicPaint(object.material, carColor);
                         }
                     }
                 });
             });
+
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' && colorPicker.style.display === 'block') {
                     sceneIntro.traverse((object) => {
                         if (object.isMesh && object.material) {
                             if (object.material.name === 'BMW:carpaint1') {
                                 // Materyalin rengini değiştir
-                                const color = colorPicker.value; // Rastgele renk
-                                metallicPaint(object.material, color);
-
+                                const color = colorPicker.value;
+                                carColor=color;
+                                metallicPaint(object.material, carColor);
                             }
                         }
                     });
-                    colorPicker.style.display = 'none'; // Color picker'ı gizle
-                    startMenu.style.display = 'block'; // Ana menüyü geri getir
                 }
             });
         }
@@ -1424,9 +1490,14 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     loadHDR(scene, renderer);
-    //loadPorsche(scene).then(setCameraComposer).then(createVehicle);
-    loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    //loadJeep(scene).then(setCameraComposer).then(createVehicle);
+    // if (selectedCarNo===0){
+    //     loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    // }else if (selectedCarNo===1){
+    //     loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    // }else if (selectedCarNo===2){
+    //     loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
+    // }
+    loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
 }
 
