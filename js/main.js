@@ -1594,11 +1594,15 @@ function initIntro() {
                             if (object.material.name === 'BMW:carpaint1') {
                                 // Materyalin rengini değiştir
                                 const color = colorPicker.value;
-                                carColor=color;
+                                carColor = color;
                                 metallicPaint(object.material, carColor);
                             }
                         }
                     });
+                }
+            });
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if (event.key === '9') {
