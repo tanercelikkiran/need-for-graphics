@@ -10,7 +10,7 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {carColor, isBraking, world} from "./main.js";
+import {carColor, isBraking, isTurboActive, world} from "./main.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
 
@@ -256,7 +256,7 @@ export function loadJeep(scene) {
                     if (child.name.includes("Brakelight")) {
                         const originalMaterial = child.material;
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
                             }else{
                                 child.material = originalMaterial;
@@ -272,7 +272,7 @@ export function loadJeep(scene) {
                             metalness: 0.1, // Biraz metalik görünüm
                         });
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 child.material.emissiveIntensity = 10;
                             }else{
                                 child.material.emissiveIntensity = 5;
@@ -379,7 +379,7 @@ export function loadBMW(scene) {
                             metalness: 0.1, // Biraz metalik görünüm
                         });
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 child.material.emissiveIntensity = 5;
                             }else{
                                 child.material.emissiveIntensity = 2;
@@ -390,7 +390,7 @@ export function loadBMW(scene) {
                     if (child.name.includes("Brakelight")) {
                         const originalMaterial = child.material;
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
                             }else{
                                 child.material = originalMaterial;
@@ -514,7 +514,7 @@ export function loadPorsche(scene) {
                     }
                     if (child.name.includes("Studio_Car252_light")) {
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 emissiveLight(child, 0xff3333, 20); // Fren yapıldığında parlaklık
                             }else{
                                 emissiveLight(child, 0xff3333, 5);
@@ -535,7 +535,7 @@ export function loadPorsche(scene) {
                     if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
                         const originalMaterial = child.material;
                         world.addEventListener("postStep", () => {
-                            if (isBraking) {
+                            if (isBraking || isTurboActive) {
                                 emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
                             }else{
                                 child.material = originalMaterial;

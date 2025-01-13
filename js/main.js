@@ -25,7 +25,7 @@ import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
 export let scene, sceneIntro, renderer, composer, stats,carColor;
-export let world, cannonDebugger, vehicle, carSize, isBraking;
+export let world, cannonDebugger, vehicle, carSize, isBraking, isTurboActive;
 
 let motionBlurPass;
 
@@ -169,7 +169,7 @@ let engineDropFactor = 0.7;
 // ================================================
 
 let turboLevel = 100; // Nitro'nun başlangıç değeri
-let isTurboActive = false; // Nitro kullanım durumu
+isTurboActive = false; // Nitro kullanım durumu
 const turboDecayRate = 100 / (5 * 60);
 let turboVroom= false;
 let startTurboTime = null;
