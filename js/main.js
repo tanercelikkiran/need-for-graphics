@@ -28,8 +28,7 @@ export let scene, sceneIntro, sceneSandbox, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 let motionBlurPass;
 
-export let objects = []; // Array of objects to interact with
-let objectsInScene = []; // Array of objects in the scene
+export let objects = [];
 let objectBodies = []; // Array of CANNON bodies for the objects
 
 const motionBlurShader = {
@@ -237,7 +236,6 @@ let jeepWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-
 function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
 
@@ -394,19 +392,6 @@ function setCannonWorld(){
     world.addEventListener("endContact", (event) => {
         console.log("End Contact:", event.bodyA, event.bodyB);
     });
-
-    const groundMaterial = new CANNON.Material("groundMaterial");
-    const wheelMaterial = new CANNON.Material("wheelMaterial");
-    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
-        wheelMaterial,
-        groundMaterial,
-        {
-            friction: 0.3,
-            restitution: 0,
-            contactEquationStiffness: 1000
-        }
-    );
-    world.addContactMaterial(wheelGroundContactMaterial);
 
 // Create the ground plane
     const groundBody = new CANNON.Body({
@@ -1303,11 +1288,9 @@ let objectMaterial = new CANNON.Material();
 let isShiftDown = false;
 
 function placeObjects() {
-    //put the objects in the objectsInScene array
-    objectsInScene.push(...objects);
-
-    for (let i = 0; i < objectsInScene.length; i++) {
-        let object = objectsInScene[i];
+    for (let i = 0; i < objects.length; i++) {
+        let object = objects[i];
+        console.log(object);
         scene.add(object);
         let size = new THREE.Vector3();
         let meshQuaternion = new THREE.Quaternion();
@@ -1318,8 +1301,11 @@ function placeObjects() {
 
         object.quaternion.copy(meshQuaternion);
 
+        let objectMaterial = new CANNON.Material();
+
         const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
         const boxBody = new CANNON.Body({
+            mass: 1,
             material: objectMaterial
         });
         const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
@@ -1333,31 +1319,14 @@ function placeObjects() {
     }
 }
 
-function removeObjects() {
-    objectBodies.forEach((body) => {
-        world.removeBody(body);
-        scene.remove(body.threemesh);
-    });
-    objectBodies = [];
-}
-
-function placeObjectMeshes() {
-    try {
-        objects.forEach((object) => {
-            sceneSandbox.add(object);
-        });
-    }
-    catch (e) {
-    }
-}
-
 function sandBox() {
-
     let selectedObject = null;
     let index = 0;
     let isDragging = false;
     let dragPlane; // Plane to project mouse movements
     let dragMode = "move"; // "move" or "rotate"
+
+    let isShiftDown = false;
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -1387,7 +1356,6 @@ function sandBox() {
     try {
         loadMap(sceneSandbox)
         loadHDR(sceneSandbox, renderer);
-        placeObjectMeshes();
     } catch (error) {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
@@ -1473,16 +1441,13 @@ function sandBox() {
             isShiftDown = true;
         }
         if (event.key === 'l') {
-            console.log('L tuşuna basıldı');
             loadMoveableObject(sceneSandbox, index, camera);
         }
         if (event.key === 'ArrowRight') {
             index = (index + 1) % 8
-            console.log('Index:', index);
         }
         if (event.key === 'ArrowLeft') {
-            index = (index - 1) % 8
-            console.log('Index:', index);
+            index = (index - 1) % 8 < 0 ? 7 : (index - 1) % 8;
         }
         if (event.key === 'Delete') {
             sceneSandbox.remove(selectedObject);
@@ -1540,34 +1505,6 @@ function main() {
     //loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === '9') {
-            removeObjects();
-            // Kaynakları temizle
-            scene.traverse((object) => {
-                if (object.isMesh) {
-                    object.geometry.dispose();
-                    if (object.material.isMaterial) {
-                        object.material.dispose();
-                    } else {
-                        // Çoklu materyal durumu için
-                        object.material.forEach(material => material.dispose());
-                    }
-                }
-            });
-
-            renderer.dispose(); // Renderer'ı temizle
-
-            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
-
-            // Diğer sahne temizlemeleri
-            scene.clear(); // Sahneyi temizle
-
-            sandBox(); // Sandbox sahnesini başlat
-        }
-    });
 }
 
 initIntro();
-// main();
