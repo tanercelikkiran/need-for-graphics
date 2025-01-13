@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+
 export function transparent(material, color) {
     material.transparent = true; // Şeffaflık modunu etkinleştir
     material.opacity = 0.5; // Şeffaflık oranı (0 tamamen görünmez, 1 tamamen opak)

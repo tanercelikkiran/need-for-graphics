@@ -87,8 +87,8 @@ let brakeForce     = 50;   // Stronger braking force
 // 4) DİREKSİYON VE DAMPING AYARLARI
 // ================================================
 let maxSteerVal  = Math.PI / 7;  // Steering range remains the same (~45 degrees)
-let steerSpeed   = 0.005;         // Reduced steering speed (slower turns)
-let steerDamping = 0.05;         // Increased damping (slower return to center)
+let steerSpeed   = 0.01;         // Reduced steering speed (slower turns)
+let steerDamping = 0.1;         // Increased damping (slower return to center)
 // ================================================
 // 5) HIZ BAZLI DİREKSİYON AYARLARI
 // ================================================
@@ -213,9 +213,9 @@ let porscheWheelOptions = {
 let bmwMass = 1100;
 let bmwWheelOptions = {
     mass: 15,
-    radius: 0.4,
+    radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 30,
+    suspensionStiffness: 50,
     suspensionRestLength: 0.3,
     frictionSlip: 5,
     dampingRelaxation: 2.3,
@@ -231,7 +231,7 @@ let bmwWheelOptions = {
 let jeepMass = 1700;
 let jeepWheelOptions = {
     mass: 15,
-    radius: 0.5,
+    radius: 0.42,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
     suspensionRestLength: 0.3,
@@ -421,7 +421,6 @@ function setCannonWorld(){
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
-
 function createColliders(){
     scene.traverse(function(child){
         if (child.isMesh && child.name.includes("Collider")){
@@ -434,6 +433,49 @@ function createColliders(){
             body.quaternion.copy(child.quaternion);
             world.addBody(body);
         }
+        // if (child.name.includes("Colliding")) {
+        //     console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
+        //
+        //     // Mesh'in bounding box'ını hesaplayarak doğru boyutlandırma yapıyoruz
+        //     const boundingBox = new THREE.Box3().setFromObject(child);
+        //     const size = new THREE.Vector3();
+        //     boundingBox.getSize(size); // x, y, z boyutlarını al
+        //
+        //     // Eğer boyutlar sıfırsa, uyarı ver ve bu objeyi atla
+        //     if (size.x === 0 || size.y === 0 || size.z === 0) {
+        //         console.warn(`Skipping ${child.name}: Invalid size`, size);
+        //         return;
+        //     }
+        //
+        //     // Cannon.js gövdesi için boyutlandırma
+        //     const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
+        //     const box = new CANNON.Box(halfExtents);
+        //
+        //     // Dinamik gövdeyi oluştur
+        //     const body = new CANNON.Body({
+        //         mass: 0, // Hareket edebilmesi için kütle belirtiyoruz
+        //         shape: box,
+        //     });
+        //
+        //     // Pozisyon ve rotasyonu eşitle
+        //     body.position.copy(child.position);
+        //     body.quaternion.copy(child.quaternion);
+        //
+        //     // Cannon.js dünyasına gövdeyi ekle
+        //     world.addBody(body);
+        //
+        //     // Gövdenin sahnedeki pozisyon ve rotasyonunu mesh'e eşitle
+        //     world.addEventListener("postStep", () => {
+        //         child.position.copy(body.position);
+        //         child.quaternion.copy(body.quaternion);
+        //     });
+        //
+        //     console.log(`Collider created for: ${child.name}`); // Başarı mesajı
+        //     console.log(`Bounding Box for ${child.name}:`, size);
+        //     console.log(`Scale for ${child.name}:`, child.scale);
+        //     console.log(`Mesh Name: ${child.name}, Position: ${child.position.toArray()}`);
+        //     console.log(`Mesh Name: ${child.name}, Quaternion: ${child.quaternion.toArray()}`);
+        // }
     });
 }
 
@@ -698,6 +740,14 @@ function updateVehicleControls() {
     //---------------------------
     // 5.5) İvmelenme
     //---------------------------
+
+    if (selectedCarNo===0){
+        maxSpeed=243/3.6;
+    }else if (selectedCarNo===1){
+        maxSpeed=304/3.6;
+    }else if (selectedCarNo===2){
+        maxSpeed=156/3.6;
+    }
     if (isBraking>0) {
         if (speed >= rearMaxSpeed) {
             currentEngineForce = 0;
@@ -810,6 +860,12 @@ function updateTurbo(deltaTime) {
     } else {
         maxEngineForce = turboBaseForce; // Nitro aktif değilse motor gücü varsayılana döner
         turboVroom=false;
+        if (turboLevel < 100) {
+            turboLevel += 0.01 * deltaTime * 60;
+            if (turboLevel > 100) {
+                turboLevel = 100;
+            }
+        }
     }
 }
 
@@ -866,7 +922,6 @@ function updateCamera() {
                         carMesh.remove(activeCamera); // Arabadan çıkar
                         scene.add(activeCamera);      // Sahneye ekle
                         orbitControls.enabled = false; // OrbitControls'u devre dışı bırak
-                        nameCameraBool=true;
                         cameraLookAtStart.copy(activeCamera.position.clone().add(activeCamera.getWorldDirection(new THREE.Vector3())));
                         cameraLookAtEnd.set(60, 0, 130); // Hedef nokta
                         startQuaternion.copy(activeCamera.quaternion); // Mevcut dönüş
@@ -875,6 +930,7 @@ function updateCamera() {
                         activeCamera.quaternion.copy(startQuaternion);
                         cameraLookAtStartTime = performance.now();
                         cameraAnimationStartTimeC = performance.now();
+                        nameCameraBool=true;
                     }else{
                         currentCameraX = activeCamera.position.x;
                         currentCameraY = activeCamera.position.y;
@@ -882,8 +938,8 @@ function updateCamera() {
 
                         scene.remove(activeCamera); // Sahneden çıkar
                         carMesh.add(activeCamera); // Arabaya ekle
-                        nameCameraBool=false;
                         cameraAnimationStartTimeC = performance.now();
+                        nameCameraBool=false;
                     }
                     break;
             }
@@ -1133,8 +1189,8 @@ function updateScore(deltaTime) {
     const velocity = vehicle.chassisBody.velocity;
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
     const seconds = Math.floor(scoreTime % 600);
-    score+=speed*0.0000000000005;
-    const secondssqr = Math.pow(seconds, 4)
+    score+=speed*0.000001;
+    const secondssqr = Math.pow(seconds, 2)
     const finalScore=score*secondssqr;
     document.getElementById('score').textContent =`Score: ${finalScore.toFixed(0)}`;
 }
@@ -1351,7 +1407,10 @@ function initIntro() {
         }
     }
 
-    const spotLight = new THREE.SpotLight(0xffffff, 10000,0,Math.PI,0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    sceneIntro.add(ambientLight);
+
+    const spotLight = new THREE.SpotLight(0xffffff, 5000,0,Math.PI,0.5);
     const lightTarget = new THREE.Object3D();
     lightTarget.position.set(0, 1, 0); // Işığın hedef noktası
     sceneIntro.add(lightTarget);
@@ -1396,8 +1455,8 @@ function initIntro() {
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
         const step = Math.PI / 60; // Açı artışı/düşüşü
-        const radiusStep = 0.3;
-        const intensityStep=800;
+        const radiusStep = 1.2;
+        const intensityStep=400;
 
         switch (key) {
             case 'arrowup':
@@ -1413,16 +1472,16 @@ function initIntro() {
                 theta -= step; // Sağa basınca (theta değerini artır)
                 break;
             case 'y': // Kamera merkeze yaklaşır
-                radius = Math.max(2.4, radius - radiusStep); // Minimum radius 2
+                radius = Math.max(9.6, radius - radiusStep); // Minimum radius 2
                 break;
             case 'u': // Kamera merkezden uzaklaşır
-                radius = Math.min(50, radius + radiusStep); // Maksimum radius 50
+                radius = Math.min(200, radius + radiusStep); // Maksimum radius 50
                 break;
             case 'g': // Parlaklığı artırır
-                spotLight.intensity = Math.min(40000, spotLight.intensity + intensityStep); // Maksimum 10
+                spotLight.intensity = Math.min(20000, spotLight.intensity + intensityStep); // Maksimum 10
                 break;
             case 'h': // Parlaklığı azaltır
-                spotLight.intensity = Math.max(800, spotLight.intensity - intensityStep); // Minimum 0
+                spotLight.intensity = Math.max(400, spotLight.intensity - intensityStep); // Minimum 0
                 break;
         }
 
