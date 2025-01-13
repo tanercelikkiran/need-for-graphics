@@ -281,6 +281,7 @@ function addLights(scene) {
     hemisphereLight.position.set(0, 50, 0);
     scene.add(hemisphereLight);
 }
+
 function init() {
     scene = new THREE.Scene();
 
@@ -384,6 +385,20 @@ function init() {
         }
     });
 
+    document.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'o') {
+            const activeCamera = scene.userData.activeCamera;
+            if (activeCamera) {
+                orbitControls.enabled = !orbitControls.enabled;
+                if (orbitControls.enabled) {
+                    console.log("OrbitControls etkinleştirildi.");
+                } else {
+                    console.log("OrbitControls devre dışı bırakıldı.");
+                }
+            }
+        }
+    });
+
 }
 
 function createOrbitControls() {
@@ -393,25 +408,12 @@ function createOrbitControls() {
     }
 }
 
-const groundMaterial = new CANNON.Material("groundMaterial");
-const bodyMaterial = new CANNON.Material("bodyMaterial");
-const wheelMaterial = new CANNON.Material("wheelMaterial");
-const colliderMaterial = new CANNON.Material("colliderMaterial");
-
 function setCannonWorld(){
     world = new CANNON.World();
     world.gravity.set(0, -9.82, 0);
     world.broadphase = new CANNON.SAPBroadphase(world);
     world.useBoundingBoxes = true;
     world.defaultContactMaterial.friction = 0.1;
-
-    world.addEventListener("beginContact", (event) => {
-        console.log("Begin Contact:", event.bodyA, event.bodyB);
-    });
-
-    world.addEventListener("endContact", (event) => {
-        console.log("End Contact:", event.bodyA, event.bodyB);
-    });
 
 // Create the ground plane
     const groundBody = new CANNON.Body({
@@ -421,93 +423,136 @@ function setCannonWorld(){
     groundBody.material = groundMaterial;
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal\
     groundBody.aabbNeedsUpdate = true;
+    groundBody.collisionFilterGroup = 1;
     world.addBody(groundBody);
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
+
 function createColliders(){
     return new Promise((resolve, reject) => {
         scene.traverse(function(child){
-            if (child.isMesh && child.name.includes("Collider")){
-                child.visible = false;
-                const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
+            if (child.isMesh) {
+                if (child.name.includes("Collider")) {
+                    child.visible = false;
+                    const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
+                    const box = new CANNON.Box(halfExtents);
+                    const body = new CANNON.Body({mass: 0});
+                    body.addShape(box);
+                    body.position.copy(child.position);
+                    body.quaternion.copy(child.quaternion);
+                    world.addBody(body);
+                }
+            }
+            if (child.name.includes("Colliding")) {
+                console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
+                // Mesh'in bounding box'ını hesaplayarak doğru boyutlandırma yapıyoruz
+                const boundingBox = new THREE.Box3().setFromObject(child);
+                const size = new THREE.Vector3();
+                boundingBox.getSize(size); // x, y, z boyutlarını al
+                // Eğer boyutlar sıfırsa, uyarı ver ve bu objeyi atla
+                if (size.x === 0 || size.y === 0 || size.z === 0) {
+                    console.warn(`Skipping ${child.name}: Invalid size`, size);
+                    return;
+                }
+                // Cannon.js gövdesi için boyutlandırma
+                const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
                 const box = new CANNON.Box(halfExtents);
-                const body = new CANNON.Body({mass:0});
-                body.addShape(box);
+                // Dinamik gövdeyi oluştur
+                const body = new CANNON.Body({
+                    mass: 0, // Hareket edebilmesi için kütle belirtiyoruz
+                    shape: box,
+                });
+                // Pozisyon ve rotasyonu eşitle
                 body.position.copy(child.position);
                 body.quaternion.copy(child.quaternion);
                 world.addBody(body);
+                // Gövdenin sahnedeki pozisyon ve rotasyonunu mesh'e eşitle
+                world.addEventListener("postStep", () => {
+                    child.position.copy(body.position);
+                    child.quaternion.copy(body.quaternion);
+                });
+                console.log(`Collider created for: ${child.name}`); // Başarı mesajı
+                console.log(`Bounding Box for ${child.name}:`, size);
+                console.log(`Scale for ${child.name}:`, child.scale);
+                console.log(`Mesh Name: ${child.name}, Position: ${child.position.toArray()}`);
+                console.log(`Mesh Name: ${child.name}, Quaternion: ${child.quaternion.toArray()}`);
             }
-            // if (child.name.includes("Colliding")) {
-            //     console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
-            //
-            //     // Mesh'in bounding box'ını hesaplayarak doğru boyutlandırma yapıyoruz
-            //     const boundingBox = new THREE.Box3().setFromObject(child);
-            //     const size = new THREE.Vector3();
-            //     boundingBox.getSize(size); // x, y, z boyutlarını al
-            //
-            //     // Eğer boyutlar sıfırsa, uyarı ver ve bu objeyi atla
-            //     if (size.x === 0 || size.y === 0 || size.z === 0) {
-            //         console.warn(`Skipping ${child.name}: Invalid size`, size);
-            //         return;
-            //     }
-            //
-            //     // Cannon.js gövdesi için boyutlandırma
-            //     const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
-            //     const box = new CANNON.Box(halfExtents);
-            //
-            //     // Dinamik gövdeyi oluştur
-            //     const body = new CANNON.Body({
-            //         mass: 0, // Hareket edebilmesi için kütle belirtiyoruz
-            //         shape: box,
-            //     });
-            //
-            //     // Pozisyon ve rotasyonu eşitle
-            //     body.position.copy(child.position);
-            //     body.quaternion.copy(child.quaternion);
-            //
-            //     // Cannon.js dünyasına gövdeyi ekle
-            //     world.addBody(body);
-            //
-            //     // Gövdenin sahnedeki pozisyon ve rotasyonunu mesh'e eşitle
-            //     world.addEventListener("postStep", () => {
-            //         child.position.copy(body.position);
-            //         child.quaternion.copy(body.quaternion);
-            //     });
-            //
-            //     console.log(`Collider created for: ${child.name}`); // Başarı mesajı
-            //     console.log(`Bounding Box for ${child.name}:`, size);
-            //     console.log(`Scale for ${child.name}:`, child.scale);
-            //     console.log(`Mesh Name: ${child.name}, Position: ${child.position.toArray()}`);
-            //     console.log(`Mesh Name: ${child.name}, Quaternion: ${child.quaternion.toArray()}`);
-            // }
+            if (child.name.includes("Ice") || child.name.includes("Mud") || child.name.includes("Gravel")) {
+                console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
+                const boundingBox = new THREE.Box3().setFromObject(child);
+                const size = new THREE.Vector3();
+                boundingBox.getSize(size); // x, y, z boyutlarını al
+                const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.01, size.z / 2));
+                const body = new CANNON.Body({mass: 0});
+                body.addShape(box);
+                body.position.copy(child.position);
+                if (child.name.includes("Ice")) {
+                    body.material = iceMaterial;
+                }
+                else if (child.name.includes("Mud")) {
+                    body.material = mudMaterial;
+                }
+                else if (child.name.includes("Gravel")) {
+                    body.material = gravelMaterial;
+                }
+                body.collisionFilterGroup = 1;
+                world.addBody(body);
+            }
         });
         resolve();
     });
 }
 
-function createFrictionPairs(){
-    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
-        wheelMaterial,
-        groundMaterial,
-        {
-            friction: 0.3,
-            restitution: 0,
-            contactEquationStiffness: 1000
-        }
-    );
-    world.addContactMaterial(wheelGroundContactMaterial);
+const groundMaterial = new CANNON.Material("groundMaterial");
+const bodyMaterial = new CANNON.Material("bodyMaterial");
+const wheelMaterial = new CANNON.Material("wheelMaterial");
+const objectMaterial = new CANNON.Material("objectMaterial");
+const iceMaterial = new CANNON.Material("iceMaterial");
+const mudMaterial = new CANNON.Material("mudMaterial");
+const gravelMaterial = new CANNON.Material("gravelMaterial");
 
-    const wheelColliderContactMaterial = new CANNON.ContactMaterial(
-        wheelMaterial,
-        colliderMaterial,
-        {
-            friction: 0.5,
-            restitution: 0,
-            contactEquationStiffness: 1000
+function createFrictionPairs(){
+    const frictionPairs = [
+        [groundMaterial, bodyMaterial],
+        [groundMaterial, wheelMaterial],
+        [groundMaterial, objectMaterial],
+        [iceMaterial, bodyMaterial],
+        [iceMaterial, wheelMaterial],
+        [iceMaterial, objectMaterial],
+        [mudMaterial, bodyMaterial],
+        [mudMaterial, wheelMaterial],
+        [mudMaterial, objectMaterial],
+        [gravelMaterial, bodyMaterial],
+        [gravelMaterial, wheelMaterial],
+        [gravelMaterial, objectMaterial],
+    ];
+
+    frictionPairs.forEach(pair => {
+        let friction = 0;
+
+        switch (pair[0].name) {
+            case "groundMaterial":
+                friction = 0.9;
+                break;
+            case "iceMaterial":
+                friction = 0.1;
+                break;
+            case "mudMaterial":
+                friction = 0.5;
+                break;
+            case "gravelMaterial":
+                friction = 0.7;
+                break;
         }
-    );
-    world.addContactMaterial(wheelColliderContactMaterial);
+
+        const contact = new CANNON.ContactMaterial(pair[0], pair[1], {
+            friction: friction,
+            restitution: 0.1,
+        });
+        world.addContactMaterial(contact);
+    });
+
 }
 
 function getUpAxis(body) {
@@ -592,6 +637,7 @@ function createVehicle() {
             type: CANNON.Body.KINEMATIC,
         });
         wheelBody.collisionFilterGroup = 0;
+        wheelBody.collisionFilterMask = 1;
         const q = new CANNON.Quaternion();
         q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
         wheelBody.addShape(shape, new CANNON.Vec3(), q);
@@ -1346,20 +1392,6 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'o') {
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            orbitControls.enabled = !orbitControls.enabled;
-            if (orbitControls.enabled) {
-                console.log("OrbitControls etkinleştirildi.");
-            } else {
-                console.log("OrbitControls devre dışı bırakıldı.");
-            }
-        }
-    }
-});
-
 function initIntro() {
     sceneIntro = new THREE.Scene();
 
@@ -1646,10 +1678,6 @@ function initIntro() {
         }
     });
 }
-
-let objectMaterial = new CANNON.Material();
-
-let isShiftDown = false;
 
 function placeObjects() {
     for (let i = 0; i < objects.length; i++) {
