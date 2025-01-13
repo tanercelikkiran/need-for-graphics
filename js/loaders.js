@@ -573,7 +573,7 @@ export function loadWheels(scene, wheelPath) {
                     wheelMeshes[3] = child;
                 }
             }
-        });
+        });0
         scene.add(object);
     } , null, function(error){
         console.error(error);
@@ -581,7 +581,7 @@ export function loadWheels(scene, wheelPath) {
 }
 
 export function loadHDR(scene) {
-    rgbeLoader.load('public/hdri.hdr', function (texture) {
+    rgbeLoader.load('public/hdrinew.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;
