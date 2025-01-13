@@ -30,6 +30,7 @@ let motionBlurPass;
 
 export let objects = [];
 let objectBodies = []; // Array of CANNON bodies for the objects
+let objectIndices = []; // Array of indices for the objects
 
 const motionBlurShader = {
     uniforms: {
@@ -304,9 +305,9 @@ function init() {
     composer.addPass(motionBlurPass);
     motionBlurPass.enabled = false;
 
-    stats = new Stats();
-    stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
-    document.body.appendChild(stats.dom);
+    // stats = new Stats();
+    // stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
+    // document.body.appendChild(stats.dom);
 
     window.addEventListener('resize', function() {
         const activeCamera = scene.userData.activeCamera;
@@ -1029,13 +1030,13 @@ function easeInOutSin(t) {
 
 function animate() {
 
-    cannonDebugger.update();
+    //cannonDebugger.update();
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
-    stats.begin();
+    //stats.begin();
     try {
         updateTurbo(deltaTime);
         updateVehicleControls();
@@ -1103,7 +1104,7 @@ function animate() {
     catch (e) {
     }
 
-    stats.end();
+    //stats.end();
     requestAnimationFrame(animate);
 }
 
@@ -1283,14 +1284,10 @@ function initIntro() {
     });
 }
 
-let objectMaterial = new CANNON.Material();
-
-let isShiftDown = false;
-
 function placeObjects() {
     for (let i = 0; i < objects.length; i++) {
         let object = objects[i];
-        console.log(object);
+        let objectIndex = objectIndices[i];
         scene.add(object);
         let size = new THREE.Vector3();
         let meshQuaternion = new THREE.Quaternion();
@@ -1298,16 +1295,44 @@ function placeObjects() {
         object.quaternion.set(0, 0, 0, 1);
         let boundingBox = new THREE.Box3().setFromObject(object);
         boundingBox.getSize(size);
-
         object.quaternion.copy(meshQuaternion);
 
         let objectMaterial = new CANNON.Material();
-
         const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
         const boxBody = new CANNON.Body({
-            mass: 1,
             material: objectMaterial
         });
+
+        let mass = 0;
+        switch (objectIndex) {
+            //set the mass of the object
+            case 0:
+                mass = 15;
+                break;
+            case 1:
+                mass = 3;
+                break;
+            case 2:
+                mass = 8;
+                break;
+            case 3:
+                mass = 100;
+                break;
+            case 4:
+                mass = 0.5;
+                break;
+            case 5:
+                mass = 10;
+                break;
+            case 6:
+                mass = 0.5;
+                break;
+            case 7:
+                mass = 12;
+                break;
+        }
+
+        boxBody.mass = mass;
         const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
         boxBody.addShape(boxShape, offset);
         boxBody.position.copy(object.position);
