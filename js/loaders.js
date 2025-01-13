@@ -10,22 +10,12 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {isBraking, world} from "./main.js";
-import * as CANNON from "cannon-es";
+import {isBraking, world, objects} from "./main.js";
 
 let carMesh;
 let wheelMeshes = [];
-let loadedModelList = {
-    barrier : null,
-    barrel : null,
-    chair : null,
-    crate : null,
-    longCrate : null,
-    stopSign : null,
-    trafficCone : null,
-    trashCan : null,
-}
-export {carMesh, wheelMeshes, loadedModelList};
+
+export {carMesh, wheelMeshes};
 
 const manager = new THREE.LoadingManager();
 manager.onStart = () => {
@@ -505,46 +495,43 @@ export function loadWheels(scene, wheelPath) {
     });
 }
 
-export function loadMoveableObjects(scene) {
-    // loadObject(scene, "public/moveableObjects/oil_barrel_2.glb");
-    // loadObject(scene, "public/moveableObjects/simple_crate.glb");
-    // loadObject(scene, "public/moveableObjects/simple_long_crate.glb");
-    // loadObject(scene, "public/moveableObjects/concrete_barrier_hq.glb");
-    // loadObject(scene, "public/moveableObjects/plastic_chair.glb");
-    // loadObject(scene, "public/moveableObjects/stop-sign-ts.glb");
-    // loadObject(scene, "public/moveableObjects/traffic_cone_game_ready.glb");
-    // loadObject(scene, "public/moveableObjects/trash_can.glb");
+export function loadMoveableObject(scene, index, camera) {
+    switch (index) {
+        case 0:
+            loadObject(scene, camera, "public/moveableObjects/oil_barrel_2.glb");
+            break;
+        case 1:
+            loadObject(scene, camera, "public/moveableObjects/simple_crate.glb");
+            break;
+        case 2:
+            loadObject(scene, camera,"public/moveableObjects/simple_long_crate.glb");
+            break;
+        case 3:
+            loadObject(scene, camera,"public/moveableObjects/concrete_barrier_hq.glb");
+            break;
+        case 4:
+            loadObject(scene, camera,"public/moveableObjects/plastic_chair.glb");
+            break;
+        case 5:
+            loadObject(scene, camera,"public/moveableObjects/stop-sign-ts.glb");
+            break;
+        case 6:
+            loadObject(scene, camera,"public/moveableObjects/traffic_cone_game_ready.glb");
+            break;
+        case 7:
+            loadObject(scene, camera,"public/moveableObjects/trash_can.glb");
+            break;
+    }
 }
 
-function loadObject(scene, objectPath) {
+function loadObject(scene, camera,  objectPath) {
     gltfLoader.load(objectPath, (gltf) => {
+        const position = new THREE.Vector3();
+        camera.getWorldPosition(position);
+        // Set the position and quaternion of the object to the front of the camera
+        gltf.scene.position.copy(position);
+        objects.push(gltf.scene);
         scene.add(gltf.scene);
-        switch (objectPath) {
-            case "public/moveableObjects/oil_barrel_2.glb":
-                loadedModelList.barrel = gltf.scene;
-                break;
-            case "public/moveableObjects/simple_crate.glb":
-                loadedModelList.crate = gltf.scene;
-                break;
-            case "public/moveableObjects/simple_long_crate.glb":
-                loadedModelList.longCrate = gltf.scene;
-                break;
-            case "public/moveableObjects/concrete_barrier_hq.glb":
-                loadedModelList.barrier = gltf.scene;
-                break;
-            case "public/moveableObjects/plastic_chair.glb":
-                loadedModelList.chair = gltf.scene;
-                break;
-            case "public/moveableObjects/stop-sign-ts.glb":
-                loadedModelList.stopSign = gltf.scene;
-                break;
-            case "public/moveableObjects/traffic_cone_game_ready.glb":
-                loadedModelList.trafficCone = gltf.scene;
-                break;
-            case "public/moveableObjects/trash_can.glb":
-                loadedModelList.trashCan = gltf.scene;
-                break;
-        }
         gltf.scene.traverse((child) => {
             if (child.isMesh) {
                 child.castShadow = true;

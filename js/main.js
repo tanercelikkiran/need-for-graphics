@@ -1,14 +1,13 @@
 import {
     carMesh,
     wheelMeshes,
-    loadedModelList,
     loadMap,
     loadHDR,
     loadPorsche,
     loadBMW,
     loadJeep,
     loadBMWintro,
-    loadMoveableObjects,
+    loadMoveableObject,
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -28,6 +27,10 @@ import {DepthTexture} from "three";
 export let scene, sceneIntro, sceneSandbox, renderer, composer, stats;
 export let world, cannonDebugger, vehicle, carSize, isBraking;
 let motionBlurPass;
+
+export let objects = []; // Array of objects to interact with
+let objectsInScene = []; // Array of objects in the scene
+let objectBodies = []; // Array of CANNON bodies for the objects
 
 const motionBlurShader = {
     uniforms: {
@@ -418,27 +421,21 @@ function setCannonWorld(){
 }
 
 function createColliders(){
-    scene.traverse(function(child){
-        if (child.isMesh && child.name.includes("Collider")){
-            child.visible = false;
-            const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
-            const box = new CANNON.Box(halfExtents);
-            const body = new CANNON.Body({mass:0});
-            body.addShape(box);
-            body.position.copy(child.position);
-            body.quaternion.copy(child.quaternion);
-            world.addBody(body);
-        }
+    return new Promise((resolve, reject) => {
+        scene.traverse(function(child){
+            if (child.isMesh && child.name.includes("Collider")){
+                child.visible = false;
+                const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
+                const box = new CANNON.Box(halfExtents);
+                const body = new CANNON.Body({mass:0});
+                body.addShape(box);
+                body.position.copy(child.position);
+                body.quaternion.copy(child.quaternion);
+                world.addBody(body);
+            }
+        });
+        resolve();
     });
-}
-
-function getUpAxis(body) {
-    const localUp = new CANNON.Vec3(0, 1, 0); // Local up in body space
-    let worldUp = new CANNON.Vec3(); // Placeholder for world up
-
-    body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
-
-    return worldUp; // This is the normalized up axis
 }
 
 function createVehicle() {
@@ -1046,6 +1043,7 @@ function easeInOutSin(t) {
 //############################################################################################################
 
 function animate() {
+
     cannonDebugger.update();
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
@@ -1059,14 +1057,17 @@ function animate() {
         updateCamera();
 
         const chassisBody = vehicle.chassisBody;
-        let worldUp = getUpAxis(chassisBody);
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x, chassisBody.position.y - carSize.y/2, chassisBody.position.z));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
+
+        objectBodies.forEach((body) => {
+            body.threemesh.position.copy(body.position);
+            body.threemesh.quaternion.copy(body.quaternion);
+        });
 
         const velocity = vehicle.chassisBody.velocity;
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
         motionBlurPass.uniforms['velocityFactor'].value = speed*100;
-        console.log(motionBlurPass.uniforms['tDiffuse'].value);
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
             if (!isStopped) {
@@ -1279,6 +1280,7 @@ function initIntro() {
             sandBox(); // Sandbox sahnesini başlat
         }
     });
+
     document.addEventListener('keydown', (event) => {
         if (event.key.toLowerCase() === 'm') {
             // `sceneIntro` sahnesindeki tüm nesneleri dolaş
@@ -1296,49 +1298,70 @@ function initIntro() {
     });
 }
 
-let selectedObject = null;
-let selectedModel = loadedModelList[0];
-let isDragging = false;
-let dragPlane; // Plane to project mouse movements
-let offset = new THREE.Vector3(); // Offset between object center and mouse position
-let dragMode = "move"; // "move" or "rotate"
-let objects = []; // Array of objects to interact with
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
 let objectMaterial = new CANNON.Material();
 
-// Yeni bir obje oluştur
-function createNewObject(selectedModel, camera) {
-    const object = selectedModel.clone();
-    // Kameranın pozisyonunu ve yönünü al
-    const position = new THREE.Vector3();
-    const quaternion = new THREE.Quaternion();
-    camera.getWorldPosition(position);
-    camera.getWorldQuaternion(quaternion);
-    object.position.set(position.x, position.y, position.z);
-    scene.add(object);
+let isShiftDown = false;
+
+function placeObjects() {
+    //put the objects in the objectsInScene array
+    objectsInScene.push(...objects);
+
+    for (let i = 0; i < objectsInScene.length; i++) {
+        let object = objectsInScene[i];
+        scene.add(object);
+        let size = new THREE.Vector3();
+        let meshQuaternion = new THREE.Quaternion();
+        meshQuaternion.copy(object.quaternion);
+        object.quaternion.set(0, 0, 0, 1);
+        let boundingBox = new THREE.Box3().setFromObject(object);
+        boundingBox.getSize(size);
+
+        object.quaternion.copy(meshQuaternion);
+
+        const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
+        const boxBody = new CANNON.Body({
+            material: objectMaterial
+        });
+        const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
+        boxBody.addShape(boxShape, offset);
+        boxBody.position.copy(object.position);
+        boxBody.quaternion.copy(object.quaternion);
+        boxBody.threemesh = object;
+
+        objectBodies.push(boxBody);
+        world.addBody(boxBody);
+    }
 }
 
-// Add the object to the physics world
-function placeObject(object) {
-    let size = new THREE.Vector3();
-    let boundingBox = new THREE.Box3().setFromObject(object);
-    boundingBox.getSize(size);
-
-    const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
-    const boxBody = new CANNON.Body({
-        mass: 1,
+function removeObjects() {
+    objectBodies.forEach((body) => {
+        world.removeBody(body);
+        scene.remove(body.threemesh);
     });
-    boxBody.addShape(boxShape);
-    boxBody.position.copy(object.position);
-    boxBody.quaternion.copy(object.quaternion);
-    boxBody.threemesh = object;
-    boxBody.material = objectMaterial;
+    objectBodies = [];
+}
 
-    world.addBody(boxBody);
+function placeObjectMeshes() {
+    try {
+        objects.forEach((object) => {
+            sceneSandbox.add(object);
+        });
+    }
+    catch (e) {
+    }
 }
 
 function sandBox() {
+
+    let selectedObject = null;
+    let index = 0;
+    let isDragging = false;
+    let dragPlane; // Plane to project mouse movements
+    let dragMode = "move"; // "move" or "rotate"
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     sceneSandbox = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
@@ -1362,12 +1385,116 @@ function sandBox() {
     sceneSandbox.add(directionalLight);
 
     try {
-        setCannonWorld();
-        loadMap(sceneSandbox).then(createColliders);
-        loadMoveableObjects(sceneSandbox);
+        loadMap(sceneSandbox)
+        loadHDR(sceneSandbox, renderer);
+        placeObjectMeshes();
     } catch (error) {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
+
+    document.addEventListener('mousedown', (event) => {
+        // Left mouse button (move) or right mouse button (rotate)
+        if (event.button === 0) dragMode = "move";
+        if (event.button === 2) dragMode = "rotate";
+
+        // Calculate mouse position in normalized device coordinates
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Raycast to find intersected objects
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(objects);
+
+        if (intersects.length > 0) {
+            // Select object
+            selectedObject = intersects[0].object;
+
+            while (selectedObject.parent && !selectedObject.parent.isScene) {
+                selectedObject = selectedObject.parent;
+            }
+
+            // Create a drag plane at the intersection point
+            dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectionPoint = intersects[0].point;
+            dragPlane.setFromNormalAndCoplanarPoint(
+                camera.getWorldDirection(new THREE.Vector3()).negate(),
+                intersectionPoint
+            );
+
+            isDragging = true;
+            controls.enabled = false; // Disable orbit controls
+        } else {
+            // No object selected
+            if (selectedObject) {
+                selectedObject = null;
+            }
+            controls.enabled = true; // Enable orbit controls
+        }
+    });
+
+    document.addEventListener('mousemove', (event) => {
+        if (!isDragging || !selectedObject) return;
+
+        if (dragMode === "move") {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Project the mouse onto a drag plane
+            raycaster.setFromCamera(mouse, camera);
+            const intersectionPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
+
+            if (intersectionPoint) {
+                // Update object position
+                selectedObject.position.copy(intersectionPoint);
+            }
+        } else if (dragMode === "rotate") {
+            // Rotate the object based on mouse movement
+            selectedObject.rotation.y += event.movementX * 0.01; // Rotate around Y-axis
+            selectedObject.rotation.x += event.movementY * 0.01; // Rotate around X-axis
+
+            if (isShiftDown) {
+                selectedObject.rotation.z += event.movementX * 0.01; // Rotate around Z-axis
+            }
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            dragMode = "move"; // Reset to move mode
+        }
+        controls.enabled = true; // Re-enable orbit controls
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Shift') {
+            isShiftDown = true;
+        }
+        if (event.key === 'l') {
+            console.log('L tuşuna basıldı');
+            loadMoveableObject(sceneSandbox, index, camera);
+        }
+        if (event.key === 'ArrowRight') {
+            index = (index + 1) % 8
+            console.log('Index:', index);
+        }
+        if (event.key === 'ArrowLeft') {
+            index = (index - 1) % 8
+            console.log('Index:', index);
+        }
+        if (event.key === 'Delete') {
+            sceneSandbox.remove(selectedObject);
+            objects = objects.filter((object) => object.uuid !== selectedObject.uuid);
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        if (event.key === 'Shift') {
+            isShiftDown = false;
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
@@ -1395,86 +1522,6 @@ function sandBox() {
         }
     });
 
-    // Mouse down event: select or start dragging
-    document.addEventListener('mousedown', (event) => {
-        // Left mouse button (move) or right mouse button (rotate)
-        if (event.button === 0) dragMode = "move";
-        if (event.button === 2) dragMode = "rotate";
-
-        // Calculate mouse position in normalized device coordinates
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-        // Raycast to find intersected objects
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(objects);
-
-        if (intersects.length > 0) {
-            // Select object
-            selectedObject = intersects[0].object;
-
-            // Create a drag plane at the intersection point
-            dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-            const intersectionPoint = intersects[0].point;
-            dragPlane.setFromNormalAndCoplanarPoint(
-                camera.getWorldDirection(new THREE.Vector3()).negate(),
-                intersectionPoint
-            );
-
-            isDragging = true;
-            controls.enabled = false; // Disable orbit controls
-        } else {
-            // No object selected
-            if (selectedObject) {
-                selectedObject = null;
-            }
-            controls.enabled = true; // Enable orbit controls
-        }
-    });
-
-// Mouse move event: manipulate object
-    document.addEventListener('mousemove', (event) => {
-        if (!isDragging || !selectedObject) return;
-
-        if (dragMode === "move") {
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            // Project the mouse onto a drag plane
-            raycaster.setFromCamera(mouse, camera);
-            const intersectionPoint = new THREE.Vector3();
-            raycaster.ray.intersectPlane(dragPlane, intersectionPoint);
-
-            if (intersectionPoint) {
-                // Update object position
-                selectedObject.position.copy(intersectionPoint);
-            }
-        } else if (dragMode === "rotate") {
-            // Rotate the object based on mouse movement
-            selectedObject.rotation.y += event.movementX * 0.01; // Rotate around Y-axis
-            selectedObject.rotation.x += event.movementY * 0.01; // Rotate around X-axis
-        }
-    });
-
-// Mouse up event: release object
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            dragMode = "move"; // Reset to move mode
-        }
-        controls.enabled = true; // Re-enable orbit controls
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'l') {
-            createNewObject(selectedModel, camera);
-        } else if (event.key === 'p') {
-            placeObject(selectedObject);
-        }
-    } );
-
-
     function animateSandbox() {
         controls.update();
         renderer.render(sceneSandbox, camera);
@@ -1487,12 +1534,39 @@ function sandBox() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene).then(createColliders);
+    loadMap(scene).then(createColliders).then(placeObjects);
     loadHDR(scene, renderer);
     //loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     //loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     animate();
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === '9') {
+            removeObjects();
+            // Kaynakları temizle
+            scene.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
+                }
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            scene.clear(); // Sahneyi temizle
+
+            sandBox(); // Sandbox sahnesini başlat
+        }
+    });
 }
 
 initIntro();
