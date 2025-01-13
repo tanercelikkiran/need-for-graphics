@@ -10,7 +10,7 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {carColor, isBraking, isTurboActive, world} from "./main.js";
+import {carColor, isBraking, isTurboActive, world, objects} from "./main.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
 
@@ -42,7 +42,6 @@ export function loadMap(scene) {
             'public/city.glb',
             function (gltf) {
                 scene.add(gltf.scene);
-                console.log('Model loaded successfully!');
 
             gltf.scene.traverse(function (child) {
                 if (child.isMesh) {
@@ -68,7 +67,7 @@ export function loadMap(scene) {
                 //     if (child.isMesh && child.name.includes("PLight")) {
                 //
                 //         // Mevcut konumda PointLight oluştur
-                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1);
+                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1); // Renk, yoğunluk, mesafe, azalma
                 //         pointLight.position.copy(child.position);
                 //
                 //         // PointLight'ı sahneye ekle
@@ -81,6 +80,15 @@ export function loadMap(scene) {
         function (error) {
             console.error('An error happened:', error);
         });
+    });
+}
+
+export function loadHDR(scene) {
+    rgbeLoader.load('public/hdri.hdr', function (texture) {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.environment = texture;
+        scene.background = texture;
+        scene.environment.intensity = 0.2;
     });
 }
 
@@ -341,7 +349,7 @@ export function loadBMW(scene) {
             carMesh = object;
             scene.add(object);
 
-            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 400);
             carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
             carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
             carMesh.add(carCamera);
@@ -580,11 +588,51 @@ export function loadWheels(scene, wheelPath) {
     });
 }
 
-export function loadHDR(scene) {
-    rgbeLoader.load('public/hdri.hdr', function (texture) {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        scene.background = texture;
+export function loadMoveableObject(scene, index, camera) {
+    switch (index) {
+        case 0:
+            loadObject(scene, camera, "public/moveableObjects/oil_barrel_2.glb");
+            break;
+        case 1:
+            loadObject(scene, camera, "public/moveableObjects/simple_crate.glb");
+            break;
+        case 2:
+            loadObject(scene, camera,"public/moveableObjects/simple_long_crate.glb");
+            break;
+        case 3:
+            loadObject(scene, camera,"public/moveableObjects/concrete_barrier_hq.glb");
+            break;
+        case 4:
+            loadObject(scene, camera,"public/moveableObjects/plastic_chair.glb");
+            break;
+        case 5:
+            loadObject(scene, camera,"public/moveableObjects/stop-sign-ts.glb");
+            break;
+        case 6:
+            loadObject(scene, camera,"public/moveableObjects/traffic_cone_game_ready.glb");
+            break;
+        case 7:
+            loadObject(scene, camera,"public/moveableObjects/trash_can.glb");
+            break;
+    }
+}
+
+function loadObject(scene, camera,  objectPath) {
+    gltfLoader.load(objectPath, (gltf) => {
+        const position = new THREE.Vector3();
+        camera.getWorldPosition(position);
+        // Set the position and quaternion of the object to the front of the camera
+        gltf.scene.position.copy(position);
+        objects.push(gltf.scene);
+        scene.add(gltf.scene);
+        gltf.scene.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }, null, function (error) {
+        console.error(error);
     });
 }
 
