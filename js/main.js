@@ -1411,6 +1411,24 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+const helpScreen = document.getElementById('help-screen');
+const helpText = document.getElementById('help-content');
+function showHelpScreen() {
+    helpScreen.style.display = 'flex';
+    helpText.style.display = 'flex';
+}
+function hideHelpScreen() {
+    helpScreen.style.display = 'none';
+}
+document.addEventListener('keydown', (h) => {
+    if (h.key.toLowerCase() === 'h') {
+        if (helpScreen.style.display === 'none') {
+            showHelpScreen();
+        }else {
+            hideHelpScreen();
+        }
+    }
+});
 
 function initIntro() {
     sceneIntro = new THREE.Scene();
@@ -1669,6 +1687,9 @@ function initIntro() {
             });
         }
     });
+
+    document.getElementById('start-text-4').addEventListener('click', showHelpScreen);
+
     document.getElementById('start-text-5').addEventListener('mousedown', function(event) {
         if(isSandbox===false){
             isSandbox=true;
