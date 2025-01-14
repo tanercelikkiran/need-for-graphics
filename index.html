@@ -23,12 +23,12 @@
         button {
             font-family: 'Platformone', sans-serif;
             background: url('public/button1.png');
-            width: 392px;
-            height: 76px;
+            width: 15.2vw;
+            height: 3vw;
             border: none;
             color: #1dd8b7;
             text-decoration: none;
-            font-size: 20px;
+            font-size: 0.8vw;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
         }
 
@@ -52,7 +52,7 @@
             font-weight: normal;
             color: #1dd8b7;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
-            display: inline-block;
+            display: none;
         }
         #score {
             position: absolute;
@@ -65,7 +65,7 @@
             font-weight: normal;
             color: #1dd8b7;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
-            display: inline-block;
+            display: none;
         }
 
         #time-remaining {
@@ -220,18 +220,19 @@
 
         #start-menu {
             position: absolute;
-            top: 50%;
+            top: 10%;
             left: 50%;
             transform: translate(-50%, -50%);
             color: #1dd8b7;
             font-size: 2vw;
             font-family: 'Digital7', sans-serif;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
             justify-content: center;
             background-color: transparent;
-            padding: 0;
+            gap:2rem;
+            padding: 1rem;
             border-radius: 1vw;
             pointer-events: all;
         }
@@ -257,8 +258,8 @@
             top: 15%;
             left: 49%;
             font-size: 1vw;
-            color: yellow;
-            text-shadow: 0 0 5px yellow;
+            color: #c2b145;
+            text-shadow: 0 0 5px #c2b145;
             margin-top: 20px;
             z-index: 2;
         }
@@ -269,7 +270,7 @@
             left: 10%;
             width: 80%;
             height: 30px;
-            background-color: #444;
+            background-color: transparent;
             border-radius: 15px;
             overflow: hidden;
             z-index: 2;
@@ -278,7 +279,7 @@
         #loadingFill {
             width: 0%;
             height: 100%;
-            background-color: yellow;
+            background-color: #c2b145;
             transition: width 0.2s ease;
             z-index: 2;
         }
@@ -342,7 +343,7 @@
             right: 2%;
             width: 19.16%; /* Oranları otomatik olarak ayarla */
             height: auto;
-            /*display: none;*/
+            display: none;
         }
         #scoreboard2 {
             position: absolute;
@@ -350,7 +351,7 @@
             right: 2%;
             width: 19.16%; /* Oranları otomatik olarak ayarla */
             height: auto;
-            /*display: none;*/
+            display: none;
         }
 
     </style>
@@ -380,6 +381,10 @@
     <input type="color" id="color-picker" style="display: none;">
     <button id="start-text-4">HELP</button>
     <button id="start-text-5">SANDBOX</button>
+</div>
+
+<div id="sandbox-message" style="display: none; position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #1dd8b7; padding: 1rem; border-radius: 10px; text-align: center;font-family: 'Platformone', sans-serif; font-size: 2rem; z-index: 1000;">
+    You have already entered Sandbox!
 </div>
 
 <div id="loading-screen">

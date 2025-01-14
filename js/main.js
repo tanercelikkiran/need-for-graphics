@@ -62,7 +62,7 @@ const motionBlurShader = {
     `
 };
 
-
+let isSandbox=false;
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
@@ -1570,6 +1570,11 @@ function initIntro() {
         const neonTimer = document.getElementById('neontimer');
         const turbometer = document.getElementById('turbometer');
         const loadingFill = document.getElementById('loadingFill');
+        const scoreboard = document.getElementById('scoreboard');
+        const scoreboard2 = document.getElementById('scoreboard2');
+        const minimapx = document.getElementById('minimap');
+        const timerX = document.getElementById('timer');
+        const scoreX = document.getElementById('score');
         if (event.button === 0 && !gameStarted ) {
             startMenu.style.display = 'none';
             loadingScreen.style.display = 'flex';
@@ -1614,6 +1619,11 @@ function initIntro() {
             neonLine2.style.display = 'block';
             neonTimer.style.display = 'block';
             turbometer.style.display = 'block';
+            scoreboard.style.display = "block";
+            scoreboard2.style.display = "block";
+            minimapx.style.display = "block";
+            scoreX.style.display = "inline-block";
+            timerX.style.display = "inline-block";
         }
     });
     document.getElementById('start-text-3').addEventListener('mousedown', function(event) {
@@ -1642,6 +1652,7 @@ function initIntro() {
                 });
             });
 
+
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' && colorPicker.style.display === 'block') {
                     sceneIntro.traverse((object) => {
@@ -1656,6 +1667,18 @@ function initIntro() {
                     });
                 }
             });
+        }
+    });
+    document.getElementById('start-text-5').addEventListener('mousedown', function(event) {
+        if(isSandbox===false){
+            isSandbox=true;
+
+        }else{
+            const messageBox = document.getElementById('sandbox-message');
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
         }
     });
 }
