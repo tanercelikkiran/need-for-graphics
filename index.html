@@ -192,7 +192,7 @@
 
 
         #countdown-number {
-            font-size: 48px; /* Yazı boyutunu belirleyin */
+            font-size: 90px; /* Yazı boyutunu belirleyin */
             text-align: center; /* Ortalayın */
             width: 100px; /* Genişliği sabitleyin */
             margin: auto; /* Ortalamayı kesinleştirin */
@@ -259,29 +259,24 @@
         #loading-text {
             font-family: 'Platformone', sans-serif;
             font-size: 24px;
-            color: #1dd8b7;
+            color: yellow;
             text-shadow: 0 0 5px #1dd8b7;
             margin-top: 20px;
         }
 
-        #loading-slider-container {
-            position: absolute;
-            bottom: 50.5%;
-            right: -40.7%;
-            transform: translateX(-50%);
-            width: 22vw; /* Slider'ın genişliği */
-            height: 2.6vh; /* Slider'ın yüksekliği */
-            background-color: rgba(0, 0, 0, 0); /* Arka plan rengi */
-            border-radius: 0; /* Köşeleri yuvarla */
-            overflow: hidden; /* Dolum çubuğu dışına taşmasın */
+        #loadingBarContainer {
+            width: 80%;
+            height: 30px;
+            background-color: #444;
+            border-radius: 15px;
+            overflow: hidden;
         }
 
-        #loading-slider-fill {
-            width: 0; /* Başlangıçta boş */
+        #loadingFill {
+            width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, rgba(0,0,0,0), rgba(29,216,183,0.7)); /* Dolum gradyanı */
-            transition: width 0.1s; /* Pürüzsüz animasyon */
-            transform-origin: left center;
+            background-color: yellow;
+            transition: width 0.2s ease;
         }
 
         #color-picker {
@@ -380,15 +375,17 @@
     <button id="start-text-3">CHANGE COLOR</button>
     <input type="color" id="color-picker" style="display: none;">
     <button id="start-text-4">HELP</button>
+    <button id="start-text-5">SANDBOX</button>
 </div>
 
 <div id="loading-screen">
     <img id="loading-image" src="public/loading_screen.png" alt="Loading">
     <div id="loading-text">Loading...</div>
+    <div id="loadingBarContainer">
+        <div id="loadingFill"></div>
+    </div>
 </div>
-<div id="loading-slider-container">
-    <div id="loading-slider-fill"></div>
-</div>
+
 <div id="countdown" style="display: none;">
     <div id="countdown-number"></div>
 </div>
