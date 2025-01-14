@@ -236,7 +236,71 @@
             border-radius: 1vw;
             pointer-events: all;
         }
+        #help-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
 
+        #help-content {
+            background: black;
+            padding: 5vw;
+            border-radius: 2vw;
+            text-align: left;
+            max-width: 100vw;
+            width: 70vw;
+            height: 70vh;
+            color: #1dd8b7;
+            display: none;
+
+        }
+        #help {
+            font-family: 'Platformone', sans-serif;
+            position: absolute;
+            top: 10px; /* Üstten 10px mesafe */
+            left: 50%; /* Sayfanın ortasına yerleştirir */
+            transform: translateX(-50%); /* Gerçekten ortalar */
+            font-size: 2rem;
+            color: #1dd8b7; /* Yazı rengi */
+            background-color: black; /* Arka plan rengi */
+            padding: 10px 20px;
+            border-radius: 2vw; /* Köşe yuvarlama */
+        }
+
+        h1 {
+            font-family: 'Digital7',sans-serif;
+            font-size: 3em;
+            margin-bottom: 1em;
+            color:  #1dd8b7;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        ul li {
+            font-family: 'Digital7', sans-serif;
+            font-size: 1.2em;
+            margin-bottom: 0.5em;
+        }
+
+        ul li::before {
+            content: '\2022'; /* Bullet point */
+            color: #1dd8b7;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
         #loading-screen {
             position: fixed;
             top: 0;
@@ -387,6 +451,19 @@
     You have already entered Sandbox!
 </div>
 
+<div id="help-screen" class="hidden">
+    <div id="help">HELP</div>
+    <div id="help-content">
+        <ul>
+            <li>In intro screen you can see 5 buttons.Whenever you click the letter 'h' or the HELP button; you can see this page and when you are done with this page, click 'h'.Also you can change your car or car's color in intro screen.</li>
+            <li>You can also see sandbox when you click on it.</li>
+            <li>Again in intro screen when you click continuously with your mouse and move it you can see all 3 cars with different perspective.</li>
+            <li>After clicking PLAY button the game will start.After then whenever you click the letter 'o' you can change camera perspectives with continuously clicking left with your mouse.Also you can zoom in and out with mouse wheel.</li>
+            <li>   can change camera perspectives with continuously clicking left with your mouse.Also you can zoom in and out with mouse wheel.</li>
+
+        </ul>
+    </div>
+</div>
 <div id="loading-screen">
     <div id="loading-text">Loading...</div>
     <div id="loadingBarContainer">
