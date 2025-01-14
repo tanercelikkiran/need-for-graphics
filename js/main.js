@@ -7,7 +7,8 @@ import {
     loadBMW,
     loadJeep,
     loadBMWintro,
-    loadPorscheIntro, loadJeepIntro
+    loadPorscheIntro, loadJeepIntro,
+    manager
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -60,6 +61,8 @@ const motionBlurShader = {
         }
     `
 };
+
+
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
@@ -177,14 +180,15 @@ let score=0;
 
 let orbitControls;
 
+const startMenu = document.getElementById('start-menu');
+const loadingScreen = document.getElementById('loading-screen');
+
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
 let elapsedTime = 0;
 let gameStarted=false;
-let countdown=3;
-let countdownTimer;
 const totalTime = 600;
 let remainingTime=totalTime;
 let scoreTime=600;
@@ -796,11 +800,11 @@ function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
     if (loadingScreen.style.display === "none" && startMenu.style.display === "none") {
-    updateSpeedometer();
-    updateSpeedSlider();
-    updateTurbometer();
-    updateTurboSlider();
-}
+        updateSpeedometer();
+        updateSpeedSlider();
+        updateTurbometer();
+        updateTurboSlider();
+    }
 }
 function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
@@ -1319,9 +1323,10 @@ function animate() {
             }, 1000);
 
         }
-        updateTimer(milDeltaTime);
-        updateRemainingTime(milDeltaTime);
-        updateScore(milDeltaTime);
+
+
+
+
         if (nameCameraBool) {
             if (cameraLookAtStartTime !== null) {
                 const elapsedTime = performance.now() - cameraLookAtStartTime;
@@ -1530,24 +1535,24 @@ function initIntro() {
 
     animateIntro();
 
-        document.getElementById('start-text-1').addEventListener('mousedown', function(event) {
+    document.getElementById('start-text-1').addEventListener('mousedown', function(event) {
         const timeValue = document.getElementById('time-remaining');
         const speedometer = document.getElementById('speedometer');
         const  neonLine= document.getElementById('neonline');
         const  neonLine2= document.getElementById('neonline2');
         const neonTimer = document.getElementById('neontimer');
         const turbometer = document.getElementById('turbometer');
-        const loadingFill = document.getElementById('loading-slider-fill');
+        const loadingFill = document.getElementById('loadingFill');
         if (event.button === 0 && !gameStarted ) {
             startMenu.style.display = 'none';
             loadingScreen.style.display = 'flex';
             loadingFill.style.display = 'flex';
 
-            manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+            /*manager.onProgress = (url, itemsLoaded, itemsTotal) => {
                 const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
                 updateLoadingSlider(fillPercentage);
                 //loadingFill.style.width = `${fillPercentage}%`;
-            };
+            };*/
 
             manager.onLoad = () => {
                 loadingScreen.style.display = 'none';
@@ -1584,7 +1589,6 @@ function initIntro() {
             turbometer.style.display = 'block';
         }
     });
-
     document.getElementById('start-text-3').addEventListener('mousedown', function(event) {
         if (event.button === 0 && !gameStarted) {
             const colorPicker = document.getElementById('color-picker');
