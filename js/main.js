@@ -196,10 +196,11 @@ let scoreTime=600;
 let gameOver=false;
 
 let selectedCarNo = 0;
+let currentSurfaceFriction = 0.3; // Varsayılan yüzey sürtünmesi
 
-let porscheMass = 900;
+let porscheMass = 1420;
 let porscheWheelOptions = {
-    mass: 15,
+    mass: 10.3,
     radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
@@ -215,9 +216,9 @@ let porscheWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let bmwMass = 1100;
+let bmwMass = 1526;
 let bmwWheelOptions = {
-    mass: 15,
+    mass: 11.5,
     radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 50,
@@ -233,9 +234,9 @@ let bmwWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let jeepMass = 1700;
+let jeepMass = 2290;
 let jeepWheelOptions = {
-    mass: 15,
+    mass: 11.3,
     radius: 0.42,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
@@ -423,11 +424,42 @@ function setCannonWorld(){
     groundBody.material = groundMaterial;
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate plane to be horizontal\
     groundBody.aabbNeedsUpdate = true;
-    groundBody.collisionFilterGroup = 1;
+    groundBody.collisionFilterGroup = materialGroups[0].group;
+    groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
     cannonDebugger = new CannonDebugger(scene, world);
 }
+
+const groundMaterial = new CANNON.Material("groundMaterial");
+const bodyMaterial = new CANNON.Material("bodyMaterial");
+const wheelMaterial = new CANNON.Material("wheelMaterial");
+const objectMaterial = new CANNON.Material("objectMaterial");
+const iceMaterial = new CANNON.Material("iceMaterial");
+const mudMaterial = new CANNON.Material("mudMaterial");
+const gravelMaterial = new CANNON.Material("gravelMaterial");
+const grassMaterial = new CANNON.Material("grassMaterial");
+
+// Define collision groups (powers of 2)
+const GROUP_GROUND = 1;  // Group 0
+const GROUP_BODY = 2;    // Group 1
+const GROUP_WHEEL = 4;   // Group 2
+const GROUP_OBJECT = 8;  // Group 3
+const GROUP_ICE = 16;    // Group 4
+const GROUP_MUD = 32;    // Group 5
+const GROUP_GRAVEL = 64; // Group 6
+const GROUP_GRASS = 128; // Group 7
+
+const materialGroups = [
+    { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: bodyMaterial, group: GROUP_BODY, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
+    { material: wheelMaterial, group: GROUP_WHEEL, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
+    { material: objectMaterial, group: GROUP_OBJECT, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
+    { material: iceMaterial, group: GROUP_ICE, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: mudMaterial, group: GROUP_MUD, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: gravelMaterial, group: GROUP_GRAVEL, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: grassMaterial, group: GROUP_GRASS, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+];
 
 function createColliders(){
     return new Promise((resolve, reject) => {
@@ -444,73 +476,47 @@ function createColliders(){
                     world.addBody(body);
                 }
             }
-            if (child.name.includes("Colliding")) {
-                console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
-                // Mesh'in bounding box'ını hesaplayarak doğru boyutlandırma yapıyoruz
+            if (child.name.includes("Ice") || child.name.includes("Mud") || child.name.includes("Gravel") || child.name.includes("Grass")) {
                 const boundingBox = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3();
-                boundingBox.getSize(size); // x, y, z boyutlarını al
-                // Eğer boyutlar sıfırsa, uyarı ver ve bu objeyi atla
-                if (size.x === 0 || size.y === 0 || size.z === 0) {
-                    console.warn(`Skipping ${child.name}: Invalid size`, size);
-                    return;
-                }
-                // Cannon.js gövdesi için boyutlandırma
-                const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
-                const box = new CANNON.Box(halfExtents);
-                // Dinamik gövdeyi oluştur
-                const body = new CANNON.Body({
-                    mass: 0, // Hareket edebilmesi için kütle belirtiyoruz
-                    shape: box,
-                });
-                // Pozisyon ve rotasyonu eşitle
-                body.position.copy(child.position);
-                body.quaternion.copy(child.quaternion);
-                world.addBody(body);
-                // Gövdenin sahnedeki pozisyon ve rotasyonunu mesh'e eşitle
-                world.addEventListener("postStep", () => {
-                    child.position.copy(body.position);
-                    child.quaternion.copy(body.quaternion);
-                });
-                console.log(`Collider created for: ${child.name}`); // Başarı mesajı
-                console.log(`Bounding Box for ${child.name}:`, size);
-                console.log(`Scale for ${child.name}:`, child.scale);
-                console.log(`Mesh Name: ${child.name}, Position: ${child.position.toArray()}`);
-                console.log(`Mesh Name: ${child.name}, Quaternion: ${child.quaternion.toArray()}`);
-            }
-            if (child.name.includes("Ice") || child.name.includes("Mud") || child.name.includes("Gravel")) {
-                console.log(`Creating collider for: ${child.name}`); // Sorun gidermek için log ekleyin
-                const boundingBox = new THREE.Box3().setFromObject(child);
-                const size = new THREE.Vector3();
-                boundingBox.getSize(size); // x, y, z boyutlarını al
+                boundingBox.getSize(size);
                 const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.01, size.z / 2));
                 const body = new CANNON.Body({mass: 0});
                 body.addShape(box);
                 body.position.copy(child.position);
                 if (child.name.includes("Ice")) {
                     body.material = iceMaterial;
+                    body.collisionFilterGroup = materialGroups[4].group;
+                    body.collisionFilterMask = materialGroups[4].mask;
                 }
                 else if (child.name.includes("Mud")) {
                     body.material = mudMaterial;
+                    body.collisionFilterGroup = materialGroups[5].group;
+                    body.collisionFilterMask = materialGroups[5].mask;
                 }
                 else if (child.name.includes("Gravel")) {
                     body.material = gravelMaterial;
+                    body.collisionFilterGroup = materialGroups[6].group;
+                    body.collisionFilterMask = materialGroups[6].mask;
                 }
-                body.collisionFilterGroup = 1;
+                else if (child.name.includes("Grass")) {
+                    body.material = grassMaterial;
+                    body.collisionFilterGroup = materialGroups[7].group;
+                    body.collisionFilterMask = materialGroups[7].mask;
+                }
                 world.addBody(body);
             }
+        });
+        world.addEventListener("beginContact", (event) => {
+            console.log("Begin Contact:", event.bodyA, event.bodyB);
+        });
+
+        world.addEventListener("endContact", (event) => {
+            console.log("End Contact:", event.bodyA, event.bodyB);
         });
         resolve();
     });
 }
-
-const groundMaterial = new CANNON.Material("groundMaterial");
-const bodyMaterial = new CANNON.Material("bodyMaterial");
-const wheelMaterial = new CANNON.Material("wheelMaterial");
-const objectMaterial = new CANNON.Material("objectMaterial");
-const iceMaterial = new CANNON.Material("iceMaterial");
-const mudMaterial = new CANNON.Material("mudMaterial");
-const gravelMaterial = new CANNON.Material("gravelMaterial");
 
 function createFrictionPairs(){
     const frictionPairs = [
@@ -526,6 +532,9 @@ function createFrictionPairs(){
         [gravelMaterial, bodyMaterial],
         [gravelMaterial, wheelMaterial],
         [gravelMaterial, objectMaterial],
+        [grassMaterial, bodyMaterial],
+        [grassMaterial, wheelMaterial],
+        [grassMaterial, objectMaterial]
     ];
 
     frictionPairs.forEach(pair => {
@@ -533,16 +542,19 @@ function createFrictionPairs(){
 
         switch (pair[0].name) {
             case "groundMaterial":
-                friction = 0.9;
+                friction = 0.3;
                 break;
             case "iceMaterial":
                 friction = 0.1;
                 break;
             case "mudMaterial":
-                friction = 0.5;
+                friction = 0.4;
                 break;
             case "gravelMaterial":
                 friction = 0.7;
+                break;
+            case "grassMaterial":
+                friction = 0.5;
                 break;
         }
 
@@ -614,6 +626,8 @@ function createVehicle() {
     chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
     chassisBody.threemesh = carMesh;
     chassisBody.material = bodyMaterial;
+    chassisBody.collisionFilterGroup = materialGroups[1].group;
+    chassisBody.collisionFilterMask = materialGroups[1].mask;
 
     vehicle = new CANNON.RaycastVehicle({
         chassisBody: chassisBody,
@@ -631,19 +645,19 @@ function createVehicle() {
         boundingBox.getCenter(wheelCenter);
         boundingBox.getSize(wheelSize);
 
-        const shape = new CANNON.Cylinder(wheelSize.y / 2, wheelSize.y / 2, wheelSize.x, 20);
+        const shape = new CANNON.Cylinder(wheelSize.y / 2, wheelSize.y / 2, wheelSize.x, 40);
         const wheelBody = new CANNON.Body({
             mass: wheelOptions.mass,
             type: CANNON.Body.KINEMATIC,
         });
-        wheelBody.collisionFilterGroup = 0;
-        wheelBody.collisionFilterMask = 1;
         const q = new CANNON.Quaternion();
         q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
         wheelBody.addShape(shape, new CANNON.Vec3(), q);
         wheelBody.position.copy(wheelCenter);
         wheelBody.threemesh = wheelMesh;
         wheelBody.material = wheelMaterial;
+        wheelBody.collisionFilterGroup = materialGroups[2].group;
+        wheelBody.collisionFilterMask = materialGroups[2].mask;
         world.addBody(wheelBody);
         wheelBodies.push(wheelBody);
 
@@ -679,106 +693,145 @@ function createVehicle() {
 }
 
 function updateVehicleControls() {
+    //-------------------------------------------
+    // 0) Araç ve Yüzey Parametrelerini Ayarla
+    //-------------------------------------------
+
+    // Seçilen aracın kütle (kg) ve beygir gücü (hp) değerleri:
+    const carData = [
+        {
+            car: 0,
+            mass: 1526,
+            horsepower: 190,
+            // Kodun orijinalinde BMW için maxSpeed = 156 km/h (156/3.6 m/s)
+            topSpeed: 156 / 3.6
+        },
+        // selectedCarNo = 1: Porsche Cayman 718 GT4 2016
+        {
+            car: 1,
+            mass: 1420,
+            horsepower: 385,
+            // Kodun orijinalinde Porsche için maxSpeed = 304 km/h (304/3.6 m/s)
+            topSpeed: 304 / 3.6
+        },
+        {
+            car: 2,
+            mass: 2290,
+            horsepower: 285,
+            // Kodun orijinalinde Jeep için maxSpeed = 243 km/h (243/3.6 m/s)
+            topSpeed: 243 / 3.6
+        },
+    ];
+
+    // Seçilmiş araç datası
+    const { mass: carMass, horsepower: carHP, topSpeed } = carData[selectedCarNo];
+
+    // Orijinal kodunuzda 3 farklı topSpeed ataması vardı,
+    // biz de onu seçilen aracın verisiyle eşleştirdik:
+    maxSpeed = topSpeed;
+
+    // Motor kuvvetinin referans aldığı, diyelim “baz” (örnek) değerler:
+    // (Kodunuzun orijinalinde ne ise - ya da sabit bir referans kabul edebilirsiniz.)
+    const baseEngineForce = 15000;
+    const baseEngineRamp = 200;
+    // brakeForce vb. de isterseniz “baz” tutabilirsiniz
+    // (sizin orijinal kodunuzda brakeForce muhtemelen sabit 10 veya 20 gibi bir değerse).
+    // Onu da ekliyoruz:
+    const baseBrakeForce = brakeForce; // Mevcut ayarınız neyse
+
+    // Basit “performans” faktörü: (HP / mass) / (baz HP / baz mass).
+    // Örneğin baz alarak 200 HP / 1500 kg = 0.1333… diyelim.
+    const baseHP = 200;
+    const baseMass = 1500;
+    const baseRatio = baseHP / baseMass;       // 200/1500 = 0.1333
+    const currentRatio = carHP / carMass;      // seçili aracın HP/kg
+    const performanceFactor = currentRatio / baseRatio;
+
+    // maxEngineForce, engineRamp ve brakeForce’u hem araç gücüne hem de yüzeye göre ölçekleyelim.
+    // Örneğin:
+    let scaledMaxEngineForce = baseEngineForce * performanceFactor * currentSurfaceFriction;
+    let scaledEngineRamp     = baseEngineRamp   * performanceFactor * currentSurfaceFriction;
+    let scaledBrakeForce     = baseBrakeForce   * currentSurfaceFriction;
+    // (İsterseniz fren gücünü araç HP’siyle orantılamadan da bırakabilirsiniz.
+    //  "Araç ağırsa fren mesafesi de uzasın" diyorsanız, tabii kütleye göre ufak ek uyarlamalar da yapılabilir.)
+
+    // Artık kodun geri kalanında orijinal `maxEngineForce` vs yerine
+    // “ölçeklenmiş” değişkeni kullanacağız. Kırmızıyla işaretli satırları
+    // orijinal fonksiyonda nerede maxEngineForce, engineRamp ve brakeForce geçiyorsa
+    // orada `scaledMaxEngineForce`, `scaledEngineRamp`, `scaledBrakeForce` kullanarak
+    // fonksiyonun akışını bozmadan ekleyeceğiz.
+
+
     //---------------------------
     // 1) Aracın anlık hızını ölç
     //---------------------------
     const velocity = vehicle.chassisBody.velocity;
-    // Sadece XZ düzlemindeki hızı (m/s)
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
 
     //---------------------------
     // 2) Direksiyon oranını hesapla
     //---------------------------
-
-    // 2A) "speedRatio1": mediumSpeed'e göre basit linear
-    //    - 0 -> speed=0, 1 -> speed=mediumSpeed
-    //    - mediumSpeed üzerinde, 1'i aşar
     let speedRatio1 = speed / mediumSpeed;
-
-    // 2B) "speedRatio2": speedLimit'e göre
-    //    - 0 -> speed=0, 1 -> speed=speedLimit ya da üstü
     let speedRatio2 = speed / speedLimit;
-    if (speedRatio2 > 1) speedRatio2 = 1;  // clamp
+    if (speedRatio2 > 1) speedRatio2 = 1;
 
-    // 2C) Non-linear (örneğin dairesel) düşüş.
-    //    1 / (1 + steerFalloff * speed^2) -> Yüksek hızda agresif düşüş
     const nonLinearFactor = 1 / (1 + steerFalloff * speed * speed);
 
-    // Şimdi bu 3 “faktör”ü birleştirelim.
-    // Örneğin:
-    // - Düşük hızda (0~mediumSpeed) tam direksiyon (mediumSteerFactor=1).
-    // - mediumSpeed üstünde artarak kısıtla, speedLimit'te minSteerFactor'e kadar düş.
-    // - Non-linear factor de devrede, ama istersen "blend" edebilirsin.
-
-    // Aşağıda basit bir blend örneği:
-    // direksiyonFactor = nonLinearFactor * lineerFactor
-    // lineerFactor = lerp(mediumSteerFactor, minSteerFactor, speedRatio2)
     const linearFactor = mediumSteerFactor +
         (minSteerFactor - mediumSteerFactor) * speedRatio2;
 
     let steerFactor = nonLinearFactor * linearFactor;
-    // steerFactor aşırı düşük olmasın
     if (steerFactor < 0.5) steerFactor = 0.5;
 
-    // 2D) Frenliyorsak (isBraking) direksiyon limitini biraz daha kıs
     if (isBraking) {
-        steerFactor *= brakeSteerMultiplier;  // ~%60'a düşür
+        steerFactor *= brakeSteerMultiplier;
     }
 
-    // Sonuç olarak bu frame'deki maks direksiyon
     const effectiveMaxSteer = maxSteerVal * steerFactor;
 
     //---------------------------
-    // 3) Motor Gücü
+    // 3) Motor Gücü (gaz/fren)
     //---------------------------
     if (isAccelerating) {
         currentEngineForce = Math.min(
-            currentEngineForce + engineRamp,
-            maxEngineForce
+            currentEngineForce + scaledEngineRamp,
+            scaledMaxEngineForce
         );
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
-        // Basitçe "geri" yaklaşımlardan biri:
-
         currentEngineForce = Math.max(
-            currentEngineForce - engineRamp,
-            -maxEngineForce*1
-        )
+            currentEngineForce - scaledEngineRamp,
+            -scaledMaxEngineForce * 1
+        );
     } else {
         // Ne gaz ne fren
-        const dampingFactor = 0.995; // Hızı azaltmak için katsayı
-        const velocity = vehicle.chassisBody.velocity;
+        const dampingFactor = 0.995;
         vehicle.chassisBody.velocity.set(
             velocity.x * dampingFactor,
             velocity.y,
             velocity.z * dampingFactor
         );
         if (currentEngineForce > 0) {
-            currentEngineForce = Math.max(currentEngineForce - engineRamp, 0);
+            currentEngineForce = Math.max(currentEngineForce - scaledEngineRamp, 0);
         } else {
-            currentEngineForce = Math.min(currentEngineForce + engineRamp, 0);
+            currentEngineForce = Math.min(currentEngineForce + scaledEngineRamp, 0);
         }
     }
 
     //---------------------------
     // 4) Fren Uygula?
     //---------------------------
-
-
     let brakingValue = 0;
-    // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
     if (isBraking > 0) {
-        brakingValue = brakeForce;
+        brakingValue = scaledBrakeForce;
     }
 
     //---------------------------
     // 5) Direksiyon
     //---------------------------
     if (isSteeringLeft) {
-        // Sola doğru yavaşça art
         currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
     } else if (isSteeringRight) {
-        // Sağa doğru yavaşça art
         currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
     } else {
         // Ortalamaya dön (damping)
@@ -790,68 +843,66 @@ function updateVehicleControls() {
     }
 
     //---------------------------
-    // 5.5) İvmelenme
+    // 5.5) İvmelenme / Hız Limiti
     //---------------------------
-
-    if (selectedCarNo===0){
-        maxSpeed=243/3.6;
-    }else if (selectedCarNo===1){
-        maxSpeed=304/3.6;
-    }else if (selectedCarNo===2){
-        maxSpeed=156/3.6;
+    if (selectedCarNo === 0) {
+        // Jeep için, maxSpeed'i yukarıda zaten set ettik
+    } else if (selectedCarNo === 1) {
+        // Porsche...
+    } else if (selectedCarNo === 2) {
+        // BMW...
     }
-    if (isBraking>0) {
+    // Yukarıda topSpeed değerini "carData" ile zaten ayarladık.
+
+    // Arka hız limiti vs. orijinal kodunuzda nasılsa aynı bırakalım:
+    if (isBraking > 0) {
         if (speed >= rearMaxSpeed) {
             currentEngineForce = 0;
         } else {
             const speedRatio = speed / rearMaxSpeed;
-            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            const effectiveEngineForce = scaledMaxEngineForce * (1 - speedRatio * engineDropFactor);
             currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
         }
-    }else {
+    } else {
         if (speed >= maxSpeed) {
             currentEngineForce = 0;
         } else {
             const speedRatio = speed / maxSpeed;
-            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
+            const effectiveEngineForce = scaledMaxEngineForce * (1 - speedRatio * engineDropFactor);
             currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
         }
     }
 
     //---------------------------
-    // 6) Araca Uygula
+    // 6) Araca Uygula (fren, motor, direksiyon)
     //---------------------------
-    // Frenleri sıfırla
     vehicle.setBrake(0, 0);
     vehicle.setBrake(0, 1);
-    vehicle.setBrake(0, 2); // Arka sol
-    vehicle.setBrake(0, 3); // Arka sağ
-    // (dört tekerleğe fren yapmak istiyorsan 2 ve 3. index'e de setBrake uygula)
+    vehicle.setBrake(0, 2);
+    vehicle.setBrake(0, 3);
 
-    // 3) Normal fren (ör. S tuşu) varsa ön tekerleklere uygula
     if (isBraking) {
-        vehicle.setBrake(brakingValue, 0);  // front-left
-        vehicle.setBrake(brakingValue, 1);  // front-right
+        vehicle.setBrake(brakingValue, 0);
+        vehicle.setBrake(brakingValue, 1);
     }
 
-    // 4) El freni aktifse, arka tekerleklere yüksek fren
     if (isHandBraking) {
-        vehicle.setBrake(handbrakeForce, 2); // rear-left
-        vehicle.setBrake(handbrakeForce, 3); // rear-right
+        vehicle.setBrake(handbrakeForce, 2);
+        vehicle.setBrake(handbrakeForce, 3);
     }
 
-    // Motor kuvveti -> genelde ön tekerler
     vehicle.applyEngineForce(currentEngineForce, 0);
     vehicle.applyEngineForce(currentEngineForce, 1);
 
-    // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
+
     updateSpeedometer();
     updateSpeedSlider();
     updateTurbometer();
     updateTurboSlider();
 }
+
 function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
@@ -1693,8 +1744,6 @@ function placeObjects() {
 
         object.quaternion.copy(meshQuaternion);
 
-        let objectMaterial = new CANNON.Material();
-
         const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
         const boxBody = new CANNON.Body({
             mass: 1,
@@ -1705,6 +1754,9 @@ function placeObjects() {
         boxBody.position.copy(object.position);
         boxBody.quaternion.copy(object.quaternion);
         boxBody.threemesh = object;
+        boxBody.material = objectMaterial;
+        boxBody.collisionFilterGroup = materialGroups[3].group;
+        boxBody.collisionFilterMask = materialGroups[3].mask;
 
         objectBodies.push(boxBody);
         world.addBody(boxBody);
