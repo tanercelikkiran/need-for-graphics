@@ -18,14 +18,18 @@ let carMesh;
 let wheelMeshes = [];
 export {carMesh, wheelMeshes};
 
-const manager = new THREE.LoadingManager();
+export const manager = new THREE.LoadingManager();
 manager.onStart = () => {
     console.log('Loading started');
 };
 manager.onLoad = () => {
+    loadingScreen.style.display = 'none';
+    loadingFill.style.display = 'none';
     console.log('Loading complete');
 };
 manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+    const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
+    loadingFill.style.width = `${fillPercentage}%`;
     console.log(`Loading file: ${url}. Loaded ${itemsLoaded} of ${itemsTotal} files.`);
 };
 manager.onError = (url) => {
@@ -617,24 +621,6 @@ export function loadMoveableObject(scene, index, camera) {
     }
 }
 
-function loadObject(scene, camera,  objectPath) {
-    gltfLoader.load(objectPath, (gltf) => {
-        const position = new THREE.Vector3();
-        camera.getWorldPosition(position);
-        // Set the position and quaternion of the object to the front of the camera
-        gltf.scene.position.copy(position);
-        objects.push(gltf.scene);
-        scene.add(gltf.scene);
-        gltf.scene.traverse((child) => {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-            }
-        });
-    }, null, function (error) {
-        console.error(error);
-    });
-}
 
 export function loadFonts() {
     return new Promise((resolve) => {
