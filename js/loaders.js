@@ -679,6 +679,22 @@ export function loadHDR(scene) {
     });
 }
 
+export function loadHDRsunset(scene) {
+    rgbeLoader.load('public/hdrisunset.hdr', function (texture) {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.environment = texture;
+        scene.background = texture;
+    });
+}
+
+export function loadHDRnight(scene) {
+    rgbeLoader.load('public/hdrinight.hdr', function (texture) {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.environment = texture;
+        scene.background = texture;
+    });
+}
+
 export function loadFonts() {
     return new Promise((resolve) => {
         fontloader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {

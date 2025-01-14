@@ -7,8 +7,19 @@ import {
     loadBMW,
     loadJeep,
     loadBMWintro,
-    loadPorscheIntro, loadJeepIntro,
-    manager, bmwAcc, porscheAcc, jeepAcc, loadSounds, bmwEngine, porscheEngine, jeepEngine, slide, turboSound
+    loadPorscheIntro,
+    loadJeepIntro,
+    manager,
+    bmwAcc,
+    porscheAcc,
+    jeepAcc,
+    loadSounds,
+    bmwEngine,
+    porscheEngine,
+    jeepEngine,
+    slide,
+    turboSound,
+    loadHDRsunset, loadHDRnight
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -179,6 +190,8 @@ let startTurboTime = null;
 let score=0;
 
 let orbitControls;
+
+let hdriChange=0;
 
 const startMenu = document.getElementById('start-menu');
 const loadingScreen = document.getElementById('loading-screen');
@@ -1253,18 +1266,20 @@ const minimapCamera = new THREE.OrthographicCamera(
 );
 
 // Kamerayı konumlandırma
-minimapCamera.position.set(0, 100, 0);
+minimapCamera.position.set(0, 200, 0);
 minimapCamera.lookAt(0, 0, 0);
 
 
 // Minimap renderer oluştur
 const minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
-minimapRenderer.setSize(200, 200);
+const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.19;
+minimapRenderer.setSize(minimapSize, minimapSize);
 minimapRenderer.setClearColor(0x000000, 1);
 minimapRenderer.domElement.style.position = "absolute";
-minimapRenderer.domElement.style.bottom = "2%";
-minimapRenderer.domElement.style.right = "2%";
+minimapRenderer.domElement.style.bottom = "3%";
+minimapRenderer.domElement.style.right = "3%";
 minimapRenderer.domElement.style.borderRadius = "50%";
+minimapRenderer.domElement.style.zindex = "1";
 
 document.getElementById("minimap").appendChild(minimapRenderer.domElement);
 
@@ -1429,6 +1444,7 @@ document.addEventListener('keydown', (h) => {
         }
     }
 });
+
 
 function initIntro() {
     sceneIntro = new THREE.Scene();
@@ -1687,9 +1703,6 @@ function initIntro() {
             });
         }
     });
-
-    document.getElementById('start-text-4').addEventListener('click', showHelpScreen);
-
     document.getElementById('start-text-5').addEventListener('mousedown', function(event) {
         if(isSandbox===false){
             isSandbox=true;
@@ -1702,6 +1715,18 @@ function initIntro() {
             }, 3000);
         }
     });
+    document.getElementById('start-text-4').addEventListener('click', showHelpScreen);
+    document.getElementById('start-text-6').addEventListener('mousedown', function(event) {
+        hdriChange=(hdriChange+1)%3;
+        const getHDRItext=document.getElementById("start-text-6");
+        if(hdriChange===0) {
+            getHDRItext.textContent="TIME:DAYTIME";
+        }else if(hdriChange===1) {
+            getHDRItext.textContent="TIME:SUNSET";
+        }else if(hdriChange===2) {
+            getHDRItext.textContent="TIME:NIGHT";
+        }
+    });
 }
 
 function main() {
@@ -1709,7 +1734,13 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders);
     createFrictionPairs();
-    loadHDR(scene, renderer);
+    if(hdriChange===0){
+        loadHDR(scene, renderer);
+    }else if(hdriChange===1){
+        loadHDRsunset(scene, renderer);
+    }else if(hdriChange===2){
+        loadHDRnight(scene, renderer);
+    }
     if (selectedCarNo===0){
         loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     }else if (selectedCarNo===1){

@@ -167,7 +167,7 @@
             height: 100%;
             background: linear-gradient(90deg, rgba(0,0,0,0), rgba(29,216,183,0.7)); /* Dolum gradyanı */
             transition: width 0.1s; /* Pürüzsüz animasyon */
-            //transform-origin: right center;
+        //transform-origin: right center;
         }
         #countdown {
             position: absolute;
@@ -192,7 +192,7 @@
 
 
         #countdown-number {
-            font-size: 90px; /* Yazı boyutunu belirleyin */
+            font-size: 1.5vw; /* Yazı boyutunu belirleyin */
             text-align: center; /* Ortalayın */
             width: 100px; /* Genişliği sabitleyin */
             margin: auto; /* Ortalamayı kesinleştirin */
@@ -203,12 +203,12 @@
 
         #minimap {
             position: absolute;
-            bottom: 2%;
-            right: 2%;
+            top: 2%;
+            left: 2%;
             width: 10vw;
             height: 10vw;
             background: rgba(0, 0, 0, 0.8);
-            border: 0.2vw solid white;
+            border: 0.2vw #1dd8b7;
             border-radius: 50%;
             overflow: hidden;
             color: white;
@@ -216,6 +216,23 @@
             align-items: center;
             font-size: 1vw;
             display: none;
+        }
+        #center-marker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0.9vw; /* Belirgeç boyutu */
+            height: 0.9vw;
+            background-color: red; /* Belirgeç rengi */
+            border-radius: 50%; /* Yuvarlak yapmak için */
+            transform: translate(-50%, -50%); /* Merkeze hizalama */
+            animation: blink 1s infinite; /* Yanıp sönme efekti */
+            z-index: 2;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; } /* Görünür */
+            50% { opacity: 0.3; }   /* Yarı saydam */
         }
 
         #start-menu {
@@ -236,6 +253,7 @@
             border-radius: 1vw;
             pointer-events: all;
         }
+
         #help-screen {
             position: fixed;
             top: 0;
@@ -301,6 +319,7 @@
             width: 1em;
             margin-left: -1em;
         }
+
         #loading-screen {
             position: fixed;
             top: 0;
@@ -434,7 +453,9 @@
 <div id="game-gui">
     <div id="timer">Time: 00:00:00</div>
     <div id="score">Score: 0</div>
-    <div id="minimap"></div>
+    <div id="minimap">
+        <div id="center-marker"></div>
+    </div>
 </div>
 
 <!-- Start Menu -->
@@ -445,6 +466,7 @@
     <input type="color" id="color-picker" style="display: none;">
     <button id="start-text-4">HELP</button>
     <button id="start-text-5">SANDBOX</button>
+    <button id="start-text-6">TIME:MORNING</button>
 </div>
 
 <div id="sandbox-message" style="display: none; position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #1dd8b7; padding: 1rem; border-radius: 10px; text-align: center;font-family: 'Platformone', sans-serif; font-size: 2rem; z-index: 1000;">
@@ -459,9 +481,11 @@
             <li>You can also see sandbox when you click on it.</li>
             <li>Again in intro screen when you click continuously with your mouse and move it you can see all 3 cars with different perspective.</li>
             <li>After clicking PLAY button the game will start.After then whenever you click the letter 'o' you can change camera perspectives with continuously clicking left with your mouse.Also you can zoom in and out with mouse wheel.</li>
+
         </ul>
     </div>
 </div>
+
 <div id="loading-screen">
     <div id="loading-text">Loading...</div>
     <div id="loadingBarContainer">
