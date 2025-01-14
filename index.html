@@ -242,7 +242,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #000;
+            background: url('public/loading_screen.png');
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -250,26 +250,29 @@
             z-index: 9999;
         }
 
-        #loading-image {
-            width: 150px;
-            height: auto;
-            animation: spin 1.5s linear infinite;
-        }
 
         #loading-text {
             font-family: 'Platformone', sans-serif;
-            font-size: 24px;
+            position: absolute;
+            top: 15%;
+            left: 49%;
+            font-size: 1vw;
             color: yellow;
-            text-shadow: 0 0 5px #1dd8b7;
+            text-shadow: 0 0 5px yellow;
             margin-top: 20px;
+            z-index: 2;
         }
 
         #loadingBarContainer {
+            position: absolute;
+            top: 20%;
+            left: 10%;
             width: 80%;
             height: 30px;
             background-color: #444;
             border-radius: 15px;
             overflow: hidden;
+            z-index: 2;
         }
 
         #loadingFill {
@@ -277,6 +280,7 @@
             height: 100%;
             background-color: yellow;
             transition: width 0.2s ease;
+            z-index: 2;
         }
 
         #color-picker {
@@ -379,7 +383,6 @@
 </div>
 
 <div id="loading-screen">
-    <img id="loading-image" src="public/loading_screen.png" alt="Loading">
     <div id="loading-text">Loading...</div>
     <div id="loadingBarContainer">
         <div id="loadingFill"></div>

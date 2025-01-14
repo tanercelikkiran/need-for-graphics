@@ -8,7 +8,7 @@ import {
     loadJeep,
     loadBMWintro,
     loadPorscheIntro, loadJeepIntro,
-    manager
+    manager, bmwAcc, porscheAcc, jeepAcc, loadSounds, bmwEngine, porscheEngine, jeepEngine, slide, turboSound
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -194,7 +194,7 @@ let remainingTime=totalTime;
 let scoreTime=600;
 let gameOver=false;
 
-let selectedCarNo = 0;
+export let selectedCarNo = 0;
 
 let porscheMass = 900;
 let porscheWheelOptions = {
@@ -285,6 +285,8 @@ function init() {
     scene = new THREE.Scene();
 
     addLights(scene);
+
+    loadSounds(scene);
 
     renderer = new THREE.WebGLRenderer({antialias: false});
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -630,6 +632,17 @@ function createVehicle() {
     vehicle.addToWorld(world);
 }
 
+function playAccelerationSound(selectedCarNo) {
+    if (selectedCarNo === 0 && bmwAcc) {
+        bmwAcc.play();
+    } else if (selectedCarNo === 1 && porscheAcc) {
+        porscheAcc.play();
+    } else if (selectedCarNo === 2 && jeepAcc) {
+        jeepAcc.play();
+    }
+}
+
+
 function updateVehicleControls() {
     //---------------------------
     // 1) Aracın anlık hızını ölç
@@ -684,6 +697,7 @@ function updateVehicleControls() {
     // 3) Motor Gücü
     //---------------------------
     if (isAccelerating) {
+        playAccelerationSound(selectedCarNo);
         currentEngineForce = Math.min(
             currentEngineForce + engineRamp,
             maxEngineForce
@@ -691,6 +705,9 @@ function updateVehicleControls() {
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
         // Basitçe "geri" yaklaşımlardan biri:
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
 
         currentEngineForce = Math.max(
             currentEngineForce - engineRamp,
@@ -698,6 +715,10 @@ function updateVehicleControls() {
         )
     } else {
         // Ne gaz ne fren
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
+
         const dampingFactor = 0.995; // Hızı azaltmak için katsayı
         const velocity = vehicle.chassisBody.velocity;
         vehicle.chassisBody.velocity.set(
@@ -729,10 +750,13 @@ function updateVehicleControls() {
     if (isSteeringLeft) {
         // Sola doğru yavaşça art
         currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
+        slide.play();
     } else if (isSteeringRight) {
         // Sağa doğru yavaşça art
         currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
+        slide.play();
     } else {
+        slide.stop();
         // Ortalamaya dön (damping)
         if (currentSteering > 0) {
             currentSteering = Math.max(currentSteering - steerDamping, 0);
@@ -790,6 +814,7 @@ function updateVehicleControls() {
     if (isHandBraking) {
         vehicle.setBrake(handbrakeForce, 2); // rear-left
         vehicle.setBrake(handbrakeForce, 3); // rear-right
+        slide.play();
     }
 
     // Motor kuvveti -> genelde ön tekerler
@@ -856,6 +881,7 @@ let turboBaseForce = maxEngineForce; // Nitro yokken motor gücü
 function updateTurbo(deltaTime) {
     if (isTurboActive && turboLevel > 0 && isAccelerating) {
         turboVroom=true;
+        turboSound.play();
         maxEngineForce = turboBaseForce * 1.5;
         turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalır
         if (turboLevel <= 0) {
@@ -866,6 +892,7 @@ function updateTurbo(deltaTime) {
     } else {
         maxEngineForce = turboBaseForce; // Nitro aktif değilse motor gücü varsayılana döner
         turboVroom=false;
+        turboSound.stop();
         if (turboLevel < 100) {
             turboLevel += 0.01 * deltaTime * 60;
             if (turboLevel > 100) {

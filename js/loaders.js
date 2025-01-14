@@ -10,7 +10,7 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {carColor, isBraking, isTurboActive, world} from "./main.js";
+import {carColor, isBraking, isTurboActive, selectedCarNo, world} from "./main.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
 
@@ -43,6 +43,90 @@ const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
 const fontloader = new FontLoader(manager);
+
+export let audioListener;
+export let bmwAcc, porscheAcc, jeepAcc,bmwEngine, porscheEngine, jeepEngine,slide,turboSound;
+export let korna;
+
+export function loadSounds(scene) {
+    audioListener = new THREE.AudioListener();
+    scene.add(audioListener);
+
+    const audioLoader = new THREE.AudioLoader();
+
+    // BMW için hızlanma sesi
+    bmwAcc = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/BMWacc.mp3', (buffer) => {
+        bmwAcc.setBuffer(buffer);
+        bmwAcc.setLoop(false);
+        bmwAcc.setVolume(0.5);
+    });
+
+    // Porsche için hızlanma sesi
+    porscheAcc = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/Porscheacc.mp3', (buffer) => {
+        porscheAcc.setBuffer(buffer);
+        porscheAcc.setLoop(false);
+        porscheAcc.setVolume(0.5);
+    });
+
+    // Jeep için hızlanma sesi
+    jeepAcc = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/Jeepacc.mp3', (buffer) => {
+        jeepAcc.setBuffer(buffer);
+        jeepAcc.setLoop(false);
+        jeepAcc.setVolume(0.5);
+    });
+
+    // BMW Motor sesi
+    bmwEngine = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/BMWEngine.mp3', (buffer) => {
+        bmwEngine.setBuffer(buffer);
+        bmwEngine.setLoop(true); // Motor sesi sürekli çalacak
+        bmwEngine.setVolume(0.1);
+        if(selectedCarNo===0){
+            bmwEngine.play();
+        }
+
+    });
+    // Porsche Motor sesi
+    porscheEngine = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/PorscheEngine.mp3', (buffer) => {
+        porscheEngine.setBuffer(buffer);
+        porscheEngine.setLoop(true);
+        porscheEngine.setVolume(0.1);
+        if(selectedCarNo===1){
+            porscheEngine.play();
+        }
+    });
+
+    // Jeep Motor sesi
+    jeepEngine = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/Jeepmotor.mp3', (buffer) => {
+        jeepEngine.setBuffer(buffer);
+        jeepEngine.setLoop(true);
+        jeepEngine.setVolume(0.1);
+        if(selectedCarNo===2){
+            jeepEngine.play();
+        }
+    });
+    slide = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/carslide.mp3', (buffer) => {
+        slide.setBuffer(buffer);
+        slide.setLoop(false);
+        slide.setVolume(0.5);
+    });
+    turboSound = new THREE.Audio(audioListener);
+    audioLoader.load('public/sfx/Turbo.mp3', (buffer) => {
+        turboSound.setBuffer(buffer);
+        turboSound.setLoop(false);
+        turboSound.setVolume(0.5);
+    });
+}
+
+
+
+
 export function loadMap(scene) {
     return new Promise((resolve) => {
         gltfLoader.load(
