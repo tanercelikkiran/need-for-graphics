@@ -18,14 +18,21 @@ let carMesh;
 let wheelMeshes = [];
 export {carMesh, wheelMeshes};
 
-const manager = new THREE.LoadingManager();
+export const manager = new THREE.LoadingManager();
+const loadingScreen = document.getElementById('loading-screen');
+const loadingFill = document.getElementById('loading-slider-fill');
+
 manager.onStart = () => {
     console.log('Loading started');
 };
 manager.onLoad = () => {
+    loadingScreen.style.display = 'none';
+    loadingFill.style.display = 'none';
     console.log('Loading complete');
 };
 manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+    const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
+    loadingFill.style.width = `${fillPercentage}%`;
     console.log(`Loading file: ${url}. Loaded ${itemsLoaded} of ${itemsTotal} files.`);
 };
 manager.onError = (url) => {
@@ -44,43 +51,43 @@ export function loadMap(scene) {
                 scene.add(gltf.scene);
                 console.log('Model loaded successfully!');
 
-            gltf.scene.traverse(function (child) {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                }
-                if (child.name.includes("A1")) {
-                    child.traverse((subChild) => {
-                        if (subChild.isMesh) {
-                            subChild.material = new THREE.MeshStandardMaterial({
-                                color: 0x00ff00,
-                                roughness: 0.2,
-                                metalness: 0.8,
-                            });
-                        }
-                    });
-                }
-                if (child.isMesh && child.name.includes("Collider")) {
-                    child.visible = false; // Make the child invisible
-                }
+                gltf.scene.traverse(function (child) {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                    if (child.name.includes("A1")) {
+                        child.traverse((subChild) => {
+                            if (subChild.isMesh) {
+                                subChild.material = new THREE.MeshStandardMaterial({
+                                    color: 0x00ff00,
+                                    roughness: 0.2,
+                                    metalness: 0.8,
+                                });
+                            }
+                        });
+                    }
+                    if (child.isMesh && child.name.includes("Collider")) {
+                        child.visible = false; // Make the child invisible
+                    }
 
 
-                //     if (child.isMesh && child.name.includes("PLight")) {
-                //
-                //         // Mevcut konumda PointLight oluştur
-                //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1);
-                //         pointLight.position.copy(child.position);
-                //
-                //         // PointLight'ı sahneye ekle
-                //         scene.add(pointLight);
-                //     }
+                    //     if (child.isMesh && child.name.includes("PLight")) {
+                    //
+                    //         // Mevcut konumda PointLight oluştur
+                    //         const pointLight = new THREE.PointLight(0xFFF0CC, 4, 50, 1);
+                    //         pointLight.position.copy(child.position);
+                    //
+                    //         // PointLight'ı sahneye ekle
+                    //         scene.add(pointLight);
+                    //     }
+                });
+                resolve();
+            },
+            null,
+            function (error) {
+                console.error('An error happened:', error);
             });
-            resolve();
-        },
-        null,
-        function (error) {
-            console.error('An error happened:', error);
-        });
     });
 }
 
@@ -128,8 +135,8 @@ export function loadJeepIntro(scene) {
             }
         });
         scene.add(object);
-        }, null, function(error){
-            console.error(error);
+    }, null, function(error){
+        console.error(error);
     });
 }
 
@@ -448,40 +455,40 @@ export function loadBMW(scene) {
 export function loadPorsche(scene) {
     return new Promise((resolve) => {
         fbxLoader.load("public/porsche/CarwNoWheels.fbx", function(object){
-            carMesh = object;
-            scene.add(object);
+                carMesh = object;
+                scene.add(object);
 
-            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-            carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
-            carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
-            object.add(carCamera);
+                const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+                carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
+                carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
+                object.add(carCamera);
 
-            scene.userData.activeCamera = carCamera;
+                scene.userData.activeCamera = carCamera;
 
                 // const carLight = new THREE.PointLight(0xFFF0CC, 50, 500);
                 // carLight.position.set(0, 10 , 5);
                 // carMesh.add(carLight);
 
-            object.traverse( function(child){
-                if (child.isMesh){
-                    child.castShadow = child.receiveShadow = true;
-                    if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
-                        transparent(child.material);
-                    }
-                    if (child.name.includes("Studio_Car276")){
-                        transparent(child.material, 0x5C0007);
-                    }
-                    if (child.name.includes("Studio_Car277")){
-                        metallicPaint(child.material,carColor);
-                    }
-                    if (child.name.includes("Studio_Car148")){
-                        emissiveLight(child, 0xffffff, 20.0);
-                    }
-                    if (child.name.includes("Studio_Car149")){
-                        emissiveLight(child, 0xffffff, 20.0);
-                    }
-                    if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
-                        emissiveLight(child, 0xffffff, 20.0);
+                object.traverse( function(child){
+                    if (child.isMesh){
+                        child.castShadow = child.receiveShadow = true;
+                        if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
+                            transparent(child.material);
+                        }
+                        if (child.name.includes("Studio_Car276")){
+                            transparent(child.material, 0x5C0007);
+                        }
+                        if (child.name.includes("Studio_Car277")){
+                            metallicPaint(child.material,carColor);
+                        }
+                        if (child.name.includes("Studio_Car148")){
+                            emissiveLight(child, 0xffffff, 20.0);
+                        }
+                        if (child.name.includes("Studio_Car149")){
+                            emissiveLight(child, 0xffffff, 20.0);
+                        }
+                        if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
+                            emissiveLight(child, 0xffffff, 20.0);
 
                             // Create the spotlight with dummy positions for now
                             const headlightSpot = spotlight(
@@ -491,64 +498,64 @@ export function loadPorsche(scene) {
                             headlightSpot.castShadow=true;
 
                             // Add it to the scene
-                        scene.add(headlightSpot);
-                        scene.add(headlightSpot.target);
+                            scene.add(headlightSpot);
+                            scene.add(headlightSpot.target);
 
                             // Now each physics step, update the spotlight so it "follows" this child
-                        world.addEventListener("postStep", () => {
-                            // 1) Get the child's current world position
-                            const updatedPosition = child.getWorldPosition(new THREE.Vector3());
+                            world.addEventListener("postStep", () => {
+                                // 1) Get the child's current world position
+                                const updatedPosition = child.getWorldPosition(new THREE.Vector3());
 
-                            // 2) We'll define a local "forward" offset of -10 along Z,
-                            //    then rotate it by the child's *world* quaternion.
-                            const localDir = new THREE.Vector3(0, 10, 0);
-                            const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
-                            localDir.applyQuaternion(childQuat);
+                                // 2) We'll define a local "forward" offset of -10 along Z,
+                                //    then rotate it by the child's *world* quaternion.
+                                const localDir = new THREE.Vector3(0, 10, 0);
+                                const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
+                                localDir.applyQuaternion(childQuat);
 
-                            // 3) Final target is updatedPosition + localDir
-                            const updatedTarget = updatedPosition.clone().add(localDir);
+                                // 3) Final target is updatedPosition + localDir
+                                const updatedTarget = updatedPosition.clone().add(localDir);
 
-                            // 4) Call the tilt-based spotlight update:
-                            headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
-                        });
+                                // 4) Call the tilt-based spotlight update:
+                                headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
+                            });
+                        }
+                        if (child.name.includes("Studio_Car252_light")) {
+                            world.addEventListener("postStep", () => {
+                                if (isBraking || isTurboActive) {
+                                    emissiveLight(child, 0xff3333, 20); // Fren yapıldığında parlaklık
+                                }else{
+                                    emissiveLight(child, 0xff3333, 5);
+                                }
+                            });
+                        }
+                        if (child.name.includes("Studio_Car252_taillights1")) {
+                            emissiveLight(child, 0xff3333, 20.0);
+                        }
+                        if (child.name.includes("platelight1")) {
+                            const pointLight1 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
+                            child.add(pointLight1);
+                        }
+                        if (child.name.includes("platelight2")) {
+                            const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
+                            child.add(pointLight2);
+                        }
+                        if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
+                            const originalMaterial = child.material;
+                            world.addEventListener("postStep", () => {
+                                if (isBraking || isTurboActive) {
+                                    emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
+                                }else{
+                                    child.material = originalMaterial;
+                                }
+                            });
+                        }
                     }
-                    if (child.name.includes("Studio_Car252_light")) {
-                        world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                emissiveLight(child, 0xff3333, 20); // Fren yapıldığında parlaklık
-                            }else{
-                                emissiveLight(child, 0xff3333, 5);
-                            }
-                        });
-                    }
-                    if (child.name.includes("Studio_Car252_taillights1")) {
-                        emissiveLight(child, 0xff3333, 20.0);
-                    }
-                    if (child.name.includes("platelight1")) {
-                        const pointLight1 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                        child.add(pointLight1);
-                    }
-                    if (child.name.includes("platelight2")) {
-                        const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                        child.add(pointLight2);
-                    }
-                    if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
-                        const originalMaterial = child.material;
-                        world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            }else{
-                                child.material = originalMaterial;
-                            }
-                        });
-                    }
-                }
-            });
-            resolve();
-        },
+                });
+                resolve();
+            },
             null, function(error){
                 console.error(error);
-        });
+            });
         loadWheels(scene, "public/porsche/wheels.fbx" );
     });
 }
