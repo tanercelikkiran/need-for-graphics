@@ -20,7 +20,7 @@ export {carMesh, wheelMeshes};
 
 export const manager = new THREE.LoadingManager();
 const loadingScreen = document.getElementById('loading-screen');
-const loadingFill = document.getElementById('loading-slider-fill');
+const loadingFill = document.getElementById('loadingFill');
 
 manager.onStart = () => {
     console.log('Loading started');
@@ -31,8 +31,8 @@ manager.onLoad = () => {
     console.log('Loading complete');
 };
 manager.onProgress = (url, itemsLoaded, itemsTotal) => {
-    const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
-    loadingFill.style.width = `${fillPercentage}%`;
+    const progress = (itemsLoaded / itemsTotal) * 100;
+    loadingFill.style.width = `${progress}%`;
     console.log(`Loading file: ${url}. Loaded ${itemsLoaded} of ${itemsTotal} files.`);
 };
 manager.onError = (url) => {
