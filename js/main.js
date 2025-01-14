@@ -795,10 +795,12 @@ function updateVehicleControls() {
     // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
+    if (loadingScreen.style.display === "none" && startMenu.style.display === "none") {
     updateSpeedometer();
     updateSpeedSlider();
     updateTurbometer();
     updateTurboSlider();
+}
 }
 function updateSpeedometer() {
     const velocity = vehicle.chassisBody.velocity;
@@ -1291,6 +1293,32 @@ function animate() {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
         const activeCamera=scene.userData.activeCamera;
+        if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted) {
+            let countdown=3;
+            //countdownı buraya yapacaksın
+            const countdown3 = document.getElementById('countdown');
+            const countdownNumber = document.getElementById('countdown-number');
+            countdown3.style.display = 'flex';
+
+            const countdownInterval = setInterval(() => {
+                if (countdown >= 0) {
+                    countdownNumber.textContent = String(countdown);
+                } else {
+                    clearInterval(countdownInterval);
+                    // Elementleri gizlemek için görünürlüğü değiştirin
+                    countdown3.style.display = 'none';
+                    countdownNumber.style.display = 'none';
+                    document.getElementById('countdown').style.display = 'none';
+
+                    // Fonksiyonlarınızı çağırın
+                    updateTimer(milDeltaTime);
+                    updateRemainingTime(milDeltaTime);
+                    updateScore(milDeltaTime);
+                }
+                countdown--;
+            }, 1000);
+
+        }
         updateTimer(milDeltaTime);
         updateRemainingTime(milDeltaTime);
         updateScore(milDeltaTime);
@@ -1502,57 +1530,61 @@ function initIntro() {
 
     animateIntro();
 
-    document.getElementById('start-text-1').addEventListener('mousedown', function(event) {
+        document.getElementById('start-text-1').addEventListener('mousedown', function(event) {
         const timeValue = document.getElementById('time-remaining');
         const speedometer = document.getElementById('speedometer');
         const  neonLine= document.getElementById('neonline');
         const  neonLine2= document.getElementById('neonline2');
         const neonTimer = document.getElementById('neontimer');
         const turbometer = document.getElementById('turbometer');
-        if (event.button === 0 && !gameStarted) {
-            countdownTimer = setInterval(() => {
-                if (countdown > 0) {
-                    //updateCountdownText(countdown);
-                    document.getElementById('start-text-1').innerText = countdown;
-                    countdown--;
-                } else {
-                    clearInterval(countdownTimer);
-                    document.getElementById('start-menu').style.display = 'none'; // Hide start menu
-                    gameStarted = true;
-                    elapsedTime = 0;  // Reset elapsedTime when the game starts
-                    remainingTime = totalTime; // Reset remaining time
-                    sceneIntro.traverse((object) => {
-                        if (object.isMesh) {
-                            object.geometry.dispose();
-                            if (object.material.isMaterial) {
-                                object.material.dispose();
-                            } else {
-                                // Çoklu materyal durumu için
-                                object.material.forEach(material => material.dispose());
-                            }
-                        }
-                    });
+        const loadingFill = document.getElementById('loading-slider-fill');
+        if (event.button === 0 && !gameStarted ) {
+            startMenu.style.display = 'none';
+            loadingScreen.style.display = 'flex';
+            loadingFill.style.display = 'flex';
 
-                    renderer.dispose(); // Renderer'ı temizle
-                    document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+            manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+                const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
+                updateLoadingSlider(fillPercentage);
+                //loadingFill.style.width = `${fillPercentage}%`;
+            };
 
-                    // Diğer sahne temizlemeleri
-                    sceneIntro.clear(); // Sahneyi temizle
-
-                    document.removeEventListener('keydown', this);
-                    main();
-                    timeValue.style.display = 'block';
-                    speedometer.style.display = 'block';
-                    neonLine.style.display = 'block';
-                    neonLine2.style.display = 'block';
-                    neonTimer.style.display = 'block';
-                    turbometer.style.display = 'block';
-
-
+            manager.onLoad = () => {
+                loadingScreen.style.display = 'none';
+                loadingFill.style.display = 'none';
+            };
+            gameStarted = true;
+            elapsedTime = 0;  // Reset elapsedTime when the game starts
+            remainingTime = totalTime; // Reset remaining time
+            sceneIntro.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
                 }
-            }, 1000);
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneIntro.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            main();
+            timeValue.style.display = 'block';
+            speedometer.style.display = 'block';
+            neonLine.style.display = 'block';
+            neonLine2.style.display = 'block';
+            neonTimer.style.display = 'block';
+            turbometer.style.display = 'block';
         }
     });
+
     document.getElementById('start-text-3').addEventListener('mousedown', function(event) {
         if (event.button === 0 && !gameStarted) {
             const colorPicker = document.getElementById('color-picker');
