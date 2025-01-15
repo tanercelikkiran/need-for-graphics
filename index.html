@@ -23,12 +23,12 @@
         button {
             font-family: 'Platformone', sans-serif;
             background: url('public/button1.png');
-            width: 392px;
-            height: 76px;
+            width: 15.2vw;
+            height: 3vw;
             border: none;
             color: #1dd8b7;
             text-decoration: none;
-            font-size: 20px;
+            font-size: 0.8vw;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
         }
 
@@ -52,7 +52,7 @@
             font-weight: normal;
             color: #1dd8b7;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
-            display: inline-block;
+            display: none;
         }
         #score {
             position: absolute;
@@ -65,7 +65,7 @@
             font-weight: normal;
             color: #1dd8b7;
             text-shadow: 0 0 0.5vw #1dd8b7, 0 0 1vw #1dd8b7;
-            display: inline-block;
+            display: none;
         }
 
         #time-remaining {
@@ -167,17 +167,48 @@
             height: 100%;
             background: linear-gradient(90deg, rgba(0,0,0,0), rgba(29,216,183,0.7)); /* Dolum gradyanı */
             transition: width 0.1s; /* Pürüzsüz animasyon */
-            transform-origin: right center;
+        //transform-origin: right center;
         }
+        #countdown {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            color: #1dd8b7;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Digital7', sans-serif;
+            z-index: 1000;
+        }
+
+        #countdown img {
+            max-width: 400px;
+            height: auto;
+        }
+
+
+        #countdown-number {
+            font-size: 1.5vw; /* Yazı boyutunu belirleyin */
+            text-align: center; /* Ortalayın */
+            width: 100px; /* Genişliği sabitleyin */
+            margin: auto; /* Ortalamayı kesinleştirin */
+            position: relative; /* Sabit bir konum belirlemek için */
+            transition: opacity 0.5s ease, opacity 0.5s ease; /* Yumuşak geçiş */
+        }
+
 
         #minimap {
             position: absolute;
-            bottom: 2%;
-            right: 2%;
+            top: 2%;
+            left: 2%;
             width: 10vw;
             height: 10vw;
             background: rgba(0, 0, 0, 0.8);
-            border: 0.2vw solid white;
+            border: 0.2vw #1dd8b7;
             border-radius: 50%;
             overflow: hidden;
             color: white;
@@ -186,26 +217,155 @@
             font-size: 1vw;
             display: none;
         }
+        #center-marker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0.9vw; /* Belirgeç boyutu */
+            height: 0.9vw;
+            background-color: red; /* Belirgeç rengi */
+            border-radius: 50%; /* Yuvarlak yapmak için */
+            transform: translate(-50%, -50%); /* Merkeze hizalama */
+            animation: blink 1s infinite; /* Yanıp sönme efekti */
+            z-index: 2;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; } /* Görünür */
+            50% { opacity: 0.3; }   /* Yarı saydam */
+        }
 
         #start-menu {
             position: absolute;
-            top: 50%;
+            top: 10%;
             left: 50%;
             transform: translate(-50%, -50%);
             color: #1dd8b7;
             font-size: 2vw;
             font-family: 'Digital7', sans-serif;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             align-items: center;
             justify-content: center;
             background-color: transparent;
-            padding: 0;
+            gap:2rem;
+            padding: 1rem;
             border-radius: 1vw;
             pointer-events: all;
         }
 
+        #help-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
 
+        #help-content {
+            background: black;
+            padding: 5vw;
+            border-radius: 2vw;
+            text-align: left;
+            max-width: 100vw;
+            width: 70vw;
+            height: 70vh;
+            color: #1dd8b7;
+            display: none;
+
+        }
+        #help {
+            font-family: 'Platformone', sans-serif;
+            position: absolute;
+            top: 10px; /* Üstten 10px mesafe */
+            left: 50%; /* Sayfanın ortasına yerleştirir */
+            transform: translateX(-50%); /* Gerçekten ortalar */
+            font-size: 2rem;
+            color: #1dd8b7; /* Yazı rengi */
+            background-color: black; /* Arka plan rengi */
+            padding: 10px 20px;
+            border-radius: 2vw; /* Köşe yuvarlama */
+        }
+
+        h1 {
+            font-family: 'Digital7',sans-serif;
+            font-size: 3em;
+            margin-bottom: 1em;
+            color:  #1dd8b7;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        ul li {
+            font-family: 'Digital7', sans-serif;
+            font-size: 1.2em;
+            margin-bottom: 0.5em;
+        }
+
+        ul li::before {
+            content: '\2022'; /* Bullet point */
+            color: #1dd8b7;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('public/loading_screen.png');
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+
+        #loading-text {
+            font-family: 'Platformone', sans-serif;
+            position: absolute;
+            top: 15%;
+            left: 49%;
+            font-size: 1vw;
+            color: #c2b145;
+            text-shadow: 0 0 5px #c2b145;
+            margin-top: 20px;
+            z-index: 2;
+        }
+
+        #loadingBarContainer {
+            position: absolute;
+            top: 20%;
+            left: 10%;
+            width: 80%;
+            height: 30px;
+            background-color: transparent;
+            border-radius: 15px;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        #loadingFill {
+            width: 0%;
+            height: 100%;
+            background-color: #c2b145;
+            transition: width 0.2s ease;
+            z-index: 2;
+        }
 
         #color-picker {
             position: absolute;
@@ -266,7 +426,7 @@
             right: 2%;
             width: 19.16%; /* Oranları otomatik olarak ayarla */
             height: auto;
-            /*display: none;*/
+            display: none;
         }
         #scoreboard2 {
             position: absolute;
@@ -274,7 +434,7 @@
             right: 2%;
             width: 19.16%; /* Oranları otomatik olarak ayarla */
             height: auto;
-            /*display: none;*/
+            display: none;
         }
 
     </style>
@@ -293,7 +453,9 @@
 <div id="game-gui">
     <div id="timer">Time: 00:00:00</div>
     <div id="score">Score: 0</div>
-    <div id="minimap"></div>
+    <div id="minimap">
+        <div id="center-marker"></div>
+    </div>
 </div>
 
 <!-- Start Menu -->
@@ -303,6 +465,36 @@
     <button id="start-text-3">CHANGE COLOR</button>
     <input type="color" id="color-picker" style="display: none;">
     <button id="start-text-4">HELP</button>
+    <button id="start-text-5">SANDBOX</button>
+    <button id="start-text-6">TIME:MORNING</button>
+</div>
+
+<div id="sandbox-message" style="display: none; position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #1dd8b7; padding: 1rem; border-radius: 10px; text-align: center;font-family: 'Platformone', sans-serif; font-size: 2rem; z-index: 1000;">
+    You have already entered Sandbox!
+</div>
+
+<div id="help-screen" class="hidden">
+    <div id="help">HELP</div>
+    <div id="help-content">
+        <ul>
+            <li>In intro screen you can see 5 buttons.Whenever you click the letter 'h' or the HELP button; you can see this page and when you are done with this page, click 'h'.Also you can change your car or car's color in intro screen.</li>
+            <li>You can also see sandbox when you click on it.</li>
+            <li>Again in intro screen when you click continuously with your mouse and move it you can see all 3 cars with different perspective.</li>
+            <li>After clicking PLAY button the game will start.After then whenever you click the letter 'o' you can change camera perspectives with continuously clicking left with your mouse.Also you can zoom in and out with mouse wheel.</li>
+
+        </ul>
+    </div>
+</div>
+
+<div id="loading-screen">
+    <div id="loading-text">Loading...</div>
+    <div id="loadingBarContainer">
+        <div id="loadingFill"></div>
+    </div>
+</div>
+
+<div id="countdown" style="display: none;">
+    <div id="countdown-number"></div>
 </div>
 <!-- Game Over Screen -->
 <div id="game-over">

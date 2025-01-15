@@ -9,7 +9,19 @@ import {
     loadBMWintro,
     loadPorscheIntro,
     loadJeepIntro,
-    loadMoveableObject,
+    manager,
+    bmwAcc,
+    porscheAcc,
+    jeepAcc,
+    loadSounds,
+    bmwEngine,
+    porscheEngine,
+    jeepEngine,
+    slide,
+    turboSound,
+    loadHDRsunset,
+    loadHDRnight,
+    loadMoveableObject
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -65,6 +77,8 @@ const motionBlurShader = {
         }
     `
 };
+
+let isSandbox=false;
 
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
@@ -182,20 +196,23 @@ let score=0;
 
 let orbitControls;
 
+let hdriChange=0;
+
+const startMenu = document.getElementById('start-menu');
+const loadingScreen = document.getElementById('loading-screen');
+
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
 
 let elapsedTime = 0;
 let gameStarted=false;
-let countdown=3;
-let countdownTimer;
 const totalTime = 600;
 let remainingTime=totalTime;
 let scoreTime=600;
 let gameOver=false;
 
-let selectedCarNo = 0;
+export let selectedCarNo = 0;
 let currentSurfaceFriction = 0.3; // Varsayılan yüzey sürtünmesi
 
 let porscheMass = 1420;
@@ -285,9 +302,8 @@ function addLights(scene) {
 
 function init() {
     scene = new THREE.Scene();
-
     addLights(scene);
-
+    loadSounds(scene);
     renderer = new THREE.WebGLRenderer({antialias: false});
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
@@ -391,11 +407,6 @@ function init() {
             const activeCamera = scene.userData.activeCamera;
             if (activeCamera) {
                 orbitControls.enabled = !orbitControls.enabled;
-                if (orbitControls.enabled) {
-                    console.log("OrbitControls etkinleştirildi.");
-                } else {
-                    console.log("OrbitControls devre dışı bırakıldı.");
-                }
             }
         }
     });
@@ -692,6 +703,17 @@ function createVehicle() {
     vehicle.addToWorld(world);
 }
 
+function playAccelerationSound(selectedCarNo) {
+    if (selectedCarNo === 0 && bmwAcc) {
+        bmwAcc.play();
+    } else if (selectedCarNo === 1 && porscheAcc) {
+        porscheAcc.play();
+    } else if (selectedCarNo === 2 && jeepAcc) {
+        jeepAcc.play();
+    }
+}
+
+
 function updateVehicleControls() {
     //-------------------------------------------
     // 0) Araç ve Yüzey Parametrelerini Ayarla
@@ -793,19 +815,29 @@ function updateVehicleControls() {
     // 3) Motor Gücü (gaz/fren)
     //---------------------------
     if (isAccelerating) {
+        playAccelerationSound(selectedCarNo);
         currentEngineForce = Math.min(
             currentEngineForce + scaledEngineRamp,
             scaledMaxEngineForce
         );
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
+        // Basitçe "geri" yaklaşımlardan biri:
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
+
         currentEngineForce = Math.max(
             currentEngineForce - scaledEngineRamp,
             -scaledMaxEngineForce * 1
         );
     } else {
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
         // Ne gaz ne fren
         const dampingFactor = 0.995;
+        const velocity = vehicle.chassisBody.velocity;
         vehicle.chassisBody.velocity.set(
             velocity.x * dampingFactor,
             velocity.y,
@@ -831,9 +863,12 @@ function updateVehicleControls() {
     //---------------------------
     if (isSteeringLeft) {
         currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
+        slide.play();
     } else if (isSteeringRight) {
         currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
+        slide.play();
     } else {
+        slide.stop();
         // Ortalamaya dön (damping)
         if (currentSteering > 0) {
             currentSteering = Math.max(currentSteering - steerDamping, 0);
@@ -845,12 +880,13 @@ function updateVehicleControls() {
     //---------------------------
     // 5.5) İvmelenme / Hız Limiti
     //---------------------------
-    if (selectedCarNo === 0) {
-        // Jeep için, maxSpeed'i yukarıda zaten set ettik
-    } else if (selectedCarNo === 1) {
-        // Porsche...
-    } else if (selectedCarNo === 2) {
-        // BMW...
+
+    if (selectedCarNo===0){
+        maxSpeed=243/3.6;
+    }else if (selectedCarNo===1){
+        maxSpeed=304/3.6;
+    }else if (selectedCarNo===2){
+        maxSpeed=156/3.6;
     }
     // Yukarıda topSpeed değerini "carData" ile zaten ayarladık.
 
@@ -889,6 +925,7 @@ function updateVehicleControls() {
     if (isHandBraking) {
         vehicle.setBrake(handbrakeForce, 2);
         vehicle.setBrake(handbrakeForce, 3);
+        slide.play();
     }
 
     vehicle.applyEngineForce(currentEngineForce, 0);
@@ -896,11 +933,12 @@ function updateVehicleControls() {
 
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
-
-    updateSpeedometer();
-    updateSpeedSlider();
-    updateTurbometer();
-    updateTurboSlider();
+    if (loadingScreen.style.display === "none" && startMenu.style.display === "none") {
+        updateSpeedometer();
+        updateSpeedSlider();
+        updateTurbometer();
+        updateTurboSlider();
+    }
 }
 
 function updateSpeedometer() {
@@ -953,6 +991,7 @@ let turboBaseForce = maxEngineForce; // Nitro yokken motor gücü
 function updateTurbo(deltaTime) {
     if (isTurboActive && turboLevel > 0 && isAccelerating) {
         turboVroom=true;
+        turboSound.play();
         maxEngineForce = turboBaseForce * 1.5;
         turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalır
         if (turboLevel <= 0) {
@@ -963,6 +1002,7 @@ function updateTurbo(deltaTime) {
     } else {
         maxEngineForce = turboBaseForce; // Nitro aktif değilse motor gücü varsayılana döner
         turboVroom=false;
+        turboSound.stop();
         if (turboLevel < 100) {
             turboLevel += 0.01 * deltaTime * 60;
             if (turboLevel > 100) {
@@ -1323,18 +1363,19 @@ const minimapCamera = new THREE.OrthographicCamera(
 );
 
 // Kamerayı konumlandırma
-minimapCamera.position.set(0, 100, 0);
+minimapCamera.position.set(0, 200, 0);
 minimapCamera.lookAt(0, 0, 0);
-
 
 // Minimap renderer oluştur
 const minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
-minimapRenderer.setSize(200, 200);
+const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.19;
+minimapRenderer.setSize(minimapSize, minimapSize);
 minimapRenderer.setClearColor(0x000000, 1);
 minimapRenderer.domElement.style.position = "absolute";
-minimapRenderer.domElement.style.bottom = "2%";
-minimapRenderer.domElement.style.right = "2%";
+minimapRenderer.domElement.style.bottom = "3%";
+minimapRenderer.domElement.style.right = "3%";
 minimapRenderer.domElement.style.borderRadius = "50%";
+minimapRenderer.domElement.style.zindex = "1";
 
 document.getElementById("minimap").appendChild(minimapRenderer.domElement);
 
@@ -1397,9 +1438,36 @@ function animate() {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
         const activeCamera=scene.userData.activeCamera;
-        updateTimer(milDeltaTime);
-        updateRemainingTime(milDeltaTime);
-        updateScore(milDeltaTime);
+        if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted) {
+            let countdown=3;
+            //countdownı buraya yapacaksın
+            const countdown3 = document.getElementById('countdown');
+            const countdownNumber = document.getElementById('countdown-number');
+            countdown3.style.display = 'flex';
+
+            const countdownInterval = setInterval(() => {
+                if (countdown >= 0) {
+                    countdownNumber.textContent = String(countdown);
+                } else {
+                    clearInterval(countdownInterval);
+                    // Elementleri gizlemek için görünürlüğü değiştirin
+                    countdown3.style.display = 'none';
+                    countdownNumber.style.display = 'none';
+                    document.getElementById('countdown').style.display = 'none';
+
+                    // Fonksiyonlarınızı çağırın
+                    updateTimer(milDeltaTime);
+                    updateRemainingTime(milDeltaTime);
+                    updateScore(milDeltaTime);
+                }
+                countdown--;
+            }, 1000);
+
+        }
+
+
+
+
         if (nameCameraBool) {
             if (cameraLookAtStartTime !== null) {
                 const elapsedTime = performance.now() - cameraLookAtStartTime;
@@ -1442,6 +1510,40 @@ function animate() {
     stats.end();
     requestAnimationFrame(animate);
 }
+
+document.addEventListener('keydown', (event) => {
+    if (event.key.toLowerCase() === 'o') {
+        const activeCamera = scene.userData.activeCamera;
+        if (activeCamera) {
+            orbitControls.enabled = !orbitControls.enabled;
+            if (orbitControls.enabled) {
+                console.log("OrbitControls etkinleştirildi.");
+            } else {
+                console.log("OrbitControls devre dışı bırakıldı.");
+            }
+        }
+    }
+});
+
+const helpScreen = document.getElementById('help-screen');
+const helpText = document.getElementById('help-content');
+function showHelpScreen() {
+    helpScreen.style.display = 'flex';
+    helpText.style.display = 'flex';
+}
+function hideHelpScreen() {
+    helpScreen.style.display = 'none';
+}
+document.addEventListener('keydown', (h) => {
+    if (h.key.toLowerCase() === 'h') {
+        if (helpScreen.style.display === 'none') {
+            showHelpScreen();
+        }else {
+            hideHelpScreen();
+        }
+    }
+});
+
 
 function initIntro() {
     sceneIntro = new THREE.Scene();
@@ -1600,48 +1702,61 @@ function initIntro() {
         const  neonLine2= document.getElementById('neonline2');
         const neonTimer = document.getElementById('neontimer');
         const turbometer = document.getElementById('turbometer');
-        if (event.button === 0 && !gameStarted) {
-            countdownTimer = setInterval(() => {
-                if (countdown > 0) {
-                    //updateCountdownText(countdown);
-                    document.getElementById('start-text-1').innerText = countdown;
-                    countdown--;
-                } else {
-                    clearInterval(countdownTimer);
-                    document.getElementById('start-menu').style.display = 'none'; // Hide start menu
-                    gameStarted = true;
-                    elapsedTime = 0;  // Reset elapsedTime when the game starts
-                    remainingTime = totalTime; // Reset remaining time
-                    sceneIntro.traverse((object) => {
-                        if (object.isMesh) {
-                            object.geometry.dispose();
-                            if (object.material.isMaterial) {
-                                object.material.dispose();
-                            } else {
-                                // Çoklu materyal durumu için
-                                object.material.forEach(material => material.dispose());
-                            }
-                        }
-                    });
+        const loadingFill = document.getElementById('loadingFill');
+        const scoreboard = document.getElementById('scoreboard');
+        const scoreboard2 = document.getElementById('scoreboard2');
+        const minimapx = document.getElementById('minimap');
+        const timerX = document.getElementById('timer');
+        const scoreX = document.getElementById('score');
+        if (event.button === 0 && !gameStarted ) {
+            startMenu.style.display = 'none';
+            loadingScreen.style.display = 'flex';
+            loadingFill.style.display = 'flex';
 
-                    renderer.dispose(); // Renderer'ı temizle
-                    document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+            /*manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+                const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
+                updateLoadingSlider(fillPercentage);
+                //loadingFill.style.width = `${fillPercentage}%`;
+            };*/
 
-                    // Diğer sahne temizlemeleri
-                    sceneIntro.clear(); // Sahneyi temizle
-
-                    document.removeEventListener('keydown', this);
-                    main();
-                    timeValue.style.display = 'block';
-                    speedometer.style.display = 'block';
-                    neonLine.style.display = 'block';
-                    neonLine2.style.display = 'block';
-                    neonTimer.style.display = 'block';
-                    turbometer.style.display = 'block';
-
-
+            manager.onLoad = () => {
+                loadingScreen.style.display = 'none';
+                loadingFill.style.display = 'none';
+            };
+            gameStarted = true;
+            elapsedTime = 0;  // Reset elapsedTime when the game starts
+            remainingTime = totalTime; // Reset remaining time
+            sceneIntro.traverse((object) => {
+                if (object.isMesh) {
+                    object.geometry.dispose();
+                    if (object.material.isMaterial) {
+                        object.material.dispose();
+                    } else {
+                        // Çoklu materyal durumu için
+                        object.material.forEach(material => material.dispose());
+                    }
                 }
-            }, 1000);
+            });
+
+            renderer.dispose(); // Renderer'ı temizle
+            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
+
+            // Diğer sahne temizlemeleri
+            sceneIntro.clear(); // Sahneyi temizle
+
+            document.removeEventListener('keydown', this);
+            main();
+            timeValue.style.display = 'block';
+            speedometer.style.display = 'block';
+            neonLine.style.display = 'block';
+            neonLine2.style.display = 'block';
+            neonTimer.style.display = 'block';
+            turbometer.style.display = 'block';
+            scoreboard.style.display = "block";
+            scoreboard2.style.display = "block";
+            minimapx.style.display = "block";
+            scoreX.style.display = "inline-block";
+            timerX.style.display = "inline-block";
         }
     });
     document.getElementById('start-text-3').addEventListener('mousedown', function(event) {
@@ -1686,9 +1801,10 @@ function initIntro() {
             });
         }
     });
+    document.getElementById('start-text-5').addEventListener('mousedown', function(event) {
+        if(isSandbox===false){
+            isSandbox=true;
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === '9') {
             // Kaynakları temizleme
             sceneIntro.traverse((object) => {
                 if (object.isMesh) {
@@ -1711,21 +1827,25 @@ function initIntro() {
             document.removeEventListener('keydown', this);
             sandBox(); // Sandbox sahnesini başlat
         }
+
+        }else{
+            const messageBox = document.getElementById('sandbox-message');
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        }
     });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key.toLowerCase() === 'm') {
-            // `sceneIntro` sahnesindeki tüm nesneleri dolaş
-            sceneIntro.traverse((object) => {
-                if (object.isMesh && object.material) {
-                    if (object.material.name === 'BMW:carpaint1') {
-                        // Materyalin rengini değiştir
-                        const randomColor = Math.random() * 0xffffff; // Rastgele renk
-                        metallicPaint(object.material, randomColor);
-
-                    }
-                }
-            });
+    document.getElementById('start-text-4').addEventListener('click', showHelpScreen);
+    document.getElementById('start-text-6').addEventListener('mousedown', function(event) {
+        hdriChange=(hdriChange+1)%3;
+        const getHDRItext=document.getElementById("start-text-6");
+        if(hdriChange===0) {
+            getHDRItext.textContent="TIME:DAYTIME";
+        }else if(hdriChange===1) {
+            getHDRItext.textContent="TIME:SUNSET";
+        }else if(hdriChange===2) {
+            getHDRItext.textContent="TIME:NIGHT";
         }
     });
 }
@@ -1945,7 +2065,13 @@ function main() {
     setCannonWorld();
     loadMap(scene).then(createColliders).then(placeObjects);
     createFrictionPairs();
-    loadHDR(scene, renderer);
+    if(hdriChange===0){
+        loadHDR(scene, renderer);
+    }else if(hdriChange===1){
+        loadHDRsunset(scene, renderer);
+    }else if(hdriChange===2){
+        loadHDRnight(scene, renderer);
+    }
     if (selectedCarNo===0){
         loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
     }else if (selectedCarNo===1){
