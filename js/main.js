@@ -1388,12 +1388,16 @@ function updateRemainingTime(deltaTime) {
         if (remainingTime <= 0) {
             remainingTime = 0;
             gameOver = true;
-            document.getElementById('game-over').style.display = 'block'; // Show game over
+            document.getElementById('game-over').style.display = 'flex'; // Show game over
         }
         const seconds = Math.floor(remainingTime % 600);
         const timerText = document.getElementById('time-value');
         timerText.textContent = `${String(seconds).padStart(2, '0')}`;
     }
+
+    document.getElementById('menu-button').addEventListener('mousedown', function(event) {
+        location.reload();
+    });
 }
 
 // Minimap için kamera oluşturma
