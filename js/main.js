@@ -449,6 +449,37 @@ function setCannonWorld(){
     world.addBody(groundBody);
 
     // cannonDebugger = new CannonDebugger(scene, world);
+
+    world.addEventListener("beginContact", (event) => {
+        const bodyA = event.bodyA; // Temas eden ilk nesne
+        const bodyB = event.bodyB; // Temas eden ikinci nesne
+
+        // Varsayılan değer
+        let newFrictionSlip = surfaceFrictionValues.default;
+
+        // Malzeme kontrolü
+        if (bodyA.material && bodyA.material.name === "grass") {
+            newFrictionSlip = surfaceFrictionValues.grass;
+        } else if (bodyA.material && bodyA.material.name === "ice") {
+            newFrictionSlip = surfaceFrictionValues.ice;
+        } else if (bodyA.material && bodyA.material.name === "gravel") {
+            newFrictionSlip = surfaceFrictionValues.gravel;
+        } else if (bodyB.material && bodyB.material.name === "grass") {
+            newFrictionSlip = surfaceFrictionValues.grass;
+        } else if (bodyB.material && bodyB.material.name === "ice") {
+            newFrictionSlip = surfaceFrictionValues.ice;
+        } else if (bodyB.material && bodyB.material.name === "gravel") {
+            newFrictionSlip = surfaceFrictionValues.gravel;
+        }
+
+        // Tekerlek sürtünmesini güncelle
+        updateWheelFriction(vehicle, newFrictionSlip);
+    });
+
+    world.addEventListener("endContact", (event) => {
+        // Varsayılan değeri geri yükle
+        updateWheelFriction(vehicle, surfaceFrictionValues.default);
+    });
 }
 
 const groundMaterial = new CANNON.Material("groundMaterial");
@@ -471,6 +502,25 @@ const GROUP_MUD = 32;    // Group 5
 const GROUP_GRAVEL = 64; // Group 6
 const GROUP_GRASS = 128; // Group 7
 const GROUP_FINISH = 256; // Group 8
+
+const surfaceFrictionValues = {
+    ground: 4.8,
+    ice: 0.1,
+    mud: 1.0,
+    gravel: 5.5,
+    grass: 3.0,
+    default: 4.8, // Varsayılan değer
+};
+
+function updateWheelFriction(vehicle, newFrictionSlip) {
+    vehicle.wheelInfos.forEach((wheel) => {
+        wheel.frictionSlip = newFrictionSlip;
+    });
+    vehicle.updateWheelTransform(0);
+    vehicle.updateWheelTransform(1);
+    vehicle.updateWheelTransform(2);
+    vehicle.updateWheelTransform(3);
+}
 
 const materialGroups = [
     { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
