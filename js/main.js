@@ -21,7 +21,9 @@ import {
     turboSound,
     loadHDRsunset,
     loadHDRnight,
-    loadMoveableObject
+    loadMoveableObject,
+    createFogMaterial,
+    createShadowMaterial
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -38,10 +40,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {metallicPaint} from "./material-properties.js";
 import {DepthTexture} from "three";
 
-export let scene, sceneIntro, sceneSandbox, renderer, composer, stats, carColor;
-export let world, cannonDebugger, vehicle, carSize, isBraking, isTurboActive;
+export let scene, sceneIntro, sceneSandbox, renderer, composer, stats, carColor, motionBlurPass,bloomPass;
+export let world, cannonDebugger, vehicle, carSize, isBraking, isTurboActive, useShadow,skyMesh,sunLight,hemisphereLight;
 
-let motionBlurPass;
 
 export let objects = [];
 let objectBodies = []; // Array of CANNON bodies for the objects
@@ -273,7 +274,7 @@ function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
 
     // Directional Light (güneş ışığı etkisi)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
     sunLight.position.set(1000, 2000, 1000); // Güneşin pozisyonu (X, Y, Z)
     sunLight.castShadow = true;
 
@@ -295,7 +296,7 @@ function addLights(scene) {
     scene.add(sunLight);
 
     // Hemisphere Light (gökyüzü ve zemin etkisi)
-    const hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4);
+    hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4);
     hemisphereLight.position.set(0, 50, 0);
     scene.add(hemisphereLight);
 }
@@ -321,13 +322,19 @@ function init() {
     fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
     composer.addPass(fxaaPass);
 
-    const bloomPass = new UnrealBloomPass(
+    bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
         0.8,
         0.4,
         0.2
     );
     composer.addPass(bloomPass);
+
+    const skyGeo = new THREE.SphereGeometry(500, 32, 32);
+    skyGeo.scale(-1, 1, 1); // flip faces inward if needed
+    const skyFogMaterial = createFogMaterial(null);
+    skyMesh = new THREE.Mesh(skyGeo, skyFogMaterial);
+    scene.add(skyMesh);
 
     motionBlurPass = new ShaderPass(motionBlurShader);
     motionBlurPass.uniforms['delta'].value = 200; // Blur miktarı
@@ -1013,12 +1020,6 @@ document.addEventListener('keyup', (event) => {
     }
 });
 
-document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'k') {
-        motionBlurPass.enabled = !motionBlurPass.enabled;
-    }
-});
-
 let turboBaseForce = maxEngineForce; // Nitro yokken motor gücü
 
 function updateTurbo(deltaTime) {
@@ -1349,6 +1350,14 @@ function setCameraComposer() {
 function easeInOutSin(t) {
     return 0.5*(1 - Math.cos(Math.PI * t));
 }
+
+useShadow = 2;
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'k' || e.key === 'K') {
+        useShadow = (useShadow+1)%4;
+    }
+});
 
 
 function updateTimer(deltaTime) {

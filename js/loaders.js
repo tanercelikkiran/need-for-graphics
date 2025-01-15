@@ -10,7 +10,20 @@ import {
     spotlight,
     transparent
 } from "./material-properties.js";
-import {carColor, isBraking, isTurboActive,selectedCarNo, world, objects} from "./main.js";
+import {carColor,
+    isBraking,
+    isTurboActive,
+    selectedCarNo,
+    world,
+    objects,
+    useShadow,
+    scene,
+    renderer,
+    skyMesh,
+    hemisphereLight,
+    sunLight,
+    motionBlurPass,
+    bloomPass} from "./main.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
 let carMesh;
@@ -123,39 +136,196 @@ export function loadSounds(scene) {
     });
 }
 
+
+function loadShader(url) {
+    return fetch(url).then(response => response.text());
+}
+
+const FogVertexShader = await loadShader("shaders/FogVertex.glsl");
+
+const FogFragmentShader = await loadShader("shaders/FogFragment.glsl");
+
+
+
+export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
+    return new THREE.RawShaderMaterial({
+        glslVersion: THREE.GLSL3,
+        vertexShader: FogVertexShader,
+        fragmentShader: FogFragmentShader,
+        uniforms: {
+            diffuseMap: { value: diffuseMap },
+            uFogNear: { value: 15.0 },
+            uFogFar: { value: 50.0 },
+            uFogColor: { value: fogColor },
+            uSolidColor: { value: solidColor }, // Add solid color
+            uHasTexture: { value: !!diffuseMap }, // Check if a texture is provided
+        }
+    });
+}
+
+const ShadowVertexShader = await loadShader("shaders/ShadowVertex.glsl");
+
+const ShadowFragmentShader = await loadShader("shaders/ShadowFragment.glsl");
+
+export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
+    // The directional light’s camera is used for shadow generation.
+    // We'll read from dirLight.shadow.map and pass it to the shader
+    const shadowMap = sunLight.shadow.map ? sunLight.shadow.map.texture : null;
+
+    // For the direction, if you want "light from above" you do -light.position
+    // or simply normalize the direction you want:
+    const lightDir = new THREE.Vector3().copy(sunLight.position).normalize().multiplyScalar(-1);
+
+    // For the shadow camera, we need the view and projection matrices
+    // We can compute them once, or each frame if the light moves
+    const lightCam = sunLight.shadow.camera;
+    lightCam.updateProjectionMatrix(); // ensure up to date
+    lightCam.updateMatrixWorld();      // ensure up to date
+
+    // Typically:
+    // lightViewMatrix       = inverse(lightCam.matrixWorld)
+    // lightProjectionMatrix = lightCam.projectionMatrix
+    //
+    // Three.js doesn't store it as "viewMatrix" directly, so we compute:
+    const lightViewMatrix = new THREE.Matrix4().copy(lightCam.matrixWorldInverse);
+    // The camera's world inverse is set by the renderer, but we can force-update:
+    // If it's still not correct, you can compute it manually:
+    // lightViewMatrix.invert(lightCam.matrixWorld);
+    const lightProjMatrix = lightCam.projectionMatrix;
+
+    return new THREE.RawShaderMaterial({
+        glslVersion: THREE.GLSL3,
+        vertexShader:   ShadowVertexShader,
+        fragmentShader: ShadowFragmentShader,
+        uniforms: {
+            // Basic directional light
+            dirLightColor:    { value: sunLight.color },
+            dirLightDirection:{ value: lightDir },
+
+            // Hemisphere
+            hemiSkyColor:     { value: hemisphereLight .color },
+            hemiGroundColor:  { value: hemisphereLight .groundColor },
+            hemiIntensity:    { value: hemisphereLight .intensity },
+            hemiUp:           { value: new THREE.Vector3(0,1,0) }, // Up vector
+
+            // Shadow
+            shadowMap:        { value: shadowMap },
+            shadowBias:       { value: 0.001 }, // Tweak if you see acne
+            shadowDarkness:   { value: 0.6 },   // 0 => fully lit, 1 => pitch black
+            shadowMapSize:    { value: sunLight.shadow.mapSize.width },
+
+            // Light projection
+            lightViewMatrix:       { value: lightViewMatrix },
+            lightProjectionMatrix: { value: lightProjMatrix },
+
+            // Diffuse
+            diffuseMap: { value: diffuseTexture },
+
+            // We also need standard matrices:
+
+        }
+    });
+}
+
+
+
 export function loadMap(scene) {
+    const originalMaterials = new Map();
     return new Promise((resolve) => {
         gltfLoader.load(
             'public/city.glb',
             function (gltf) {
                 scene.add(gltf.scene);
 
+            gltf.scene.traverse(function (child) {
+                if (!originalMaterials.has(child)) {
+                    originalMaterials.set(child, child.material);
+                }
+                if (child.isMesh && child.material && child.material.map) {
+                    // child.material.map is your base color (diffuse) texture
+                    const cityTexture = child.material.map;
+
+                    // Create a custom shader material that uses that texture
+                    const customCityMaterial = createFogMaterial(cityTexture);
+
+                    // Apply to this mesh
+                    child.material = customCityMaterial;
+                }
+
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+                if (child.name.includes("A1")) {
+                    child.traverse((subChild) => {
+                        if (subChild.isMesh) {
+                            subChild.material = new THREE.MeshStandardMaterial({
+                                color: 0x00ff00,
+                                roughness: 0.2,
+                                metalness: 0.8,
+                            });
+                        }
+                    });
+                }
+                if (child.isMesh && child.name.includes("Collider")) {
+                    child.visible = false; // Make the child invisible
+                }
+            });
+            world.addEventListener("postStep", () => {
                 gltf.scene.traverse(function (child) {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                    if (child.name.includes("A1")) {
-                        child.traverse((subChild) => {
-                            if (subChild.isMesh) {
-                                subChild.material = new THREE.MeshStandardMaterial({
-                                    color: 0x00ff00,
-                                    roughness: 0.2,
-                                    metalness: 0.8,
-                                });
+                    if (child.isMesh && child.material) {
+                        if (useShadow<2) {
+
+                            if (child.material.map) {
+                                const cityTexture = child.material.map;
+                                const customCityMaterial = createFogMaterial(cityTexture);
+                                child.material = customCityMaterial;
                             }
-                        });
+                        } else {
+                            if (originalMaterials.has(child)) {
+                                child.material = originalMaterials.get(child);
+                                renderer.toneMappingExposure=1.2;
+                                scene.remove(skyMesh);
+                                bloomPass.strength=0.8;
+                                bloomPass.radius=0.4;
+                            }
+                            if (useShadow>2) {
+                                motionBlurPass.enabled=true;
+                            }
+                        }
                     }
-                    if (child.isMesh && child.name.includes("Collider")) {
-                        child.visible = false; // Make the child invisible
+                    if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
+                        const texture = child.material.uniforms.diffuseMap.value;
+                        if (useShadow===0) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
+                            scene.remove(skyMesh);
+                            renderer.toneMappingExposure = 0.5;
+                            motionBlurPass.enabled=false;
+                            bloomPass.strength=0.4;
+                            bloomPass.radius=1.0;
+                        } else if (useShadow===1){
+
+                            child.material = createFogMaterial(texture);
+                            const skyFogMaterial = createFogMaterial(null);
+                            skyMesh.material = skyFogMaterial;
+                            if (!scene.children.includes(skyMesh)) {
+                                scene.add(skyMesh);
+                            }
+                            renderer.toneMappingExposure = 0.2;
+                        }
                     }
                 });
-                resolve();
-            },
-            null,
-            function (error) {
-                console.error('An error happened:', error);
+
             });
+
+            resolve();
+        },
+        null,
+        function (error) {
+            console.error('An error happened:', error);
+        });
     });
 }
 
