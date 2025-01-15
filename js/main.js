@@ -1472,7 +1472,7 @@ function animate() {
         const carPos = chassisBody.position; // CANNON.Vec3: (x, y, z)
 
         if (
-            carPos.x >= MinX && carPos.x <= MaxX && 
+            carPos.x >= MinX && carPos.x <= MaxX &&
             carPos.z >= MinZ && carPos.z <= MaxZ && !gameOver
         ) {
             gameOver = true;
