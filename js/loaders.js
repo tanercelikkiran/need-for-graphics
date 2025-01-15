@@ -136,7 +136,6 @@ export function loadSounds(scene) {
     });
 }
 
-
 function loadShader(url) {
     return fetch(url).then(response => response.text());
 }
@@ -144,8 +143,6 @@ function loadShader(url) {
 const FogVertexShader = await loadShader("shaders/FogVertex.glsl");
 
 const FogFragmentShader = await loadShader("shaders/FogFragment.glsl");
-
-
 
 export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
     return new THREE.RawShaderMaterial({
@@ -226,8 +223,6 @@ export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
         }
     });
 }
-
-
 
 export function loadMap(scene) {
     const originalMaterials = new Map();
@@ -491,6 +486,8 @@ export function loadJeep(scene) {
         fbxLoader.load('public/jeep/jeepWnowheels.fbx', (object) => {
             carMesh = object;
             scene.add(object);
+            
+            object.position.set(-390, 5, 23.5);
 
             const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
             carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
@@ -595,16 +592,14 @@ export function loadBMW(scene) {
             carMesh = object;
             scene.add(object);
 
+            object.position.set(-390, 5, 23.5);
+
             const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 400);
             carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
             carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
             carMesh.add(carCamera);
 
             scene.userData.activeCamera = carCamera;
-
-            const carLightBMW = new THREE.PointLight(0xFFF0CC, 50, 500);
-            carLightBMW.position.set(0, 0 , 0);
-            scene.add(carLightBMW);
 
             object.traverse(function(child) {
                 if (child.isMesh) {
@@ -704,6 +699,8 @@ export function loadPorsche(scene) {
         fbxLoader.load("public/porsche/CarwNoWheels.fbx", function(object){
                 carMesh = object;
                 scene.add(object);
+
+                object.position.set(-390, 5, 23.5);
 
                 const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
                 carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir

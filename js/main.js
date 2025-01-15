@@ -457,6 +457,7 @@ const iceMaterial = new CANNON.Material("iceMaterial");
 const mudMaterial = new CANNON.Material("mudMaterial");
 const gravelMaterial = new CANNON.Material("gravelMaterial");
 const grassMaterial = new CANNON.Material("grassMaterial");
+const finishMaterial = new CANNON.Material("finishMaterial");
 
 // Define collision groups (powers of 2)
 const GROUP_GROUND = 1;  // Group 0
@@ -467,6 +468,7 @@ const GROUP_ICE = 16;    // Group 4
 const GROUP_MUD = 32;    // Group 5
 const GROUP_GRAVEL = 64; // Group 6
 const GROUP_GRASS = 128; // Group 7
+const GROUP_FINISH = 256; // Group 8
 
 const materialGroups = [
     { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
@@ -477,6 +479,7 @@ const materialGroups = [
     { material: mudMaterial, group: GROUP_MUD, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
     { material: gravelMaterial, group: GROUP_GRAVEL, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
     { material: grassMaterial, group: GROUP_GRASS, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: finishMaterial, group: GROUP_FINISH, mask: GROUP_BODY | GROUP_WHEEL }
 ];
 
 function createColliders(){
@@ -526,11 +529,9 @@ function createColliders(){
             }
         });
         world.addEventListener("beginContact", (event) => {
-            console.log("Begin Contact:", event.bodyA, event.bodyB);
-        });
-
-        world.addEventListener("endContact", (event) => {
-            console.log("End Contact:", event.bodyA, event.bodyB);
+            if (event.bodyA.material.name === "finishMaterial" || event.bodyB.material.name === "finishMaterial") {
+                gameOver = true;
+            }
         });
         resolve();
     });
@@ -641,6 +642,7 @@ function createVehicle() {
     chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
     chassisBody.position.copy(pos);
+    chassisBody.quaternion.setFromEuler(carMesh.rotation.x, carMesh.rotation.y, carMesh.rotation.z);
     chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
     chassisBody.threemesh = carMesh;
     chassisBody.material = bodyMaterial;
@@ -651,7 +653,7 @@ function createVehicle() {
         chassisBody: chassisBody,
         indexRightAxis: 0,
         indexUpAxis: 1,
-        indexForwardAxis: 2
+        indexForwardAxis: 2,
     });
 
     let wheelCenter = new THREE.Vector3();
@@ -1460,6 +1462,7 @@ function animate() {
         let worldUp = getUpAxis(chassisBody);
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
+        chassisBody.threemesh.rotateY(Math.PI);
 
         objectBodies.forEach((body) => {
             body.threemesh.position.copy(body.position);
@@ -1506,9 +1509,6 @@ function animate() {
             }, 1000);
 
         }
-
-
-
 
         if (nameCameraBool) {
             if (cameraLookAtStartTime !== null) {
@@ -1601,7 +1601,6 @@ function initIntro() {
     } catch (error) {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
-
 
     document.getElementById("start-text-2").addEventListener("click", () => {
         selectedCarNo = (selectedCarNo+1)%3
