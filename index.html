@@ -437,7 +437,10 @@
             font-family: Arial, sans-serif;
             z-index: 1000;
         }
-
+        #game-over p {
+            margin: 0; /* Varsayılan boşluğu kaldırır */
+            padding: 0; /* Gereksiz iç boşlukları kaldırır */
+        }
         #game-over h1 {
             margin-bottom: 20px; /* Space below the Game Over text */
             font-size: 4vw;
@@ -585,7 +588,7 @@
 <div id="game-over" style="display: none;">
     <h1>Game Over</h1>
     <p id="skore">Score: 0</p>
-    <p id="time">Time: 0 saniye</p>
+    <p id="time">Time: 0</p>
     <button id="menu-button" class="hover-effect">Back To Menu</button>
 </div>
 
@@ -597,7 +600,7 @@
 </div>
 
 <div id="time-remaining">
-    <span id="time-value">600</span>
+    <span id="time-value">400</span>
 </div>
 
 <div id="speedometer">

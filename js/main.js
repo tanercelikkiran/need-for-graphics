@@ -213,7 +213,7 @@ let elapsedTime = 0;
 let gameStarted=false;
 const totalTime = 400;
 let remainingTime=totalTime;
-let scoreTime=600;
+let scoreTime=400;
 let gameOver=false;
 
 export let selectedCarNo = 0;
@@ -574,7 +574,7 @@ function createFrictionPairs(){
                 friction = 0.1;
                 break;
             case "mudMaterial":
-                friction = 0.4;
+                friction = 0.2;
                 break;
             case "gravelMaterial":
                 friction = 0.7;
@@ -1351,6 +1351,9 @@ function updateRemainingTime(deltaTime) {
             const seconds = Math.floor(totalSeconds % 60);
             const miliseconds= Math.floor(elapsedTime/10 % 100);
             document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
+            document.getElementById('menu-button').addEventListener('click', function(event) {
+                location.reload(true); // Önbelleği atlayarak sayfayı yeniler
+            });
         }
         const seconds = Math.floor(remainingTime % 600);
         const timerText = document.getElementById('time-value');
