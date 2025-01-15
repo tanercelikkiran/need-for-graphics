@@ -1474,8 +1474,6 @@ function animate() {
         if (
             carPos.x >= MinX && carPos.x <= MaxX &&
             carPos.z >= MinZ && carPos.z <= MaxZ &&
-            // y'yi de kontrol etmek isterseniz:
-            carPos.y >= MinY && carPos.y <= MaxY
         ) {
             gameOver = true;
         }
