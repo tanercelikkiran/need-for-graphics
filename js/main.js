@@ -210,7 +210,7 @@ let lastTime = performance.now();
 
 let elapsedTime = 0;
 let gameStarted=false;
-const totalTime = 600;
+const totalTime = 400;
 let remainingTime=totalTime;
 let scoreTime=600;
 let gameOver=false;
@@ -418,16 +418,6 @@ function init() {
                 break;
         }
     });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key.toLowerCase() === 'o') {
-            const activeCamera = scene.userData.activeCamera;
-            if (activeCamera) {
-                orbitControls.enabled = !orbitControls.enabled;
-            }
-        }
-    });
-
 }
 
 function createOrbitControls() {
@@ -1445,6 +1435,7 @@ function animate() {
     }
     // cannonDebugger.update();
 
+
     const time = performance.now();
     const deltaTime = (time - lastTime)/1000; // Convert to seconds
     const milDeltaTime = (time - lastTime);
@@ -1457,6 +1448,10 @@ function animate() {
         updateVehicleControls();
         updateCamera();
         updateMinimap();
+
+        if (orbitControls && orbitControls.enabled) {
+            orbitControls.update();
+        }
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
@@ -1483,11 +1478,11 @@ function animate() {
         }
         const activeCamera=scene.userData.activeCamera;
         if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted) {
-            let countdown=3;
+            let countdown=1;
             //countdownı buraya yapacaksın
             const countdown3 = document.getElementById('countdown');
             const countdownNumber = document.getElementById('countdown-number');
-            countdown3.style.display = 'flex';
+            countdown3.style.display = 'none';
 
             const countdownInterval = setInterval(() => {
                 if (countdown >= 0) {
@@ -1672,6 +1667,10 @@ function initIntro() {
     const renderScene = new RenderPass(sceneIntro, camera);
     const introComposer = new EffectComposer(renderer);
     introComposer.addPass(renderScene);
+
+    const fxaaPass = new ShaderPass(FXAAShader);
+    fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+    introComposer.addPass(fxaaPass);
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -1953,6 +1952,8 @@ function sandBox() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(10, 10, 10);
     sceneSandbox.add(directionalLight);
+
+    useShadow=2;
 
     try {
         loadMap(sceneSandbox)
