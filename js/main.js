@@ -80,6 +80,7 @@ const motionBlurShader = {
 };
 
 let isSandbox=false;
+let finalScore;
 
 
 // ================================================
@@ -817,7 +818,6 @@ function updateVehicleControls() {
     // 3) Motor Gücü
     //---------------------------
     if (isAccelerating) {
-        playAccelerationSound(selectedCarNo);
         currentEngineForce = Math.min(
             currentEngineForce + engineRamp,
             maxEngineForce
@@ -825,9 +825,6 @@ function updateVehicleControls() {
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
         // Basitçe "geri" yaklaşımlardan biri:
-        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
-        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
-        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
 
         currentEngineForce = Math.max(
             currentEngineForce - engineRamp,
@@ -835,10 +832,6 @@ function updateVehicleControls() {
         )
     } else {
         // Ne gaz ne fren
-        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
-        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
-        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
-
         const dampingFactor = 0.995; // Hızı azaltmak için katsayı
         const velocity = vehicle.chassisBody.velocity;
         vehicle.chassisBody.velocity.set(
@@ -870,13 +863,10 @@ function updateVehicleControls() {
     if (isSteeringLeft) {
         // Sola doğru yavaşça art
         currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
-        slide.play();
     } else if (isSteeringRight) {
         // Sağa doğru yavaşça art
         currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
-        slide.play();
     } else {
-        slide.stop();
         // Ortalamaya dön (damping)
         if (currentSteering > 0) {
             currentSteering = Math.max(currentSteering - steerDamping, 0);
@@ -934,7 +924,6 @@ function updateVehicleControls() {
     if (isHandBraking) {
         vehicle.setBrake(handbrakeForce, 2); // rear-left
         vehicle.setBrake(handbrakeForce, 3); // rear-right
-        slide.play();
     }
 
     // Motor kuvveti -> genelde ön tekerler
@@ -944,12 +933,10 @@ function updateVehicleControls() {
     // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
-    if (loadingScreen.style.display === "none" && startMenu.style.display === "none") {
-        updateSpeedometer();
-        updateSpeedSlider();
-        updateTurbometer();
-        updateTurboSlider();
-    }
+    updateSpeedometer();
+    updateSpeedSlider();
+    updateTurbometer();
+    updateTurboSlider();
 }
 
 function updateSpeedometer() {
@@ -1347,7 +1334,7 @@ function updateScore(deltaTime) {
     const seconds = Math.floor(scoreTime % 600);
     score+=speed*0.000001;
     const secondssqr = Math.pow(seconds, 2)
-    const finalScore=score*secondssqr;
+    finalScore=score*secondssqr;
     document.getElementById('score').textContent =`Score: ${finalScore.toFixed(0)}`;
 }
 
@@ -1462,18 +1449,29 @@ function animate() {
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
         // Aşağıdaki değerleri başta tanımladığınızı varsayıyoruz:
-        const MinX = 257.86;
-        const MaxX = 267.86;
-        const MinZ = -1.05;
-        const MaxZ = 0.95;
+        const MinX = 261.86;
+        const MaxX = 263.86;
+        const MinY= 1;
+        const MaxY=10;
+        const MinZ = -6.05;
+        const MaxZ = 5.95;
 
         const carPos = chassisBody.position; // CANNON.Vec3: (x, y, z)
 
         if (
             carPos.x >= MinX && carPos.x <= MaxX &&
+            carPos.y >= MinY && carPos.y <= MaxY &&
             carPos.z >= MinZ && carPos.z <= MaxZ && !gameOver
         ) {
             gameOver = true;
+            document.getElementById('game-over').style.display = 'flex';
+            document.querySelector("#game-over h1").innerText = "You beat it!";
+            document.getElementById("skore").innerText = `Score: ${finalScore.toFixed(0)}`;
+            const totalSeconds = Math.floor(elapsedTime / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const miliseconds= Math.floor(elapsedTime/10 % 100);
+            document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
         }
 
         objectBodies.forEach((body) => {

@@ -1,6 +1,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <title>Friction Forces</title>
     <title>Need For Graphics</title>
     <style>
         @font-face {
@@ -208,32 +209,48 @@
             flex-direction: column; /* Üst üste dizilim */
             align-items: center; /* Yatayda ortalama */
         }
+
         #minimap {
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        #minimap-container {
             position: absolute;
-            top: 2%;
-            left: 2%;
+            top: 3%; /* Ekranın altından 3% yukarıda */
+            left: 3%; /* Ekranın sağından 3% içeride */
+            width: 10vw; /* Minimap boyutuna eşit */
+            height: auto; /* İçerik boyutuna göre ayarlanır */
+            display: none;
+            flex-direction: column; /* Elemanları üst üste dizer */
+            align-items: center; /* Yatayda merkezler */
+            justify-content: center; /* Dikeyde merkezler */
+        }
+
+        #minimap {
+            position: relative; /* Kapsayıcı içinde hizalama */
             width: 10vw;
             height: 10vw;
             background: rgba(0, 0, 0, 0.8);
-            border: 0.2vw #1dd8b7;
+            border: 0.2vw solid white;
             border-radius: 50%;
             overflow: hidden;
             color: white;
+            font-size: 1vw;
+            display: flex; /* İçerik merkezleme */
             justify-content: center;
             align-items: center;
-            font-size: 1vw;
-            display: none;
         }
+
         #center-marker {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0.9vw; /* Belirgeç boyutu */
+            top: 52%;
+            left: 52%;
+            width: 0.9vw;
             height: 0.9vw;
-            background-color: red; /* Belirgeç rengi */
-            border-radius: 50%; /* Yuvarlak yapmak için */
-            transform: translate(-50%, -50%); /* Merkeze hizalama */
-            animation: blink 1s infinite; /* Yanıp sönme efekti */
+            background-color: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: blink 1s infinite;
             z-index: 2;
         }
 
@@ -256,6 +273,25 @@
             justify-content: center;
             background-color: transparent;
             gap:2rem;
+            padding: 1rem;
+            border-radius: 1vw;
+            pointer-events: all;
+        }
+
+        #sandbox-menu {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            transform: translate(-50%, -50%);
+            color: #1dd8b7;
+            font-size: 2vw;
+            font-family: 'Digital7', sans-serif;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            gap:1rem;
             padding: 1rem;
             border-radius: 1vw;
             pointer-events: all;
@@ -387,17 +423,32 @@
         }
 
         #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: red;
-            font-size: 3vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black background */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center content vertically */
+            align-items: center;     /* Center content horizontally */
             font-family: Arial, sans-serif;
-            display: none;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 2vw;
-            border-radius: 1vw;
+            z-index: 1000;
+        }
+
+        #game-over h1 {
+            margin-bottom: 20px; /* Space below the Game Over text */
+            font-size: 4vw;
+            text-align: center;
+            color: #1dd8b7;
+            text-shadow: 0 0 1vw #1dd8b7, 0 0 2vw #1dd8b7;
+        }
+        #game-over-screen button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
         }
 
         #neonline {
@@ -443,6 +494,14 @@
             height: auto;
             display: none;
         }
+        .hover-effect:hover {
+            background-color: #1dd8b7;
+            color: black;
+            cursor: grab;
+        }
+
+
+
 
     </style>
     <script type="importmap">
@@ -460,20 +519,25 @@
 <div id="game-gui">
     <div id="timer">Time: 00:00:00</div>
     <div id="score">Score: 0</div>
-    <div id="minimap">
+    <div id="minimap-container">
+        <div id="minimap"></div>
         <div id="center-marker"></div>
     </div>
 </div>
 
 <!-- Start Menu -->
 <div id="start-menu">
-    <button id="start-text-1">PLAY</button>
-    <button id="start-text-2">CHANGE CAR</button>
-    <button id="start-text-3">CHANGE COLOR</button>
-    <input type="color" id="color-picker" style="display: none;">
-    <button id="start-text-4">HELP</button>
-    <button id="start-text-5">SANDBOX</button>
-    <button id="start-text-6">TIME:MORNING</button>
+    <button id="start-text-1" class="hover-effect">PLAY</button>
+    <button id="start-text-2" class="hover-effect">CHANGE CAR</button>
+    <button id="start-text-3" class="hover-effect">CHANGE COLOR</button>
+    <input type="color" id="color-picker" style="display: none;" class="hover-effect">
+    <button id="start-text-4" class="hover-effect">HELP</button>
+    <button id="start-text-5" class="hover-effect">SANDBOX</button>
+    <button id="start-text-6" class="hover-effect">TIME:MORNING</button>
+</div>
+<div id="sandbox-menu">
+    <button id="sandbox-button-1" class="hover-effect">PLAY</button>
+    <button id="sandbox-button-2" class="hover-effect">ADD</button>
 </div>
 
 <div id="sandbox-message" style="display: none; position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #1dd8b7; padding: 1rem; border-radius: 10px; text-align: center;font-family: 'Platformone', sans-serif; font-size: 2rem; z-index: 1000;">
@@ -504,8 +568,11 @@
     <div id="countdown-number"></div>
 </div>
 <!-- Game Over Screen -->
-<div id="game-over">
-    Game Over
+<div id="game-over" style="display: none;">
+    <h1>Game Over</h1>
+    <p id="skore">Score: 0</p>
+    <p id="time">Time: 0 saniye</p>
+    <button id="menu-button" class="hover-effect">Back To Menu</button>
 </div>
 
 <div id="speed-slider-container">
@@ -540,4 +607,3 @@
 <script src="js/loaders.js" type="module"></script>
 </body>
 </html>
-
