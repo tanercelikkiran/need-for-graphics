@@ -350,6 +350,7 @@ function init() {
     stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
     document.body.appendChild(stats.dom);
 
+
     window.addEventListener('resize', () => {
         const activeCamera = scene.userData.activeCamera;
         const width = window.innerWidth;
@@ -1411,6 +1412,7 @@ minimapRenderer.domElement.style.zindex = "1";
 window.addEventListener("resize", () => {
     setMinimapSize(); // Boyutu yeniden ayarla
 });
+
 document.getElementById("minimap").appendChild(minimapRenderer.domElement);
 
 function updateMinimap() {
@@ -1422,6 +1424,7 @@ function updateMinimap() {
     // Minimap sahnesini render et
     minimapRenderer.render(scene, minimapCamera);
 }
+
 
 
 
@@ -1613,6 +1616,9 @@ function initIntro() {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
 
+
+
+
     document.getElementById("start-text-2").addEventListener("click", () => {
         selectedCarNo = (selectedCarNo+1)%3
         updateCarVisibility(); // Görünürlüğü güncelle
@@ -1695,6 +1701,7 @@ function initIntro() {
     );
     introComposer.addPass(bloomPass);
 
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.enableDamping = true;
@@ -1742,6 +1749,22 @@ function initIntro() {
         // Işığın hedefe bakmasını sağla
         spotLight.target.updateMatrixWorld();
     });
+    window.addEventListener('resize', () => {
+        // Yeni boyutları al
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Kamera oranını güncelle
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        // Renderer boyutunu güncelle
+        renderer.setSize(width, height);
+
+        // BloomPass çözünürlüğünü güncelle
+        bloomPass.resolution.set(width, height);
+    });
+
     window.addEventListener('resize', () => {
         // Yeni boyutları al
         const width = window.innerWidth;
@@ -1877,8 +1900,7 @@ function initIntro() {
             isSandbox=true;
 
             const minimapx = document.getElementById('minimap-container');
-            const loadingFill = document.getElementById('loadingFill');
-
+            const loadingFill = document.getElementById('loadingFill');;
             // Kaynakları temizleme
             sceneIntro.traverse((object) => {
                 if (object.isMesh) {
@@ -1909,6 +1931,8 @@ function initIntro() {
 
             document.removeEventListener('keydown', this);
             sandBox(); // Sandbox sahnesini başlat
+
+
         }
         else{
             const messageBox = document.getElementById('sandbox-message');
