@@ -81,6 +81,7 @@ const motionBlurShader = {
 
 let isSandbox=false;
 
+
 // ================================================
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
 // ================================================
@@ -200,6 +201,7 @@ let orbitControls;
 let hdriChange=0;
 
 const startMenu = document.getElementById('start-menu');
+const sandboxMenu = document.getElementById('sandbox-menu');
 const loadingScreen = document.getElementById('loading-screen');
 
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
@@ -348,13 +350,21 @@ function init() {
     stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
     document.body.appendChild(stats.dom);
 
-    window.addEventListener('resize', function() {
+    window.addEventListener('resize', () => {
         const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            activeCamera.aspect = window.innerWidth / window.innerHeight;
-            activeCamera.updateProjectionMatrix();
-        }
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Kamera oranını güncelle
+        activeCamera.aspect = width / height;
+        activeCamera.updateProjectionMatrix();
+
+        // Renderer boyutunu güncelle
+        renderer.setSize(width, height);
+
+        // Composer Pass'lerini güncelle
+        fxaaPass.uniforms['resolution'].value.set(1 / width, 1 / height);
+        bloomPass.resolution.set(width, height);
     });
 
     document.addEventListener('keydown', (event) => {
@@ -446,7 +456,7 @@ function setCannonWorld(){
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
-    cannonDebugger = new CannonDebugger(scene, world);
+    // cannonDebugger = new CannonDebugger(scene, world);
 }
 
 const groundMaterial = new CANNON.Material("groundMaterial");
@@ -534,7 +544,7 @@ function createColliders(){
             }
         });
         world.addEventListener("beginContact", (event) => {
-            if (event.bodyA.material.name === "finishMaterial" || event.bodyB.material.name === "finishMaterial") {
+            if (event.bodyA.name === "FinishLine" || event.bodyB.name === "FinishLine") {
                 gameOver = true;
             }
         });
@@ -647,6 +657,7 @@ function createVehicle() {
     chassisBody.addShape(chassisShape,chassisOffset);
     let pos = carMesh.position.clone();
     chassisBody.position.copy(pos);
+    carMesh.rotation.y = Math.PI;
     chassisBody.quaternion.setFromEuler(carMesh.rotation.x, carMesh.rotation.y, carMesh.rotation.z);
     chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
     chassisBody.threemesh = carMesh;
@@ -658,7 +669,7 @@ function createVehicle() {
         chassisBody: chassisBody,
         indexRightAxis: 0,
         indexUpAxis: 1,
-        indexForwardAxis: 2,
+        indexForwardAxis: 2
     });
 
     let wheelCenter = new THREE.Vector3();
@@ -1416,26 +1427,44 @@ const minimapCamera = new THREE.OrthographicCamera(
 );
 
 // Kamerayı konumlandırma
-minimapCamera.position.set(0, 200, 0);
+minimapCamera.position.set(0, 800, 0);
 minimapCamera.lookAt(0, 0, 0);
 
 // Minimap renderer oluştur
 const minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
-const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.19;
-minimapRenderer.setSize(minimapSize, minimapSize);
+const setMinimapSize = () => {
+    const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.20;
+    minimapRenderer.setSize(minimapSize, minimapSize);
+
+    const minimapSizex = Math.min(window.innerWidth, window.innerHeight) * 0.20;
+    const minimap = document.getElementById("minimap");
+    const minimapContainer = document.getElementById("minimap-container");
+
+    // Minimap boyutunu ayarla
+    minimap.style.width = `${minimapSizex}px`;
+    minimap.style.height = `${minimapSizex}px`;
+
+    // Kapsayıcı boyutunu ayarla
+    minimapContainer.style.width = `${minimapSizex}px`;
+    minimapContainer.style.height = `${minimapSizex}px`;
+};
+setMinimapSize();
 minimapRenderer.setClearColor(0x000000, 1);
 minimapRenderer.domElement.style.position = "absolute";
-minimapRenderer.domElement.style.bottom = "3%";
-minimapRenderer.domElement.style.right = "3%";
+minimapRenderer.domElement.style.bottom = "-0.5%";
+minimapRenderer.domElement.style.right = "-0.5%";
 minimapRenderer.domElement.style.borderRadius = "50%";
 minimapRenderer.domElement.style.zindex = "1";
 
+window.addEventListener("resize", () => {
+    setMinimapSize(); // Boyutu yeniden ayarla
+});
 document.getElementById("minimap").appendChild(minimapRenderer.domElement);
 
 function updateMinimap() {
     // Minimap kamera, aracın pozisyonunu takip eder
     const carPosition = vehicle.chassisBody.position;
-    minimapCamera.position.set(carPosition.x, 100, carPosition.z);
+    minimapCamera.position.set(carPosition.x, 200, carPosition.z);
     minimapCamera.lookAt(carPosition.x, 0, carPosition.z);
 
     // Minimap sahnesini render et
@@ -1452,7 +1481,7 @@ function animate() {
     if (gameOver){
         return;
     }
-    cannonDebugger.update();
+    // cannonDebugger.update();
 
     const time = performance.now();
     const deltaTime = (time - lastTime)/1000; // Convert to seconds
@@ -1471,7 +1500,6 @@ function animate() {
         let worldUp = getUpAxis(chassisBody);
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
-        chassisBody.threemesh.rotateY(Math.PI);
 
         objectBodies.forEach((body) => {
             body.threemesh.position.copy(body.position);
@@ -1561,6 +1589,8 @@ function animate() {
     stats.end();
     requestAnimationFrame(animate);
 }
+
+
 
 document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'o') {
@@ -1653,7 +1683,7 @@ function initIntro() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
     sceneIntro.add(ambientLight);
 
-    const spotLight = new THREE.SpotLight(0xffffff, 5000,0,Math.PI,0.5);
+    const spotLight = new THREE.SpotLight(0xffffff, 2500,0,Math.PI,0.5);
     const lightTarget = new THREE.Object3D();
     lightTarget.position.set(0, 1, 0); // Işığın hedef noktası
     sceneIntro.add(lightTarget);
@@ -1673,7 +1703,7 @@ function initIntro() {
 
     // Kamerayı ekleyin
     const camera = new THREE.PerspectiveCamera(12, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0.55, 0.30, -21);
+    camera.position.set(1, 0.30, -21);
     camera.lookAt(0, 200, 0);
     sceneIntro.userData.activeCamera = camera;
 
@@ -1721,10 +1751,10 @@ function initIntro() {
                 radius = Math.min(200, radius + radiusStep); // Maksimum radius 50
                 break;
             case 'g': // Parlaklığı artırır
-                spotLight.intensity = Math.min(20000, spotLight.intensity + intensityStep); // Maksimum 10
+                spotLight.intensity = Math.min(10000, spotLight.intensity + intensityStep); // Maksimum 10
                 break;
             case 'h': // Parlaklığı azaltır
-                spotLight.intensity = Math.max(400, spotLight.intensity - intensityStep); // Minimum 0
+                spotLight.intensity = Math.max(200, spotLight.intensity - intensityStep); // Minimum 0
                 break;
         }
 
@@ -1735,6 +1765,21 @@ function initIntro() {
 
         // Işığın hedefe bakmasını sağla
         spotLight.target.updateMatrixWorld();
+    });
+    window.addEventListener('resize', () => {
+        // Yeni boyutları al
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Kamera oranını güncelle
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        // Renderer boyutunu güncelle
+        renderer.setSize(width, height);
+
+        // BloomPass çözünürlüğünü güncelle
+        bloomPass.resolution.set(width, height);
     });
 
     function animateIntro() {
@@ -1755,7 +1800,7 @@ function initIntro() {
         const loadingFill = document.getElementById('loadingFill');
         const scoreboard = document.getElementById('scoreboard');
         const scoreboard2 = document.getElementById('scoreboard2');
-        const minimapx = document.getElementById('minimap');
+        const minimapx = document.getElementById('minimap-container');
         const timerX = document.getElementById('timer');
         const scoreX = document.getElementById('score');
         if (event.button === 0 && !gameStarted ) {
@@ -1855,6 +1900,9 @@ function initIntro() {
         if(isSandbox===false){
             isSandbox=true;
 
+            const minimapx = document.getElementById('minimap-container');
+            const loadingFill = document.getElementById('loadingFill');
+
             // Kaynakları temizleme
             sceneIntro.traverse((object) => {
                 if (object.isMesh) {
@@ -1868,6 +1916,15 @@ function initIntro() {
                 }
             });
 
+            loadingScreen.style.display = 'flex';
+            loadingFill.style.display = 'flex';
+
+            manager.onLoad = () => {
+                loadingScreen.style.display = 'none';
+                loadingFill.style.display = 'none';
+            };
+            startMenu.style.display = "none";
+            minimapx.style.display = "block";
             renderer.dispose(); // Renderer'ı temizle
             document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
 
@@ -1908,6 +1965,8 @@ function sandBox() {
 
     let isShiftDown = false;
 
+    sandboxMenu.style.display="flex";
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -1921,10 +1980,10 @@ function sandBox() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, 0);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    const controls2 = new OrbitControls(camera, renderer.domElement);
+    controls2.target.set(0, 1, 0);
+    controls2.enableDamping = true;
+    controls2.dampingFactor = 0.05;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Ortam ışığı
     sceneSandbox.add(ambientLight);
@@ -1970,13 +2029,13 @@ function sandBox() {
             );
 
             isDragging = true;
-            controls.enabled = false; // Disable orbit controls
+            controls2.enabled = false; // Disable orbit controls
         } else {
             // No object selected
             if (selectedObject) {
                 selectedObject = null;
             }
-            controls.enabled = true; // Enable orbit controls
+            controls2.enabled = true; // Enable orbit controls
         }
     });
 
@@ -2013,14 +2072,14 @@ function sandBox() {
             isDragging = false;
             dragMode = "move"; // Reset to move mode
         }
-        controls.enabled = true; // Re-enable orbit controls
+        controls2.enabled = true; // Re-enable orbit controls
     });
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Shift') {
             isShiftDown = true;
         }
-        if (event.key === 'l') {
+        if (event.key.toLowerCase() === 'l') {
             loadMoveableObject(sceneSandbox, index, camera);
         }
         if (event.key === 'ArrowRight') {
@@ -2040,11 +2099,44 @@ function sandBox() {
             isShiftDown = false;
         }
     });
+    document.getElementById("sandbox-button-2").addEventListener("click", () => {
+        loadMoveableObject(sceneSandbox, index, camera);
+    });
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            // Kaynakları temizleme
-            sceneSandbox.traverse((object) => {
+    document.getElementById('sandbox-button-1').addEventListener('mousedown', function(event) {
+        const timeValue = document.getElementById('time-remaining');
+        const speedometer = document.getElementById('speedometer');
+        const  neonLine= document.getElementById('neonline');
+        const  neonLine2= document.getElementById('neonline2');
+        const neonTimer = document.getElementById('neontimer');
+        const turbometer = document.getElementById('turbometer');
+        const loadingFill = document.getElementById('loadingFill');
+        const scoreboard = document.getElementById('scoreboard');
+        const scoreboard2 = document.getElementById('scoreboard2');
+        const minimapx = document.getElementById('minimap-container');
+        const timerX = document.getElementById('timer');
+        const scoreX = document.getElementById('score');
+        if (event.button === 0 && !gameStarted ) {
+            sandboxMenu.style.display = "none";
+            startMenu.style.display = 'none';
+
+            loadingScreen.style.display = 'flex';
+            loadingFill.style.display = 'flex';
+
+            /*manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+                const fillPercentage = Math.floor((itemsLoaded / itemsTotal) * 100);
+                updateLoadingSlider(fillPercentage);
+                //loadingFill.style.width = `${fillPercentage}%`;
+            };*/
+
+            manager.onLoad = () => {
+                loadingScreen.style.display = 'none';
+                loadingFill.style.display = 'none';
+            };
+            gameStarted = true;
+            elapsedTime = 0;  // Reset elapsedTime when the game starts
+            remainingTime = totalTime; // Reset remaining time
+            sceneIntro.traverse((object) => {
                 if (object.isMesh) {
                     object.geometry.dispose();
                     if (object.material.isMaterial) {
@@ -2060,20 +2152,48 @@ function sandBox() {
             document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
 
             // Diğer sahne temizlemeleri
-            sceneSandbox.clear(); // Sahneyi temizle
+            sceneIntro.clear(); // Sahneyi temizle
 
             document.removeEventListener('keydown', this);
-            main(); // Ana sahneyi başlat
+            main();
+            timeValue.style.display = 'block';
+            speedometer.style.display = 'block';
+            neonLine.style.display = 'block';
+            neonLine2.style.display = 'block';
+            neonTimer.style.display = 'block';
+            turbometer.style.display = 'block';
+            scoreboard.style.display = "block";
+            scoreboard2.style.display = "block";
+            minimapx.style.display = "block";
+            scoreX.style.display = "inline-block";
+            timerX.style.display = "inline-block";
         }
+    });
+    window.addEventListener('resize', () => {
+        // Yeni boyutları al
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Kamera oranını güncelle
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        // Renderer boyutunu güncelle
+        renderer.setSize(width, height);
+
+        // BloomPass çözünürlüğünü güncelle
+        bloomPass.resolution.set(width, height);
     });
 
     function animateSandbox() {
-        controls.update();
+        controls2.update();
         renderer.render(sceneSandbox, camera);
+        minimapRenderer.render(sceneSandbox, minimapCamera);
         requestAnimationFrame(animateSandbox);
     }
 
     animateSandbox();
+
 }
 
 function main() {
