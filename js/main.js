@@ -218,9 +218,9 @@ let gameOver=false;
 export let selectedCarNo = 0;
 let currentSurfaceFriction = 0.3; // Varsayılan yüzey sürtünmesi
 
-let porscheMass = 1420;
+let porscheMass = 1000;
 let porscheWheelOptions = {
-    mass: 10.3,
+    mass: 15,
     radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
@@ -236,9 +236,9 @@ let porscheWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let bmwMass = 1526;
+let bmwMass = 1100;
 let bmwWheelOptions = {
-    mass: 11.5,
+    mass: 15,
     radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 50,
@@ -254,9 +254,9 @@ let bmwWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let jeepMass = 2290;
+let jeepMass = 1700;
 let jeepWheelOptions = {
-    mass: 11.3,
+    mass: 15,
     radius: 0.42,
     directionLocal: new CANNON.Vec3(0, -1, 0),
     suspensionStiffness: 30,
@@ -773,110 +773,63 @@ function playAccelerationSound(selectedCarNo) {
 
 
 function updateVehicleControls() {
-    //-------------------------------------------
-    // 0) Araç ve Yüzey Parametrelerini Ayarla
-    //-------------------------------------------
-
-    // Seçilen aracın kütle (kg) ve beygir gücü (hp) değerleri:
-    const carData = [
-        {
-            car: 0,
-            mass: 1526,
-            horsepower: 190,
-            // Kodun orijinalinde BMW için maxSpeed = 156 km/h (156/3.6 m/s)
-            topSpeed: 156 / 3.6
-        },
-        // selectedCarNo = 1: Porsche Cayman 718 GT4 2016
-        {
-            car: 1,
-            mass: 1420,
-            horsepower: 385,
-            // Kodun orijinalinde Porsche için maxSpeed = 304 km/h (304/3.6 m/s)
-            topSpeed: 304 / 3.6
-        },
-        {
-            car: 2,
-            mass: 2290,
-            horsepower: 285,
-            // Kodun orijinalinde Jeep için maxSpeed = 243 km/h (243/3.6 m/s)
-            topSpeed: 243 / 3.6
-        },
-    ];
-
-    // Seçilmiş araç datası
-    const { mass: carMass, horsepower: carHP, topSpeed } = carData[selectedCarNo];
-
-    // Orijinal kodunuzda 3 farklı topSpeed ataması vardı,
-    // biz de onu seçilen aracın verisiyle eşleştirdik:
-    maxSpeed = topSpeed;
-
-    // Motor kuvvetinin referans aldığı, diyelim “baz” (örnek) değerler:
-    // (Kodunuzun orijinalinde ne ise - ya da sabit bir referans kabul edebilirsiniz.)
-    const baseEngineForce = 15000;
-    const baseEngineRamp = 200;
-    // brakeForce vb. de isterseniz “baz” tutabilirsiniz
-    // (sizin orijinal kodunuzda brakeForce muhtemelen sabit 10 veya 20 gibi bir değerse).
-    // Onu da ekliyoruz:
-    const baseBrakeForce = brakeForce; // Mevcut ayarınız neyse
-
-    // Basit “performans” faktörü: (HP / mass) / (baz HP / baz mass).
-    // Örneğin baz alarak 200 HP / 1500 kg = 0.1333… diyelim.
-    const baseHP = 200;
-    const baseMass = 1500;
-    const baseRatio = baseHP / baseMass;       // 200/1500 = 0.1333
-    const currentRatio = carHP / carMass;      // seçili aracın HP/kg
-    const performanceFactor = currentRatio / baseRatio;
-
-    // maxEngineForce, engineRamp ve brakeForce’u hem araç gücüne hem de yüzeye göre ölçekleyelim.
-    // Örneğin:
-    let scaledMaxEngineForce = baseEngineForce * performanceFactor * currentSurfaceFriction;
-    let scaledEngineRamp     = baseEngineRamp   * performanceFactor * currentSurfaceFriction;
-    let scaledBrakeForce     = baseBrakeForce   * currentSurfaceFriction;
-    // (İsterseniz fren gücünü araç HP’siyle orantılamadan da bırakabilirsiniz.
-    //  "Araç ağırsa fren mesafesi de uzasın" diyorsanız, tabii kütleye göre ufak ek uyarlamalar da yapılabilir.)
-
-    // Artık kodun geri kalanında orijinal `maxEngineForce` vs yerine
-    // “ölçeklenmiş” değişkeni kullanacağız. Kırmızıyla işaretli satırları
-    // orijinal fonksiyonda nerede maxEngineForce, engineRamp ve brakeForce geçiyorsa
-    // orada `scaledMaxEngineForce`, `scaledEngineRamp`, `scaledBrakeForce` kullanarak
-    // fonksiyonun akışını bozmadan ekleyeceğiz.
-
-
     //---------------------------
     // 1) Aracın anlık hızını ölç
     //---------------------------
     const velocity = vehicle.chassisBody.velocity;
+    // Sadece XZ düzlemindeki hızı (m/s)
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
 
     //---------------------------
     // 2) Direksiyon oranını hesapla
     //---------------------------
-    let speedRatio1 = speed / mediumSpeed;
-    let speedRatio2 = speed / speedLimit;
-    if (speedRatio2 > 1) speedRatio2 = 1;
 
+    // 2A) "speedRatio1": mediumSpeed'e göre basit linear
+    //    - 0 -> speed=0, 1 -> speed=mediumSpeed
+    //    - mediumSpeed üzerinde, 1'i aşar
+    let speedRatio1 = speed / mediumSpeed;
+
+    // 2B) "speedRatio2": speedLimit'e göre
+    //    - 0 -> speed=0, 1 -> speed=speedLimit ya da üstü
+    let speedRatio2 = speed / speedLimit;
+    if (speedRatio2 > 1) speedRatio2 = 1;  // clamp
+
+    // 2C) Non-linear (örneğin dairesel) düşüş.
+    //    1 / (1 + steerFalloff * speed^2) -> Yüksek hızda agresif düşüş
     const nonLinearFactor = 1 / (1 + steerFalloff * speed * speed);
 
+    // Şimdi bu 3 “faktör”ü birleştirelim.
+    // Örneğin:
+    // - Düşük hızda (0~mediumSpeed) tam direksiyon (mediumSteerFactor=1).
+    // - mediumSpeed üstünde artarak kısıtla, speedLimit'te minSteerFactor'e kadar düş.
+    // - Non-linear factor de devrede, ama istersen "blend" edebilirsin.
+
+    // Aşağıda basit bir blend örneği:
+    // direksiyonFactor = nonLinearFactor * lineerFactor
+    // lineerFactor = lerp(mediumSteerFactor, minSteerFactor, speedRatio2)
     const linearFactor = mediumSteerFactor +
         (minSteerFactor - mediumSteerFactor) * speedRatio2;
 
     let steerFactor = nonLinearFactor * linearFactor;
+    // steerFactor aşırı düşük olmasın
     if (steerFactor < 0.5) steerFactor = 0.5;
 
+    // 2D) Frenliyorsak (isBraking) direksiyon limitini biraz daha kıs
     if (isBraking) {
-        steerFactor *= brakeSteerMultiplier;
+        steerFactor *= brakeSteerMultiplier;  // ~%60'a düşür
     }
 
+    // Sonuç olarak bu frame'deki maks direksiyon
     const effectiveMaxSteer = maxSteerVal * steerFactor;
 
     //---------------------------
-    // 3) Motor Gücü (gaz/fren)
+    // 3) Motor Gücü
     //---------------------------
     if (isAccelerating) {
         playAccelerationSound(selectedCarNo);
         currentEngineForce = Math.min(
-            currentEngineForce + scaledEngineRamp,
-            scaledMaxEngineForce
+            currentEngineForce + engineRamp,
+            maxEngineForce
         );
     } else if (isBraking) {
         // Geri vitese mi alsın yoksa fren mi yapsın?
@@ -886,15 +839,16 @@ function updateVehicleControls() {
         if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
 
         currentEngineForce = Math.max(
-            currentEngineForce - scaledEngineRamp,
-            -scaledMaxEngineForce * 1
-        );
+            currentEngineForce - engineRamp,
+            -maxEngineForce*1
+        )
     } else {
+        // Ne gaz ne fren
         if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
         if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
         if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
-        // Ne gaz ne fren
-        const dampingFactor = 0.995;
+
+        const dampingFactor = 0.995; // Hızı azaltmak için katsayı
         const velocity = vehicle.chassisBody.velocity;
         vehicle.chassisBody.velocity.set(
             velocity.x * dampingFactor,
@@ -902,27 +856,32 @@ function updateVehicleControls() {
             velocity.z * dampingFactor
         );
         if (currentEngineForce > 0) {
-            currentEngineForce = Math.max(currentEngineForce - scaledEngineRamp, 0);
+            currentEngineForce = Math.max(currentEngineForce - engineRamp, 0);
         } else {
-            currentEngineForce = Math.min(currentEngineForce + scaledEngineRamp, 0);
+            currentEngineForce = Math.min(currentEngineForce + engineRamp, 0);
         }
     }
 
     //---------------------------
     // 4) Fren Uygula?
     //---------------------------
+
+
     let brakingValue = 0;
+    // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
     if (isBraking > 0) {
-        brakingValue = scaledBrakeForce;
+        brakingValue = brakeForce;
     }
 
     //---------------------------
     // 5) Direksiyon
     //---------------------------
     if (isSteeringLeft) {
+        // Sola doğru yavaşça art
         currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
         slide.play();
     } else if (isSteeringRight) {
+        // Sağa doğru yavaşça art
         currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
         slide.play();
     } else {
@@ -936,7 +895,7 @@ function updateVehicleControls() {
     }
 
     //---------------------------
-    // 5.5) İvmelenme / Hız Limiti
+    // 5.5) İvmelenme
     //---------------------------
 
     if (selectedCarNo===0){
@@ -946,49 +905,52 @@ function updateVehicleControls() {
     }else if (selectedCarNo===2){
         maxSpeed=156/3.6;
     }
-    // Yukarıda topSpeed değerini "carData" ile zaten ayarladık.
-
-    // Arka hız limiti vs. orijinal kodunuzda nasılsa aynı bırakalım:
-    if (isBraking > 0) {
+    if (isBraking>0) {
         if (speed >= rearMaxSpeed) {
             currentEngineForce = 0;
         } else {
             const speedRatio = speed / rearMaxSpeed;
-            const effectiveEngineForce = scaledMaxEngineForce * (1 - speedRatio * engineDropFactor);
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
             currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
         }
-    } else {
+    }else {
         if (speed >= maxSpeed) {
             currentEngineForce = 0;
         } else {
             const speedRatio = speed / maxSpeed;
-            const effectiveEngineForce = scaledMaxEngineForce * (1 - speedRatio * engineDropFactor);
+            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
             currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
         }
     }
 
     //---------------------------
-    // 6) Araca Uygula (fren, motor, direksiyon)
+    // 6) Araca Uygula
     //---------------------------
+    // Frenleri sıfırla
     vehicle.setBrake(0, 0);
     vehicle.setBrake(0, 1);
-    vehicle.setBrake(0, 2);
-    vehicle.setBrake(0, 3);
+    vehicle.setBrake(0, 2); // Arka sol
+    vehicle.setBrake(0, 3); // Arka sağ
+    // (dört tekerleğe fren yapmak istiyorsan 2 ve 3. index'e de setBrake uygula)
 
+    // 3) Normal fren (ör. S tuşu) varsa ön tekerleklere uygula
     if (isBraking) {
-        vehicle.setBrake(brakingValue, 0);
-        vehicle.setBrake(brakingValue, 1);
+        vehicle.setBrake(brakingValue, 0);  // front-left
+        vehicle.setBrake(brakingValue, 1);  // front-right
     }
 
+    // 4) El freni aktifse, arka tekerleklere yüksek fren
     if (isHandBraking) {
-        vehicle.setBrake(handbrakeForce, 2);
-        vehicle.setBrake(handbrakeForce, 3);
+        vehicle.setBrake(handbrakeForce, 2); // rear-left
+        vehicle.setBrake(handbrakeForce, 3); // rear-right
         slide.play();
     }
 
+    // Motor kuvveti -> genelde ön tekerler
     vehicle.applyEngineForce(currentEngineForce, 0);
     vehicle.applyEngineForce(currentEngineForce, 1);
 
+    // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
     if (loadingScreen.style.display === "none" && startMenu.style.display === "none") {
