@@ -456,7 +456,7 @@ function setCannonWorld(){
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
-    // cannonDebugger = new CannonDebugger(scene, world);
+    cannonDebugger = new CannonDebugger(scene, world);
 }
 
 const groundMaterial = new CANNON.Material("groundMaterial");
@@ -1443,7 +1443,7 @@ function animate() {
     if (gameOver){
         return;
     }
-    // cannonDebugger.update();
+    cannonDebugger.update();
 
     const time = performance.now();
     const deltaTime = (time - lastTime)/1000; // Convert to seconds
@@ -1462,6 +1462,23 @@ function animate() {
         let worldUp = getUpAxis(chassisBody);
         chassisBody.threemesh.position.copy(new THREE.Vector3(chassisBody.position.x - worldUp.x/1.5, chassisBody.position.y - worldUp.y/1.5, chassisBody.position.z - worldUp.z/1.5));
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
+
+        // Aşağıdaki değerleri başta tanımladığınızı varsayıyoruz:
+        const MinX = 257.86;
+        const MaxX = 267.86;
+        const MinZ = -1.05;
+        const MaxZ = 0.95;
+
+        const carPos = chassisBody.position; // CANNON.Vec3: (x, y, z)
+
+        if (
+            carPos.x >= MinX && carPos.x <= MaxX &&
+            carPos.z >= MinZ && carPos.z <= MaxZ &&
+            // y'yi de kontrol etmek isterseniz:
+            carPos.y >= MinY && carPos.y <= MaxY
+        ) {
+            gameOver = true;
+        }
 
         objectBodies.forEach((body) => {
             body.threemesh.position.copy(body.position);
