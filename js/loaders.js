@@ -325,7 +325,7 @@ export function loadMap(scene) {
 }
 
 export function loadHDR(scene) {
-    rgbeLoader.load('public/hdri.hdr', function (texture) {
+    rgbeLoader.load('public/hdrinew.hdr', function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;
