@@ -448,7 +448,7 @@ function setCannonWorld(){
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
-    cannonDebugger = new CannonDebugger(scene, world);
+    // cannonDebugger = new CannonDebugger(scene, world);
 }
 
 const groundMaterial = new CANNON.Material("groundMaterial");
@@ -1345,6 +1345,12 @@ function updateRemainingTime(deltaTime) {
             remainingTime = 0;
             gameOver = true;
             document.getElementById('game-over').style.display = 'flex'; // Show game over
+            document.getElementById("skore").innerText = `Score: ${finalScore.toFixed(0)}`;
+            const totalSeconds = Math.floor(elapsedTime / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const miliseconds= Math.floor(elapsedTime/10 % 100);
+            document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
         }
         const seconds = Math.floor(remainingTime % 600);
         const timerText = document.getElementById('time-value');
@@ -1423,7 +1429,7 @@ function animate() {
     if (gameOver){
         return;
     }
-    cannonDebugger.update();
+    // cannonDebugger.update();
 
 
     const time = performance.now();
