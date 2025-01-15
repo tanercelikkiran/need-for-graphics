@@ -703,6 +703,39 @@ function createVehicle() {
     vehicle.addToWorld(world);
 }
 
+function createObjects() {
+    for (let i = 0; i < objects.length; i++) {
+        let object = objects[i];
+        console.log(object);
+        scene.add(object);
+        let size = new THREE.Vector3();
+        let meshQuaternion = new THREE.Quaternion();
+        meshQuaternion.copy(object.quaternion);
+        object.quaternion.set(0, 0, 0, 1);
+        let boundingBox = new THREE.Box3().setFromObject(object);
+        boundingBox.getSize(size);
+
+        object.quaternion.copy(meshQuaternion);
+
+        const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
+        const boxBody = new CANNON.Body({
+            mass: 1,
+            material: objectMaterial
+        });
+        const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
+        boxBody.addShape(boxShape, offset);
+        boxBody.position.copy(object.position);
+        boxBody.quaternion.copy(object.quaternion);
+        boxBody.threemesh = object;
+        boxBody.material = objectMaterial;
+        boxBody.collisionFilterGroup = materialGroups[3].group;
+        boxBody.collisionFilterMask = materialGroups[3].mask;
+
+        objectBodies.push(boxBody);
+        world.addBody(boxBody);
+    }
+}
+
 function playAccelerationSound(selectedCarNo) {
     if (selectedCarNo === 0 && bmwAcc) {
         bmwAcc.play();
@@ -1827,8 +1860,7 @@ function initIntro() {
             document.removeEventListener('keydown', this);
             sandBox(); // Sandbox sahnesini başlat
         }
-
-        }else{
+        else{
             const messageBox = document.getElementById('sandbox-message');
             messageBox.style.display = 'block';
             setTimeout(() => {
@@ -1848,39 +1880,6 @@ function initIntro() {
             getHDRItext.textContent="TIME:NIGHT";
         }
     });
-}
-
-function placeObjects() {
-    for (let i = 0; i < objects.length; i++) {
-        let object = objects[i];
-        console.log(object);
-        scene.add(object);
-        let size = new THREE.Vector3();
-        let meshQuaternion = new THREE.Quaternion();
-        meshQuaternion.copy(object.quaternion);
-        object.quaternion.set(0, 0, 0, 1);
-        let boundingBox = new THREE.Box3().setFromObject(object);
-        boundingBox.getSize(size);
-
-        object.quaternion.copy(meshQuaternion);
-
-        const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
-        const boxBody = new CANNON.Body({
-            mass: 1,
-            material: objectMaterial
-        });
-        const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
-        boxBody.addShape(boxShape, offset);
-        boxBody.position.copy(object.position);
-        boxBody.quaternion.copy(object.quaternion);
-        boxBody.threemesh = object;
-        boxBody.material = objectMaterial;
-        boxBody.collisionFilterGroup = materialGroups[3].group;
-        boxBody.collisionFilterMask = materialGroups[3].mask;
-
-        objectBodies.push(boxBody);
-        world.addBody(boxBody);
-    }
 }
 
 function sandBox() {
@@ -2063,7 +2062,7 @@ function sandBox() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene).then(createColliders).then(placeObjects);
+    loadMap(scene).then(createColliders).then(createObjects);
     createFrictionPairs();
     if(hdriChange===0){
         loadHDR(scene, renderer);
