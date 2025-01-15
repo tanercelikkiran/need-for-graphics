@@ -525,6 +525,11 @@ function createColliders(){
                     body.collisionFilterGroup = materialGroups[7].group;
                     body.collisionFilterMask = materialGroups[7].mask;
                 }
+                else if (child.name.includes("Finish")) {
+                    body.material = finishMaterial;
+                    body.collisionFilterGroup = materialGroups[8].group;
+                    body.collisionFilterMask = materialGroups[8].mask;
+                }
                 world.addBody(body);
             }
         });
