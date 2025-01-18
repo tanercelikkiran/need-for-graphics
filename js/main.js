@@ -458,20 +458,20 @@ function setCannonWorld(){
         let newFrictionSlip = surfaceFrictionValues.default;
 
         // Malzeme kontrolü
-        if (bodyA.material && bodyA.material.name === "grass") {
+        if (bodyA.material && bodyA.material.name === "grass" || bodyB.material && bodyB.material.name === "grass") {
             newFrictionSlip = surfaceFrictionValues.grass;
-        } else if (bodyA.material && bodyA.material.name === "ice") {
+        } else if (bodyA.material && bodyA.material.name === "ice" || bodyB.material && bodyB.material.name === "ice") {
             newFrictionSlip = surfaceFrictionValues.ice;
-        } else if (bodyA.material && bodyA.material.name === "gravel") {
+        } else if (bodyA.material && bodyA.material.name === "gravel" || bodyB.material && bodyB.material.name === "gravel") {
             newFrictionSlip = surfaceFrictionValues.gravel;
-        } else if (bodyB.material && bodyB.material.name === "grass") {
+        } else if (bodyB.material && bodyB.material.name === "grass" || bodyA.material && bodyA.material.name === "grass") {
             newFrictionSlip = surfaceFrictionValues.grass;
-        } else if (bodyB.material && bodyB.material.name === "ice") {
+        } else if (bodyB.material && bodyB.material.name === "ice" || bodyA.material && bodyA.material.name === "ice") {
             newFrictionSlip = surfaceFrictionValues.ice;
-        } else if (bodyB.material && bodyB.material.name === "gravel") {
+        } else if (bodyB.material && bodyB.material.name === "gravel" || bodyA.material && bodyA.material.name === "gravel") {
             newFrictionSlip = surfaceFrictionValues.gravel;
         }
-
+        console.log(newFrictionSlip);
         // Tekerlek sürtünmesini güncelle
         updateWheelFriction(vehicle, newFrictionSlip);
     });
