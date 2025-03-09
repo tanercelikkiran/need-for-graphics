@@ -1,4 +1,4 @@
-<h1 align="center">Need For Graphics</h1>
+# Need For Graphics 
 
 <p align="center">
     <img src="./logo.png" alt="Need For Graphics">
