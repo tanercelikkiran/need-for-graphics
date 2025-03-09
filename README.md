@@ -1,8 +1,8 @@
-# Need For Graphics
+<h1 align="center">Need For Graphics</h1>
 
-![Need For Graphics](
-    ./logo.png
-)
+<p align="center">
+    <img src="./logo.png" alt="Need For Graphics">
+</p>
 
 A Three.js-based 3D game for studying friction forces in physical systems.
 
