@@ -44,7 +44,6 @@ npm install
 
 You can start the game by just opening `index.html` from the code editor.
 
-```bash
 ## Important Notes
 
 - **Browser Compatibility**: Use **Google Chrome** for optimal experience. Firefox is not recommended due to performance and compatibility issues.
