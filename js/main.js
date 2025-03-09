@@ -217,9 +217,8 @@ let scoreTime=400;
 let gameOver=false;
 
 export let selectedCarNo = 0;
-let currentSurfaceFriction = 0.3; // Varsayılan yüzey sürtünmesi
 
-let porscheMass = 1000;
+let porscheMass = 1420;
 let porscheWheelOptions = {
     mass: 15,
     radius: 0.35,
@@ -237,7 +236,7 @@ let porscheWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let bmwMass = 1100;
+let bmwMass = 1504;
 let bmwWheelOptions = {
     mass: 15,
     radius: 0.35,
@@ -255,7 +254,7 @@ let bmwWheelOptions = {
     customSlidingRotationalSpeed: -30
 }
 
-let jeepMass = 1700;
+let jeepMass = 2306;
 let jeepWheelOptions = {
     mass: 15,
     radius: 0.42,
@@ -346,11 +345,6 @@ function init() {
     composer.renderTarget2.depthTexture = new DepthTexture();
     composer.addPass(motionBlurPass);
     motionBlurPass.enabled = false;
-
-    stats = new Stats();
-    stats.showPanel(0); // 0 = FPS, 1 = MS, 2 = MB, 3+ = özel
-    document.body.appendChild(stats.dom);
-
 
     window.addEventListener('resize', () => {
         const activeCamera = scene.userData.activeCamera;
@@ -448,6 +442,8 @@ function setCannonWorld(){
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
+    let newFrictionSlip = surfaceFrictionValues.default;
+
     // cannonDebugger = new CannonDebugger(scene, world);
 
     world.addEventListener("beginContact", (event) => {
@@ -490,7 +486,7 @@ const iceMaterial = new CANNON.Material("iceMaterial");
 const mudMaterial = new CANNON.Material("mudMaterial");
 const gravelMaterial = new CANNON.Material("gravelMaterial");
 const grassMaterial = new CANNON.Material("grassMaterial");
-const finishMaterial = new CANNON.Material("finishMaterial");
+const colliderMaterial = new CANNON.Material("colliderMaterial");
 
 // Define collision groups (powers of 2)
 const GROUP_GROUND = 1;  // Group 0
@@ -501,7 +497,6 @@ const GROUP_ICE = 16;    // Group 4
 const GROUP_MUD = 32;    // Group 5
 const GROUP_GRAVEL = 64; // Group 6
 const GROUP_GRASS = 128; // Group 7
-const GROUP_FINISH = 256; // Group 8
 
 const surfaceFrictionValues = {
     ground: 4.8,
@@ -512,6 +507,17 @@ const surfaceFrictionValues = {
     default: 4.8, // Varsayılan değer
 };
 
+const materialGroups = [
+    { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: bodyMaterial, group: GROUP_BODY, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS | GROUP_OBJECT },
+    { material: wheelMaterial, group: GROUP_WHEEL, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS | GROUP_OBJECT },
+    { material: objectMaterial, group: GROUP_OBJECT, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS | GROUP_OBJECT | GROUP_BODY | GROUP_WHEEL},
+    { material: iceMaterial, group: GROUP_ICE, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: mudMaterial, group: GROUP_MUD, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: gravelMaterial, group: GROUP_GRAVEL, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+    { material: grassMaterial, group: GROUP_GRASS, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
+];
+
 function updateWheelFriction(vehicle, newFrictionSlip) {
     vehicle.wheelInfos.forEach((wheel) => {
         wheel.frictionSlip = newFrictionSlip;
@@ -521,18 +527,6 @@ function updateWheelFriction(vehicle, newFrictionSlip) {
     vehicle.updateWheelTransform(2);
     vehicle.updateWheelTransform(3);
 }
-
-const materialGroups = [
-    { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
-    { material: bodyMaterial, group: GROUP_BODY, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
-    { material: wheelMaterial, group: GROUP_WHEEL, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
-    { material: objectMaterial, group: GROUP_OBJECT, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS },
-    { material: iceMaterial, group: GROUP_ICE, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
-    { material: mudMaterial, group: GROUP_MUD, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
-    { material: gravelMaterial, group: GROUP_GRAVEL, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
-    { material: grassMaterial, group: GROUP_GRASS, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
-    { material: finishMaterial, group: GROUP_FINISH, mask: GROUP_BODY | GROUP_WHEEL }
-];
 
 function createColliders(){
     return new Promise((resolve, reject) => {
@@ -546,6 +540,7 @@ function createColliders(){
                     body.addShape(box);
                     body.position.copy(child.position);
                     body.quaternion.copy(child.quaternion);
+                    body.material = colliderMaterial;
                     world.addBody(body);
                 }
             }
@@ -553,8 +548,9 @@ function createColliders(){
                 const boundingBox = new THREE.Box3().setFromObject(child);
                 const size = new THREE.Vector3();
                 boundingBox.getSize(size);
-                const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.01, size.z / 2));
+                const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.05, size.z / 2));
                 const body = new CANNON.Body({mass: 0});
+                body.aabbNeedsUpdate = true;
                 body.addShape(box);
                 body.position.copy(child.position);
                 if (child.name.includes("Ice")) {
@@ -577,17 +573,7 @@ function createColliders(){
                     body.collisionFilterGroup = materialGroups[7].group;
                     body.collisionFilterMask = materialGroups[7].mask;
                 }
-                else if (child.name.includes("Finish")) {
-                    body.material = finishMaterial;
-                    body.collisionFilterGroup = materialGroups[8].group;
-                    body.collisionFilterMask = materialGroups[8].mask;
-                }
                 world.addBody(body);
-            }
-        });
-        world.addEventListener("beginContact", (event) => {
-            if (event.bodyA.name === "FinishLine" || event.bodyB.name === "FinishLine") {
-                gameOver = true;
             }
         });
         resolve();
@@ -621,13 +607,13 @@ function createFrictionPairs(){
                 friction = 0.3;
                 break;
             case "iceMaterial":
-                friction = 0.1;
+                friction = 0.05;
                 break;
             case "mudMaterial":
                 friction = 0.2;
                 break;
             case "gravelMaterial":
-                friction = 0.7;
+                friction = 0.95;
                 break;
             case "grassMaterial":
                 friction = 0.5;
@@ -636,7 +622,7 @@ function createFrictionPairs(){
 
         const contact = new CANNON.ContactMaterial(pair[0], pair[1], {
             friction: friction,
-            restitution: 0.1,
+            restitution: 0.2,
         });
         world.addContactMaterial(contact);
     });
@@ -773,7 +759,6 @@ function createVehicle() {
 function createObjects() {
     for (let i = 0; i < objects.length; i++) {
         let object = objects[i];
-        console.log(object);
         scene.add(object);
         let size = new THREE.Vector3();
         let meshQuaternion = new THREE.Quaternion();
@@ -786,7 +771,7 @@ function createObjects() {
 
         const boxShape = new CANNON.Box(new CANNON.Vec3(size.x/2, size.y/2, size.z/2));
         const boxBody = new CANNON.Body({
-            mass: 1,
+            mass: 5,
             material: objectMaterial
         });
         const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
@@ -868,11 +853,15 @@ function updateVehicleControls() {
     // 3) Motor Gücü
     //---------------------------
     if (isAccelerating) {
+        playAccelerationSound(selectedCarNo);
         currentEngineForce = Math.min(
             currentEngineForce + engineRamp,
             maxEngineForce
         );
     } else if (isBraking) {
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
         // Geri vitese mi alsın yoksa fren mi yapsın?
         // Basitçe "geri" yaklaşımlardan biri:
 
@@ -881,6 +870,9 @@ function updateVehicleControls() {
             -maxEngineForce*1
         )
     } else {
+        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
+        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
+        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
         // Ne gaz ne fren
         const dampingFactor = 0.995; // Hızı azaltmak için katsayı
         const velocity = vehicle.chassisBody.velocity;
@@ -1482,7 +1474,7 @@ function animate() {
     if (gameOver){
         return;
     }
-    // cannonDebugger.update();
+    //cannonDebugger.update();
 
 
     const time = performance.now();
@@ -1491,7 +1483,7 @@ function animate() {
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
-    stats.begin();
+    //stats.begin();
     try {
         updateTurbo(deltaTime);
         updateVehicleControls();
@@ -1618,7 +1610,7 @@ function animate() {
     catch (e) {
     }
 
-    stats.end();
+    //stats.end();
     requestAnimationFrame(animate);
 }
 
