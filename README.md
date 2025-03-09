@@ -59,8 +59,8 @@ You can start the game by just opening `index.html` from the code editor.
 
 The project uses:
 
-- Three.js (v0.170.0) for 3D rendering
-- Cannon-es (v0.20.0) for physics simulation
+- Three.js for 3D rendering
+- Cannon-es for physics simulation
 - Vite for development and building
 
 ## Requirements
