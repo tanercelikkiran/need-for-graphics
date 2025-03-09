@@ -26,7 +26,15 @@ This game simulates friction forces using Three.js and Cannon-es physics engine.
 git clone https://github.com/tanercelikkiran/friction-forces.git
 ```
 
-After cloning the repository, open the project in a code editor (**WebStorm** is recommended) and run the following commands in the terminal:
+After cloning the repository, you need to install git-lfs to download the assets. You can download it from [here](https://git-lfs.github.com/).
+
+```bash
+git lfs install
+git lfs pull
+git lfs checkout
+```
+
+After that, open the project in a code editor (**WebStorm** is recommended) and run the following commands in the terminal:
 
 ```bash
 npm install
