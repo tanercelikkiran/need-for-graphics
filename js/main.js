@@ -1802,48 +1802,54 @@ function initIntro() {
             timerX.style.display = "inline-block";
         }
     });
-    document.getElementById('start-text-3').addEventListener('mousedown', function (event) {
-        if (event.button === 0 && !gameStarted) {
-            const colorPicker = document.getElementById('color-picker');
-            colorPicker.style.display = 'block'; // Color picker'ı görünür yap
-            colorPicker.click(); // Programmatically trigger the color picker
-            colorPicker.addEventListener('input', (event) => {
-                const selectedColor = event.target.value; // Seçilen renk
-                carColor = selectedColor;
+    // Color picker — listeners registered once
+    (function setupColorPicker() {
+        const colorPicker = document.getElementById('color-picker');
+        let colorPickerActive = false;
+
+        document.getElementById('start-text-3').addEventListener('mousedown', function (event) {
+            if (event.button === 0 && !gameStarted) {
+                colorPicker.style.display = 'block';
+                colorPicker.click();
+                colorPickerActive = true;
+            }
+        });
+
+        colorPicker.addEventListener('input', () => {
+            if (!colorPickerActive || !sceneIntro) return;
+            carColor = colorPicker.value;
+            sceneIntro.traverse((object) => {
+                if (object.isMesh && object.material) {
+                    if (
+                        object.material.name === 'BMW:carpaint1' ||
+                        object.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material' ||
+                        object.name.includes("Studio_Car277")
+                    ) {
+                        metallicPaint(object.material, carColor);
+                    }
+                }
+            });
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && colorPickerActive) {
+                colorPickerActive = false;
+                colorPicker.style.display = 'none';
+                if (!sceneIntro) return;
                 sceneIntro.traverse((object) => {
                     if (object.isMesh && object.material) {
-                        if (object.material.name === 'BMW:carpaint1') {
-                            // Materyalin rengini değiştir
-                            metallicPaint(object.material, carColor);
-                        }
-                        else if (object.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material') {
-                            // Materyalin rengini değiştir
-                            metallicPaint(object.material, carColor);
-                        }
-                        else if (object.name.includes("Studio_Car277")) {
-                            // Materyalin rengini değiştir
+                        if (
+                            object.material.name === 'BMW:carpaint1' ||
+                            object.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material' ||
+                            object.name.includes("Studio_Car277")
+                        ) {
                             metallicPaint(object.material, carColor);
                         }
                     }
                 });
-            });
-
-            document.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' && colorPicker.style.display === 'block') {
-                    sceneIntro.traverse((object) => {
-                        if (object.isMesh && object.material) {
-                            if (object.material.name === 'BMW:carpaint1') {
-                                // Materyalin rengini değiştir
-                                const color = colorPicker.value;
-                                carColor = color;
-                                metallicPaint(object.material, carColor);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-    });
+            }
+        });
+    })();
     document.getElementById('start-text-5').addEventListener('mousedown', function (event) {
         if (isSandbox === false) {
             isSandbox = true;
