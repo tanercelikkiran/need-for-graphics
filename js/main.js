@@ -2,15 +2,10 @@ import {
     loadMap,
     loadHDR,
     carMesh,
-    wheelMeshes,
     loadCar,
     loadCarIntro,
     manager,
-    bmwAcc,
-    porscheAcc,
-    jeepAcc,
     loadSounds,
-    turboSound,
     loadMoveableObject,
     createFogMaterial,
     updateMapMaterials,
@@ -30,23 +25,22 @@ import { DepthTexture } from "three";
 
 import {
     scene, sceneIntro, sceneSandbox, renderer, composer, carColor, motionBlurPass, bloomPass,
-    world, vehicle, carSize, isBraking, isTurboActive, useShadow, skyMesh, sunLight, hemisphereLight,
+    world, vehicle, useShadow, skyMesh, sunLight, hemisphereLight,
     objects, selectedCarNo,
     setScene, setSceneIntro, setSceneSandbox, setRenderer, setComposer, setCarColor,
     setMotionBlurPass, setBloomPass, setSkyMesh, setSunLight, setHemisphereLight,
-    setWorld, setVehicle, setCarSize, setSelectedCarNo, setIsBraking, setIsTurboActive,
+    setWorld, setSelectedCarNo,
     setUseShadow, setObjects,
 } from './state.js';
 
+import {
+    getXZSpeed, updateWheelFriction, createVehicle, createObjects,
+    updateVehicleControls, updateTurbo, setupVehicleInput,
+    syncObjectBodies, getTurboVroom, getStartTurboTime, setStartTurboTime,
+} from './vehicle.js';
+
 let cannonDebugger; // not shared with loaders.js, kept local
 let stats; // not shared with loaders.js, kept local
-
-let objectBodies = []; // Array of CANNON bodies for the objects
-
-function getXZSpeed(body) {
-    const v = body.velocity;
-    return Math.sqrt(v.x * v.x + v.z * v.z);
-}
 
 const motionBlurShader = {
     uniforms: {
@@ -82,55 +76,7 @@ let isSandbox = false;
 let finalScore;
 
 // ================================================
-// 1) ARACIN GİRİŞ / DURUM FLAGLERİ
-// ================================================
-let isAccelerating = false;
-let isSteeringLeft = false;
-let isSteeringRight = false;
-let isHandBraking = false;
-
-// ================================================
-// 2) ARACIN ANLIK MOTOR & DİREKSİYON
-// ================================================
-let currentEngineForce = 0;
-let currentSteering = 0;
-
-// ================================================
-// 3) TEMEL AYARLAR
-// ================================================
-let maxEngineForce = 4500;  // Sports cars have more powerful engines
-const engineRamp = 800;   // Faster throttle response
-const brakeForce = 50;   // Stronger braking force
-
-// ================================================
-// 4) DİREKSİYON VE DAMPING AYARLARI
-// ================================================
-const maxSteerVal = Math.PI / 7;  // Steering range remains the same (~45 degrees)
-const steerSpeed = 0.01;         // Reduced steering speed (slower turns)
-const steerDamping = 0.1;         // Increased damping (slower return to center)
-// ================================================
-// 5) HIZ BAZLI DİREKSİYON AYARLARI
-// ================================================
-const speedLimit = 80;       // Higher speed before steering reduces (~288 km/h)
-const minSteerFactor = 0.2;      // Steering effectiveness drops less at high speeds
-const mediumSpeed = 30;       // Medium speed (~108 km/h)
-const mediumSteerFactor = 1.0;      // Full steering effectiveness below mediumSpeed
-const steerFalloff = 0.001;    // Slightly less aggressive falloff
-
-// ================================================
-// 6) FREN ANINDA EKSTRA DİREKSİYON KISITLAMASI
-// ================================================
-const brakeSteerMultiplier = 0.7;    // Slightly more forgiving during braking
-
-// ================================================
-// 7) EL FRENİ & DRIFT AYARLARI
-// ================================================
-const handbrakeForce = 400;          // Stronger handbrake for drifting
-const driftSlip = 0.7;          // Lower friction for drifting
-const normalSlip = 4.8;          // Slightly more slippery tires for agility
-
-// ================================================
-// 8) KAMERA POZİSYONLARI - DİKEY HAREKET
+// KAMERA POZİSYONLARI - DİKEY HAREKET
 // ================================================
 const cameraStartZ = 6.3;   // Adjusted for a more dynamic view
 let cameraTargetZ;                       // Anlık hedef Z (dinamik)
@@ -176,21 +122,6 @@ let currentCameraX = cameraStartX;
 const cameraStartY = 2.0;
 let currentCameraY = cameraStartY;
 
-// ================================================
-// 10) TOP SPEED VE İVMELENME AYARLARI
-// ================================================
-let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
-const rearMaxSpeed = 70 / 3.6;
-const engineDropFactor = 0.7;
-
-// ================================================
-// 11) TURBO GO VROOOOOOOOM
-// ================================================
-
-let turboLevel = 100; // Nitro'nun başlangıç değeri
-const turboDecayRate = 100 / (5 * 60);
-let turboVroom = false;
-let startTurboTime = null;
 let score = 0;
 
 let orbitControls;
@@ -221,31 +152,6 @@ let remainingTime = totalTime;
 let scoreTime = 400;
 let gameOver = false;
 let countdownStarted = false;
-
-// Car configuration: mass and wheel option overrides per car index
-// 0 = Porsche, 1 = BMW, 2 = Jeep
-const baseWheelOptions = {
-    mass: 15,
-    radius: 0.35,
-    directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 30,
-    suspensionRestLength: 0.3,
-    frictionSlip: 5,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
-    maxSuspensionForce: 100000,
-    rollInfluence: 0.01,
-    axleLocal: new CANNON.Vec3(-1, 0, 0),
-    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
-    maxSuspensionTravel: 0.3,
-    customSlidingRotationalSpeed: -30
-};
-
-const CAR_CONFIGS = [
-    { mass: 1504, wheelOverrides: { suspensionStiffness: 50 } },           // BMW
-    { mass: 1420, wheelOverrides: {} },                                    // Porsche
-    { mass: 2306, wheelOverrides: { radius: 0.42 } },                      // Jeep
-];
 
 function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
@@ -364,60 +270,10 @@ function init() {
         bloomPass.resolution.set(width, height);
     }, { signal });
 
-    document.addEventListener('keydown', (event) => {
-        const key = event.key.toLowerCase();
-        switch (key) {
-            case 'w':
-                isAccelerating = true;
-                setIsBraking(false);
-                break;
-            case 's':
-                setIsBraking(true);
-                isAccelerating = false;
-                break;
-            case 'a':
-                isSteeringLeft = true;
-                break;
-            case 'd':
-                isSteeringRight = true;
-                break;
-            case ' ':
-                // Space -> el freni aktif
-                isHandBraking = true;
-                // İsteğe bağlı: Arka tekerlekleri kaygan yapmak
-                vehicle.wheelInfos[2].frictionSlip = driftSlip; // Rear-left
-                vehicle.wheelInfos[3].frictionSlip = driftSlip; // Rear-right
-                break;
-        }
-    }, { signal });
+    setupVehicleInput(signal);
 
     document.getElementById('menu-button').addEventListener('mousedown', function () {
         location.reload();
-    }, { signal });
-
-    document.addEventListener('keyup', (event) => {
-        const key = event.key.toLowerCase();
-        switch (key) {
-            case 'w':
-                isAccelerating = false;
-                break;
-            case 's':
-                setIsBraking(false);
-                break;
-            case 'a':
-                isSteeringLeft = false;
-                break;
-            case 'd':
-                isSteeringRight = false;
-                break;
-            case ' ':
-                // Space bırakıldı -> el freni off
-                isHandBraking = false;
-                // Tekerlekleri tekrar normal sürtünmeye ayarla
-                vehicle.wheelInfos[2].frictionSlip = normalSlip;
-                vehicle.wheelInfos[3].frictionSlip = normalSlip;
-                break;
-        }
     }, { signal });
 
     // Camera key handlers (moved from updateCamera)
@@ -625,16 +481,6 @@ const materialGroups = [
     { material: grassMaterial, group: GROUP_GRASS, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
 ];
 
-function updateWheelFriction(vehicle, newFrictionSlip) {
-    vehicle.wheelInfos.forEach((wheel) => {
-        wheel.frictionSlip = newFrictionSlip;
-    });
-    vehicle.updateWheelTransform(0);
-    vehicle.updateWheelTransform(1);
-    vehicle.updateWheelTransform(2);
-    vehicle.updateWheelTransform(3);
-}
-
 function createColliders() {
     return new Promise((resolve, reject) => {
         scene.traverse(function (child) {
@@ -745,392 +591,6 @@ function getUpAxis(body) {
     return worldUp; // This is the normalized up axis
 }
 
-function createVehicle() {
-
-    const config = CAR_CONFIGS[selectedCarNo];
-    const vehicleMass = config.mass;
-    const wheelOptions = { ...baseWheelOptions, ...config.wheelOverrides };
-
-    setCarSize(new THREE.Vector3());
-    const boundingBox = new THREE.Box3().setFromObject(carMesh);
-    boundingBox.getSize(carSize);
-
-    let chassisShape;
-    if (selectedCarNo === 0) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
-    } else if (selectedCarNo === 1) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
-    } else if (selectedCarNo === 2) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.20, carSize.z / 2));
-    }
-
-    const chassisBody = new CANNON.Body({
-        mass: vehicleMass,
-    });
-    let chassisOffset;
-    if (selectedCarNo === 0) {
-        chassisOffset = new CANNON.Vec3(0, 0.12, 0);
-    } else if (selectedCarNo === 1) {
-        chassisOffset = new CANNON.Vec3(0, 0.10, 0);
-    } else if (selectedCarNo === 2) {
-        chassisOffset = new CANNON.Vec3(0, 0.45, 0);
-    }
-    chassisBody.addShape(chassisShape, chassisOffset);
-    let pos = carMesh.position.clone();
-    chassisBody.position.copy(pos);
-    carMesh.rotation.y = Math.PI;
-    chassisBody.quaternion.setFromEuler(carMesh.rotation.x, carMesh.rotation.y, carMesh.rotation.z);
-    chassisBody.angularVelocity.set(0, 0, 0); // Initial angular velocity
-    chassisBody.threemesh = carMesh;
-    chassisBody.material = bodyMaterial;
-    chassisBody.collisionFilterGroup = materialGroups[1].group;
-    chassisBody.collisionFilterMask = materialGroups[1].mask;
-
-    setVehicle(new CANNON.RaycastVehicle({
-        chassisBody: chassisBody,
-        indexRightAxis: 0,
-        indexUpAxis: 1,
-        indexForwardAxis: 2
-    }));
-
-    let wheelCenter = new THREE.Vector3();
-    let wheelSize = new THREE.Vector3();
-    let wheelBodies = [];
-
-    wheelMeshes.forEach(function (wheelMesh) {
-        const boundingBox = new THREE.Box3().setFromObject(wheelMesh);
-        boundingBox.getCenter(wheelCenter);
-        boundingBox.getSize(wheelSize);
-
-        const shape = new CANNON.Cylinder(wheelSize.y / 2, wheelSize.y / 2, wheelSize.x, 40);
-        const wheelBody = new CANNON.Body({
-            mass: wheelOptions.mass,
-            type: CANNON.Body.KINEMATIC,
-        });
-        const q = new CANNON.Quaternion();
-        q.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 2);
-        wheelBody.addShape(shape, new CANNON.Vec3(), q);
-        wheelBody.position.copy(wheelCenter);
-        wheelBody.threemesh = wheelMesh;
-        wheelBody.material = wheelMaterial;
-        wheelBody.collisionFilterGroup = materialGroups[2].group;
-        wheelBody.collisionFilterMask = materialGroups[2].mask;
-        world.addBody(wheelBody);
-        wheelBodies.push(wheelBody);
-
-        wheelOptions.chassisConnectionPointLocal.set(wheelCenter.x, -0.12, wheelCenter.z);
-
-        vehicle.addWheel({
-            body: wheelBody,
-            ...wheelOptions,
-        });
-    });
-
-    vehicle.wheelBodies = wheelBodies;
-
-    world.addEventListener('postStep', function () {
-        vehicle.wheelBodies.forEach((wheelBody, index) => {
-            // Lastiklerin fiziksel pozisyon ve dönüşünü güncelle
-            vehicle.updateWheelTransform(index);
-            const wheelTransform = vehicle.wheelInfos[index].worldTransform;
-
-            // Fizik motoru lastiklerinin pozisyonunu ve dönüşünü uygulayın
-            wheelBody.position.copy(wheelTransform.position);
-            wheelBody.quaternion.copy(wheelTransform.quaternion);
-
-            // Görsel lastikleri fizik motoruyla senkronize edin
-            if (wheelBodies[index].threemesh) {
-                wheelBodies[index].threemesh.position.copy(wheelBody.position);
-                wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
-            }
-        });
-    });
-
-    vehicle.addToWorld(world);
-}
-
-function createObjects() {
-    for (let i = 0; i < objects.length; i++) {
-        let object = objects[i];
-        scene.add(object);
-        let size = new THREE.Vector3();
-        let meshQuaternion = new THREE.Quaternion();
-        meshQuaternion.copy(object.quaternion);
-        object.quaternion.set(0, 0, 0, 1);
-        let boundingBox = new THREE.Box3().setFromObject(object);
-        boundingBox.getSize(size);
-
-        object.quaternion.copy(meshQuaternion);
-
-        const boxShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
-        const boxBody = new CANNON.Body({
-            mass: 5,
-            material: objectMaterial
-        });
-        const offset = new CANNON.Vec3(0, size.y * 0.5, 0);
-        boxBody.addShape(boxShape, offset);
-        boxBody.position.copy(object.position);
-        boxBody.quaternion.copy(object.quaternion);
-        boxBody.threemesh = object;
-        boxBody.material = objectMaterial;
-        boxBody.collisionFilterGroup = materialGroups[3].group;
-        boxBody.collisionFilterMask = materialGroups[3].mask;
-
-        objectBodies.push(boxBody);
-        world.addBody(boxBody);
-    }
-}
-
-function playAccelerationSound(selectedCarNo) {
-    if (selectedCarNo === 0 && bmwAcc) {
-        bmwAcc.play();
-    } else if (selectedCarNo === 1 && porscheAcc) {
-        porscheAcc.play();
-    } else if (selectedCarNo === 2 && jeepAcc) {
-        jeepAcc.play();
-    }
-}
-
-
-function updateVehicleControls() {
-    //---------------------------
-    // 1) Aracın anlık hızını ölç
-    //---------------------------
-    // Sadece XZ düzlemindeki hızı (m/s)
-    const speed = getXZSpeed(vehicle.chassisBody);
-
-    //---------------------------
-    // 2) Direksiyon oranını hesapla
-    //---------------------------
-
-    // 2B) "speedRatio2": speedLimit'e göre
-    //    - 0 -> speed=0, 1 -> speed=speedLimit ya da üstü
-    let speedRatio2 = speed / speedLimit;
-    if (speedRatio2 > 1) speedRatio2 = 1;  // clamp
-
-    // 2C) Non-linear (örneğin dairesel) düşüş.
-    //    1 / (1 + steerFalloff * speed^2) -> Yüksek hızda agresif düşüş
-    const nonLinearFactor = 1 / (1 + steerFalloff * speed * speed);
-
-    // Şimdi bu 3 “faktör”ü birleştirelim.
-    // Örneğin:
-    // - Düşük hızda (0~mediumSpeed) tam direksiyon (mediumSteerFactor=1).
-    // - mediumSpeed üstünde artarak kısıtla, speedLimit'te minSteerFactor'e kadar düş.
-    // - Non-linear factor de devrede, ama istersen "blend" edebilirsin.
-
-    // Aşağıda basit bir blend örneği:
-    // direksiyonFactor = nonLinearFactor * lineerFactor
-    // lineerFactor = lerp(mediumSteerFactor, minSteerFactor, speedRatio2)
-    const linearFactor = mediumSteerFactor +
-        (minSteerFactor - mediumSteerFactor) * speedRatio2;
-
-    let steerFactor = nonLinearFactor * linearFactor;
-    // steerFactor aşırı düşük olmasın
-    if (steerFactor < 0.5) steerFactor = 0.5;
-
-    // 2D) Frenliyorsak (isBraking) direksiyon limitini biraz daha kıs
-    if (isBraking) {
-        steerFactor *= brakeSteerMultiplier;  // ~%60'a düşür
-    }
-
-    // Sonuç olarak bu frame'deki maks direksiyon
-    const effectiveMaxSteer = maxSteerVal * steerFactor;
-
-    //---------------------------
-    // 3) Motor Gücü
-    //---------------------------
-    if (isAccelerating) {
-        playAccelerationSound(selectedCarNo);
-        currentEngineForce = Math.min(
-            currentEngineForce + engineRamp,
-            maxEngineForce
-        );
-    } else if (isBraking) {
-        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
-        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
-        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
-        // Geri vitese mi alsın yoksa fren mi yapsın?
-        // Basitçe "geri" yaklaşımlardan biri:
-
-        currentEngineForce = Math.max(
-            currentEngineForce - engineRamp,
-            -maxEngineForce * 1
-        )
-    } else {
-        if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
-        if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
-        if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
-        // Ne gaz ne fren
-        const dampingFactor = 0.995; // Hızı azaltmak için katsayı
-        const velocity = vehicle.chassisBody.velocity;
-        vehicle.chassisBody.velocity.set(
-            velocity.x * dampingFactor,
-            velocity.y,
-            velocity.z * dampingFactor
-        );
-        if (currentEngineForce > 0) {
-            currentEngineForce = Math.max(currentEngineForce - engineRamp, 0);
-        } else {
-            currentEngineForce = Math.min(currentEngineForce + engineRamp, 0);
-        }
-    }
-
-    //---------------------------
-    // 4) Fren Uygula?
-    //---------------------------
-
-
-    let brakingValue = 0;
-    // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
-    if (isBraking) {
-        brakingValue = brakeForce;
-    }
-
-    //---------------------------
-    // 5) Direksiyon
-    //---------------------------
-    if (isSteeringLeft) {
-        // Sola doğru yavaşça art
-        currentSteering = Math.min(currentSteering + steerSpeed, effectiveMaxSteer);
-    } else if (isSteeringRight) {
-        // Sağa doğru yavaşça art
-        currentSteering = Math.max(currentSteering - steerSpeed, -effectiveMaxSteer);
-    } else {
-        // Ortalamaya dön (damping)
-        if (currentSteering > 0) {
-            currentSteering = Math.max(currentSteering - steerDamping, 0);
-        } else {
-            currentSteering = Math.min(currentSteering + steerDamping, 0);
-        }
-    }
-
-    //---------------------------
-    // 5.5) İvmelenme
-    //---------------------------
-
-    if (selectedCarNo === 0) {
-        maxSpeed = 243 / 3.6;
-    } else if (selectedCarNo === 1) {
-        maxSpeed = 304 / 3.6;
-    } else if (selectedCarNo === 2) {
-        maxSpeed = 156 / 3.6;
-    }
-    if (isBraking) {
-        if (speed >= rearMaxSpeed) {
-            currentEngineForce = 0;
-        } else {
-            const speedRatio = speed / rearMaxSpeed;
-            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
-            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
-        }
-    } else {
-        if (speed >= maxSpeed) {
-            currentEngineForce = 0;
-        } else {
-            const speedRatio = speed / maxSpeed;
-            const effectiveEngineForce = maxEngineForce * (1 - speedRatio * engineDropFactor);
-            currentEngineForce = Math.min(currentEngineForce, effectiveEngineForce);
-        }
-    }
-
-    //---------------------------
-    // 6) Araca Uygula
-    //---------------------------
-    // Frenleri sıfırla
-    vehicle.setBrake(0, 0);
-    vehicle.setBrake(0, 1);
-    vehicle.setBrake(0, 2); // Arka sol
-    vehicle.setBrake(0, 3); // Arka sağ
-    // (dört tekerleğe fren yapmak istiyorsan 2 ve 3. index'e de setBrake uygula)
-
-    // 3) Normal fren (ör. S tuşu) varsa ön tekerleklere uygula
-    if (isBraking) {
-        vehicle.setBrake(brakingValue, 0);  // front-left
-        vehicle.setBrake(brakingValue, 1);  // front-right
-    }
-
-    // 4) El freni aktifse, arka tekerleklere yüksek fren
-    if (isHandBraking) {
-        vehicle.setBrake(handbrakeForce, 2); // rear-left
-        vehicle.setBrake(handbrakeForce, 3); // rear-right
-    }
-
-    // Motor kuvveti -> genelde ön tekerler
-    vehicle.applyEngineForce(currentEngineForce, 0);
-    vehicle.applyEngineForce(currentEngineForce, 1);
-
-    // Direksiyon
-    vehicle.setSteeringValue(currentSteering, 0);
-    vehicle.setSteeringValue(currentSteering, 1);
-    updateSpeedometer();
-    updateSpeedSlider();
-    updateTurbometer();
-    updateTurboSlider();
-}
-
-function updateSpeedometer() {
-    const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
-    const speedKmH = Math.round(speed * 3.6);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
-    const speedometerText = document.getElementById('speed-value');
-    speedometerText.textContent = `Speed ${speedKmH}KM`;
-}
-
-function updateSpeedSlider() {
-    const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
-    const sliderFill = document.getElementById('speed-slider-fill');
-    const tSpeed = 304 / 3.6;
-    const fillPercentage = (speed / tSpeed) * 100;
-    sliderFill.style.width = `${fillPercentage}%`;
-}
-
-function updateTurbometer() {
-    const turbometerText = document.getElementById('turbo-value');
-    turbometerText.textContent = `Turbo ${turboLevel.toFixed(0)}%`;
-}
-
-function updateTurboSlider() {
-    const turbosliderFill = document.getElementById('turbo-slider-fill');
-    turbosliderFill.style.width = `${turboLevel}%`;
-}
-
-document.addEventListener('keydown', (event) => {
-    if (event.key.toLowerCase() === 'shift' && turboLevel > 0) {
-        setIsTurboActive(true);
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    if (event.key.toLowerCase() === 'shift') {
-        setIsTurboActive(false);
-    }
-});
-
-let turboBaseForce = maxEngineForce; // Nitro yokken motor gücü
-
-function updateTurbo(deltaTime) {
-    if (isTurboActive && turboLevel > 0 && isAccelerating) {
-        turboVroom = true;
-        turboSound.play();
-        maxEngineForce = turboBaseForce * 1.5;
-        turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalır
-        if (turboLevel <= 0) {
-            turboLevel = 0;
-            setIsTurboActive(false); // Turbo sıfırlandığında devre dışı
-            turboVroom = false;
-        }
-    } else {
-        maxEngineForce = turboBaseForce; // Nitro aktif değilse motor gücü varsayılana döner
-        turboVroom = false;
-        turboSound.stop();
-        if (turboLevel < 100) {
-            turboLevel += 0.01 * deltaTime * 60;
-            if (turboLevel > 100) {
-                turboLevel = 100;
-            }
-        }
-    }
-}
-
 function updateCamera() {
     const currentTime = performance.now();
 
@@ -1176,14 +636,14 @@ function updateCamera() {
                 try {
                     const velocity = vehicle.chassisBody.velocity.length();
                     let turboEffect = 0; // Başlangıç değeri
-                    if (turboVroom) {
-                        if (startTurboTime === null) {
-                            startTurboTime = performance.now(); // Turbo başladığında zamanı kaydet
+                    if (getTurboVroom()) {
+                        if (getStartTurboTime() === null) {
+                            setStartTurboTime(performance.now()); // Turbo başladığında zamanı kaydet
                         }
-                        const turboElapsed = Math.min((performance.now() - startTurboTime) / 5000, 1); // 2 saniyede maksimuma ulaş
+                        const turboElapsed = Math.min((performance.now() - getStartTurboTime()) / 5000, 1); // 2 saniyede maksimuma ulaş
                         turboEffect = THREE.MathUtils.lerp(0.8, 2.4, turboElapsed); // 1'den 3'e doğru artış
                     } else {
-                        startTurboTime = null; // Turbo durduğunda sıfırla
+                        setStartTurboTime(null); // Turbo durduğunda sıfırla
                     }
 
                     cameraTargetZ = THREE.MathUtils.clamp(
@@ -1451,10 +911,7 @@ function animate() {
             document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
         }
 
-        objectBodies.forEach((body) => {
-            body.threemesh.position.copy(body.position);
-            body.threemesh.quaternion.copy(body.quaternion);
-        });
+        syncObjectBodies();
 
         const velocity = vehicle.chassisBody.velocity;
         const speed = getXZSpeed(vehicle.chassisBody);
@@ -2181,7 +1638,7 @@ function sandBox() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene).then(() => updateMapMaterials(useShadow, scene)).then(createColliders).then(createObjects);
+    loadMap(scene).then(() => updateMapMaterials(useShadow, scene)).then(createColliders).then(() => createObjects(objectMaterial, materialGroups));
     createFrictionPairs();
     const HDR_PATHS = ['public/hdrinew.hdr', 'public/hdrisunset.hdr', 'public/hdrinight.hdr'];
     const HDR_INTENSITIES = [0.2, undefined, undefined];
@@ -2190,7 +1647,7 @@ function main() {
     const carTypes = ['bmw', 'porsche', 'jeep'];
     loadCar(scene, carTypes[selectedCarNo])
         .then(setCameraComposer)
-        .then(createVehicle)
+        .then(() => createVehicle(bodyMaterial, wheelMaterial, materialGroups))
         .then(createOrbitControls);
 
     animate();
