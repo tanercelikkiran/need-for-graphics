@@ -505,13 +505,9 @@ export function loadJeep(scene) {
                         metallicPaint(child.material,carColor);
                     }
                     if (child.name.includes("Brakelight")) {
-                        const originalMaterial = child.material;
+                        emissiveLight(child, 0xff3333, 2); // one-time setup
                         world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            }else{
-                                child.material = originalMaterial;
-                            }
+                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
                         });
                     }
                     if (child.name.includes("Taillight")) {
@@ -628,22 +624,14 @@ export function loadBMW(scene) {
                             metalness: 0.1, // Biraz metalik görünüm
                         });
                         world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                child.material.emissiveIntensity = 5;
-                            }else{
-                                child.material.emissiveIntensity = 2;
-                            }
+                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 5 : 2;
                         });
 
                     }
                     if (child.name.includes("Brakelight")) {
-                        const originalMaterial = child.material;
+                        emissiveLight(child, 0xff3333, 2); // one-time setup
                         world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                            }else{
-                                child.material = originalMaterial;
-                            }
+                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
                         });
                     }
                     if (child.name.includes("Headlight")) {
@@ -760,12 +748,9 @@ export function loadPorsche(scene) {
                             });
                         }
                         if (child.name.includes("Studio_Car252_light")) {
+                            emissiveLight(child, 0xff3333, 5); // one-time setup
                             world.addEventListener("postStep", () => {
-                                if (isBraking || isTurboActive) {
-                                    emissiveLight(child, 0xff3333, 20); // Fren yapıldığında parlaklık
-                                }else{
-                                    emissiveLight(child, 0xff3333, 5);
-                                }
+                                child.material.emissiveIntensity = (isBraking || isTurboActive) ? 20 : 5;
                             });
                         }
                         if (child.name.includes("Studio_Car252_taillights1")) {
@@ -780,13 +765,9 @@ export function loadPorsche(scene) {
                             child.add(pointLight2);
                         }
                         if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
-                            const originalMaterial = child.material;
+                            emissiveLight(child, 0xff3333, 2); // one-time setup
                             world.addEventListener("postStep", () => {
-                                if (isBraking || isTurboActive) {
-                                    emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                                }else{
-                                    child.material = originalMaterial;
-                                }
+                                child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
                             });
                         }
                     }

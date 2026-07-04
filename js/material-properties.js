@@ -78,6 +78,12 @@ export function emissiveLight(mesh, emissiveColor, intensity) {
     });
 }
 
+export function setEmissiveIntensity(mesh, intensity) {
+    if (mesh.material && mesh.material.isMaterial) {
+        mesh.material.emissiveIntensity = intensity;
+    }
+}
+
 export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 15, angle = Math.PI / 4, distance = 50) {
 
     const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 1);
