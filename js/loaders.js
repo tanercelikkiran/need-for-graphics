@@ -183,7 +183,6 @@ const CAR_MATERIAL_CONFIGS = {
 
 export let audioListener;
 export let bmwAcc, porscheAcc, jeepAcc,bmwEngine, porscheEngine, jeepEngine,slide,turboSound;
-export let korna;
 
 export function loadSounds(scene) {
     audioListener = new THREE.AudioListener();
