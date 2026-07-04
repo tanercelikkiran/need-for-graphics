@@ -381,20 +381,14 @@ export function updateMapMaterials(mode, scene) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 child.material = createShadowMaterial(texture, sunLight, hemisphereLight);
-                scene.remove(skyMesh);
-                renderer.toneMappingExposure = 0.5;
-                motionBlurPass.enabled = false;
-                bloomPass.strength = 0.4;
-                bloomPass.radius = 1.0;
             } else if (mode === 1) {
                 // Fog mode
                 child.material = createFogMaterial(texture);
-                const skyFogMaterial = createFogMaterial(null);
-                skyMesh.material = skyFogMaterial;
-                if (!scene.children.includes(skyMesh)) {
-                    scene.add(skyMesh);
+            } else if (mode >= 2) {
+                // Standard mode: restore original material
+                if (mapOriginalMaterials.has(child)) {
+                    child.material = mapOriginalMaterials.get(child);
                 }
-                renderer.toneMappingExposure = 0.2;
             }
             return;
         }
@@ -411,16 +405,32 @@ export function updateMapMaterials(mode, scene) {
                 }
             }
         }
-
-        // Standard mode renderer settings (applied once per mesh, not per frame)
-        if (mode >= 2 && mapOriginalMaterials.has(child)) {
-            renderer.toneMappingExposure = 1.2;
-            scene.remove(skyMesh);
-            bloomPass.strength = 0.8;
-            bloomPass.radius = 0.4;
-            motionBlurPass.enabled = mode > 2;
-        }
     });
+
+    // Apply renderer settings once per mode switch (not per mesh)
+    if (mode === 0) {
+        // Shadow mode
+        scene.remove(skyMesh);
+        renderer.toneMappingExposure = 0.5;
+        motionBlurPass.enabled = false;
+        bloomPass.strength = 0.4;
+        bloomPass.radius = 1.0;
+    } else if (mode === 1) {
+        // Fog mode
+        const skyFogMaterial = createFogMaterial(null);
+        skyMesh.material = skyFogMaterial;
+        if (!scene.children.includes(skyMesh)) {
+            scene.add(skyMesh);
+        }
+        renderer.toneMappingExposure = 0.2;
+    } else if (mode >= 2) {
+        // Standard mode
+        scene.remove(skyMesh);
+        renderer.toneMappingExposure = 1.2;
+        bloomPass.strength = 0.8;
+        bloomPass.radius = 0.4;
+        motionBlurPass.enabled = mode > 2;
+    }
 }
 
 export function loadMap(scene) {
