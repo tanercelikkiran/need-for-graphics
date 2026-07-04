@@ -1430,7 +1430,7 @@ minimapRenderer.domElement.style.position = "absolute";
 minimapRenderer.domElement.style.bottom = "-0.5%";
 minimapRenderer.domElement.style.right = "-0.5%";
 minimapRenderer.domElement.style.borderRadius = "50%";
-minimapRenderer.domElement.style.zindex = "1";
+minimapRenderer.domElement.style.zIndex = "1";
 
 window.addEventListener("resize", () => {
     setMinimapSize(); // Boyutu yeniden ayarla
