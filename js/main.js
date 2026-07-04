@@ -1317,7 +1317,7 @@ function updateRemainingTime(deltaTime) {
             const miliseconds = Math.floor(elapsedTime / 10 % 100);
             document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(miliseconds).padStart(2, '0')}`;
             document.getElementById('menu-button').addEventListener('click', function (event) {
-                location.reload(true); // Önbelleği atlayarak sayfayı yeniler
+                location.reload(); // Önbelleği atlayarak sayfayı yeniler
             });
         }
         const seconds = Math.floor(remainingTime % 600);
