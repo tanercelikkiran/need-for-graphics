@@ -8,6 +8,63 @@ import { scene, renderer, composer, vehicle } from "./state.js";
 import { getTurboVroom, getStartTurboTime, setStartTurboTime } from "./vehicle.js";
 import { carMesh } from "./loaders.js";
 
+// Camera state machine
+export const CameraMode = Object.freeze({
+    IDLE: 'IDLE',
+    MOVING_FORWARD: 'MOVING_FORWARD',
+    BRAKING: 'BRAKING',
+    REVERSING: 'REVERSING',
+    RETURNING_IDLE: 'RETURNING_IDLE',
+    MOVING_LEFT: 'MOVING_LEFT',
+    MOVING_RIGHT: 'MOVING_RIGHT',
+    RETURNING_X: 'RETURNING_X',
+    NAME_CAMERA: 'NAME_CAMERA',
+});
+
+// Camera context — holds current mode and per-mode animation state
+const cameraCtx = {
+    mode: CameraMode.IDLE,
+    modeStartTime: null,
+
+    // Z-axis animation state (vertical movement)
+    startZ: 6.3,
+    targetZ: 6.3,
+
+    // X-axis animation state (horizontal movement)
+    startX: 0,
+    targetX: 0,
+
+    // Y-axis animation state
+    startY: 2.0,
+
+    // Braking sub-phase (replaces isBrakingPhase: 0, 1, 2)
+    brakingPhase: 0,
+
+    // Turbo camera effect
+    startTurboTime: null,
+
+    // Name camera animation
+    lookAtStart: new THREE.Vector3(),
+    lookAtEnd: new THREE.Vector3(),
+    lookAtStartTime: null,
+    startQuat: new THREE.Quaternion(),
+    endQuat: new THREE.Quaternion(),
+};
+
+function transitionTo(newMode) {
+    const activeCamera = scene.userData.activeCamera;
+    if (!activeCamera) return;
+
+    // Snapshot current position for lerp start
+    cameraCtx.startZ = activeCamera.position.z;
+    cameraCtx.startX = activeCamera.position.x;
+    cameraCtx.startY = activeCamera.position.y;
+    cameraCtx.modeStartTime = performance.now();
+    cameraCtx.mode = newMode;
+}
+
+export { cameraCtx };
+
 // ================================================
 // KAMERA POZİSYONLARI - DİKEY HAREKET
 // ================================================
