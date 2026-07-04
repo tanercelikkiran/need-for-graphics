@@ -94,51 +94,51 @@ let currentSteering = 0;
 // 3) TEMEL AYARLAR
 // ================================================
 let maxEngineForce = 4500;  // Sports cars have more powerful engines
-let engineRamp = 800;   // Faster throttle response
-let brakeForce = 50;   // Stronger braking force
+const engineRamp = 800;   // Faster throttle response
+const brakeForce = 50;   // Stronger braking force
 
 // ================================================
 // 4) DİREKSİYON VE DAMPING AYARLARI
 // ================================================
-let maxSteerVal = Math.PI / 7;  // Steering range remains the same (~45 degrees)
-let steerSpeed = 0.01;         // Reduced steering speed (slower turns)
-let steerDamping = 0.1;         // Increased damping (slower return to center)
+const maxSteerVal = Math.PI / 7;  // Steering range remains the same (~45 degrees)
+const steerSpeed = 0.01;         // Reduced steering speed (slower turns)
+const steerDamping = 0.1;         // Increased damping (slower return to center)
 // ================================================
 // 5) HIZ BAZLI DİREKSİYON AYARLARI
 // ================================================
-let speedLimit = 80;       // Higher speed before steering reduces (~288 km/h)
-let minSteerFactor = 0.2;      // Steering effectiveness drops less at high speeds
-let mediumSpeed = 30;       // Medium speed (~108 km/h)
-let mediumSteerFactor = 1.0;      // Full steering effectiveness below mediumSpeed
-let steerFalloff = 0.001;    // Slightly less aggressive falloff
+const speedLimit = 80;       // Higher speed before steering reduces (~288 km/h)
+const minSteerFactor = 0.2;      // Steering effectiveness drops less at high speeds
+const mediumSpeed = 30;       // Medium speed (~108 km/h)
+const mediumSteerFactor = 1.0;      // Full steering effectiveness below mediumSpeed
+const steerFalloff = 0.001;    // Slightly less aggressive falloff
 
 // ================================================
 // 6) FREN ANINDA EKSTRA DİREKSİYON KISITLAMASI
 // ================================================
-let brakeSteerMultiplier = 0.7;    // Slightly more forgiving during braking
+const brakeSteerMultiplier = 0.7;    // Slightly more forgiving during braking
 
 // ================================================
 // 7) EL FRENİ & DRIFT AYARLARI
 // ================================================
-let handbrakeForce = 400;          // Stronger handbrake for drifting
-let driftSlip = 0.7;          // Lower friction for drifting
-let normalSlip = 4.8;          // Slightly more slippery tires for agility
+const handbrakeForce = 400;          // Stronger handbrake for drifting
+const driftSlip = 0.7;          // Lower friction for drifting
+const normalSlip = 4.8;          // Slightly more slippery tires for agility
 
 // ================================================
 // 8) KAMERA POZİSYONLARI - DİKEY HAREKET
 // ================================================
-let cameraStartZ = 6.3;   // Adjusted for a more dynamic view
+const cameraStartZ = 6.3;   // Adjusted for a more dynamic view
 let cameraTargetZ;                       // Anlık hedef Z (dinamik)
-let maxCameraTargetZ = 7.8;   // Camera zooms out further
-let minCameraTargetZ = 6.6;
-let brakingCameraZ = 5.3;   // Closer view during braking
-let rearingCameraZ = 5.8;
-let backingCameraZ = 6.8;
-let speedFactor = 0.03;  // Faster camera zooming
-let cameraBackZ = 6.0;   // Slightly forward position on stop
-let cameraAnimationDuration3 = 1500; // Faster animations
-let cameraAnimationDuration2 = 500;
-let cameraAnimationDuration1 = 800;
+const maxCameraTargetZ = 7.8;   // Camera zooms out further
+const minCameraTargetZ = 6.6;
+const brakingCameraZ = 5.3;   // Closer view during braking
+const rearingCameraZ = 5.8;
+const backingCameraZ = 6.8;
+const speedFactor = 0.03;  // Faster camera zooming
+const cameraBackZ = 6.0;   // Slightly forward position on stop
+const cameraAnimationDuration3 = 1500; // Faster animations
+const cameraAnimationDuration2 = 500;
+const cameraAnimationDuration1 = 800;
 let cameraAnimationStartTime = null; // Animasyon için referans zaman
 let isMovingForward = false;
 let isMovingBackward = false;
@@ -162,21 +162,21 @@ let endQuaternion = new THREE.Quaternion();
 // ================================================
 let isMovingLeft = false;
 let isMovingRight = false;
-let cameraStartX = 0;
-let cameraLeftTargetX = -1.2; // Wider camera movement for dramatic effect
-let cameraRightTargetX = 1.2;
+const cameraStartX = 0;
+const cameraLeftTargetX = -1.2; // Wider camera movement for dramatic effect
+const cameraRightTargetX = 1.2;
 let cameraAnimationStartTimeX = null;
 let cameraAnimationStartTimeC = null;
 let currentCameraX = cameraStartX;
-let cameraStartY = 2.0;
+const cameraStartY = 2.0;
 let currentCameraY = cameraStartY;
 
 // ================================================
 // 10) TOP SPEED VE İVMELENME AYARLARI
 // ================================================
 let maxSpeed = 304 / 3.6; // Maksimum hız (304 km/h -> m/s)
-let rearMaxSpeed = 70 / 3.6;
-let engineDropFactor = 0.7;
+const rearMaxSpeed = 70 / 3.6;
+const engineDropFactor = 0.7;
 
 // ================================================
 // 11) TURBO GO VROOOOOOOOM
