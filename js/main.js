@@ -438,28 +438,22 @@ function setCannonWorld() {
     // cannonDebugger = new CannonDebugger(scene, world);
 
     world.addEventListener("beginContact", (event) => {
-        const bodyA = event.bodyA; // Temas eden ilk nesne
-        const bodyB = event.bodyB; // Temas eden ikinci nesne
+        const bodyA = event.bodyA;
+        const bodyB = event.bodyB;
 
-        // Varsayılan değer
         let newFrictionSlip = surfaceFrictionValues.default;
 
-        // Malzeme kontrolü
-        if (bodyA.material && bodyA.material.name === "grass" || bodyB.material && bodyB.material.name === "grass") {
+        const materials = [bodyA.material?.name, bodyB.material?.name];
+        if (materials.includes("grass")) {
             newFrictionSlip = surfaceFrictionValues.grass;
-        } else if (bodyA.material && bodyA.material.name === "ice" || bodyB.material && bodyB.material.name === "ice") {
+        } else if (materials.includes("ice")) {
             newFrictionSlip = surfaceFrictionValues.ice;
-        } else if (bodyA.material && bodyA.material.name === "gravel" || bodyB.material && bodyB.material.name === "gravel") {
+        } else if (materials.includes("gravel")) {
             newFrictionSlip = surfaceFrictionValues.gravel;
-        } else if (bodyB.material && bodyB.material.name === "grass" || bodyA.material && bodyA.material.name === "grass") {
-            newFrictionSlip = surfaceFrictionValues.grass;
-        } else if (bodyB.material && bodyB.material.name === "ice" || bodyA.material && bodyA.material.name === "ice") {
-            newFrictionSlip = surfaceFrictionValues.ice;
-        } else if (bodyB.material && bodyB.material.name === "gravel" || bodyA.material && bodyA.material.name === "gravel") {
-            newFrictionSlip = surfaceFrictionValues.gravel;
+        } else if (materials.includes("mud")) {
+            newFrictionSlip = surfaceFrictionValues.mud;
         }
-        console.log(newFrictionSlip);
-        // Tekerlek sürtünmesini güncelle
+
         updateWheelFriction(vehicle, newFrictionSlip);
     });
 
