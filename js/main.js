@@ -210,8 +210,9 @@ let countdownStarted = false;
 
 export let selectedCarNo = 0;
 
-let porscheMass = 1420;
-let porscheWheelOptions = {
+// Car configuration: mass and wheel option overrides per car index
+// 0 = Porsche, 1 = BMW, 2 = Jeep
+const baseWheelOptions = {
     mass: 15,
     radius: 0.35,
     directionLocal: new CANNON.Vec3(0, -1, 0),
@@ -226,43 +227,13 @@ let porscheWheelOptions = {
     chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
     maxSuspensionTravel: 0.3,
     customSlidingRotationalSpeed: -30
-}
+};
 
-let bmwMass = 1504;
-let bmwWheelOptions = {
-    mass: 15,
-    radius: 0.35,
-    directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 50,
-    suspensionRestLength: 0.3,
-    frictionSlip: 5,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
-    maxSuspensionForce: 100000,
-    rollInfluence: 0.01,
-    axleLocal: new CANNON.Vec3(-1, 0, 0),
-    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
-    maxSuspensionTravel: 0.3,
-    customSlidingRotationalSpeed: -30
-}
-
-let jeepMass = 2306;
-let jeepWheelOptions = {
-    mass: 15,
-    radius: 0.42,
-    directionLocal: new CANNON.Vec3(0, -1, 0),
-    suspensionStiffness: 30,
-    suspensionRestLength: 0.3,
-    frictionSlip: 5,
-    dampingRelaxation: 2.3,
-    dampingCompression: 4.4,
-    maxSuspensionForce: 100000,
-    rollInfluence: 0.01,
-    axleLocal: new CANNON.Vec3(-1, 0, 0),
-    chassisConnectionPointLocal: new CANNON.Vec3(0, 0, 0),
-    maxSuspensionTravel: 0.3,
-    customSlidingRotationalSpeed: -30
-}
+const CAR_CONFIGS = [
+    { mass: 1420, wheelOverrides: {} },                                    // Porsche
+    { mass: 1504, wheelOverrides: { suspensionStiffness: 50 } },           // BMW
+    { mass: 2306, wheelOverrides: { radius: 0.42 } },                      // Jeep
+];
 
 function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
@@ -734,23 +705,9 @@ function getUpAxis(body) {
 
 function createVehicle() {
 
-    let vehicleMass = 0;
-    let wheelOptions = {};
-
-    switch (selectedCarNo) {
-        case 0:
-            vehicleMass = porscheMass;
-            wheelOptions = porscheWheelOptions;
-            break;
-        case 1:
-            vehicleMass = bmwMass;
-            wheelOptions = bmwWheelOptions;
-            break;
-        case 2:
-            vehicleMass = jeepMass;
-            wheelOptions = jeepWheelOptions;
-            break;
-    }
+    const config = CAR_CONFIGS[selectedCarNo];
+    const vehicleMass = config.mass;
+    const wheelOptions = { ...baseWheelOptions, ...config.wheelOverrides };
 
     carSize = new THREE.Vector3();
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
