@@ -50,3 +50,16 @@ export function setIsBraking(v) { isBraking = v; }
 export function setIsTurboActive(v) { isTurboActive = v; }
 export function setUseShadow(v) { useShadow = v; }
 export function setObjects(v) { objects = v; }
+
+// Game flow state machine
+export const GameState = Object.freeze({
+    INTRO: 'INTRO',
+    SANDBOX: 'SANDBOX',
+    LOADING: 'LOADING',
+    COUNTDOWN: 'COUNTDOWN',
+    PLAYING: 'PLAYING',
+    GAME_OVER: 'GAME_OVER',
+});
+
+export let gameState = GameState.INTRO;
+export function setGameState(v) { gameState = v; }
