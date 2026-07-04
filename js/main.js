@@ -796,11 +796,6 @@ function updateVehicleControls() {
     // 2) Direksiyon oranını hesapla
     //---------------------------
 
-    // 2A) "speedRatio1": mediumSpeed'e göre basit linear
-    //    - 0 -> speed=0, 1 -> speed=mediumSpeed
-    //    - mediumSpeed üzerinde, 1'i aşar
-    let speedRatio1 = speed / mediumSpeed;
-
     // 2B) "speedRatio2": speedLimit'e göre
     //    - 0 -> speed=0, 1 -> speed=speedLimit ya da üstü
     let speedRatio2 = speed / speedLimit;
