@@ -35,6 +35,11 @@ export let world, cannonDebugger, vehicle, carSize, isBraking, isTurboActive, us
 export let objects = [];
 let objectBodies = []; // Array of CANNON bodies for the objects
 
+function getXZSpeed(body) {
+    const v = body.velocity;
+    return Math.sqrt(v.x * v.x + v.z * v.z);
+}
+
 carColor = 0x5C0007;
 
 const motionBlurShader = {
@@ -850,9 +855,8 @@ function updateVehicleControls() {
     //---------------------------
     // 1) Aracın anlık hızını ölç
     //---------------------------
-    const velocity = vehicle.chassisBody.velocity;
     // Sadece XZ düzlemindeki hızı (m/s)
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+    const speed = getXZSpeed(vehicle.chassisBody);
 
     //---------------------------
     // 2) Direksiyon oranını hesapla
@@ -1024,16 +1028,14 @@ function updateVehicleControls() {
 }
 
 function updateSpeedometer() {
-    const velocity = vehicle.chassisBody.velocity;
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
     const speedKmH = Math.round(speed * 3.6);  // m/s'den km/h'ye dönüşüm (3.6 ile çarp)
     const speedometerText = document.getElementById('speed-value');
     speedometerText.textContent = `Speed ${speedKmH}KM`;
 }
 
 function updateSpeedSlider() {
-    const velocity = vehicle.chassisBody.velocity;
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
     const sliderFill = document.getElementById('speed-slider-fill');
     const tSpeed = 304 / 3.6;
     const fillPercentage = (speed / tSpeed) * 100;
@@ -1293,8 +1295,7 @@ function updateTimer(deltaTime) {
 
 function updateScore(deltaTime) {
     scoreTime -= deltaTime / 1000;
-    const velocity = vehicle.chassisBody.velocity;
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);  // XZ düzlemindeki hız
+    const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
     const seconds = Math.floor(scoreTime % 600);
     score += speed * 0.000001;
     const secondssqr = Math.pow(seconds, 2)
@@ -1450,7 +1451,7 @@ function animate() {
         });
 
         const velocity = vehicle.chassisBody.velocity;
-        const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        const speed = getXZSpeed(vehicle.chassisBody);
         motionBlurPass.uniforms['velocityFactor'].value = speed * 100;
         if (velocity.length() > 0 && velocity.length() < 0.2 && !isMovingForward && !isMovingBackward) {
             // Eğer araba duruyorsa idle pozisyonuna geç
