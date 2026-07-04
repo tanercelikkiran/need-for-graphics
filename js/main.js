@@ -1617,6 +1617,9 @@ document.addEventListener('keydown', (h) => {
 });
 
 function initIntro() {
+    const introAbortController = new AbortController();
+    const introAbortSignal = introAbortController.signal;
+
     sceneIntro = new THREE.Scene();
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -1761,7 +1764,7 @@ function initIntro() {
 
         // Işığın hedefe bakmasını sağla
         spotLight.target.updateMatrixWorld();
-    });
+    }, { signal: introAbortSignal });
     window.addEventListener('resize', () => {
         // Yeni boyutları al
         const width = window.innerWidth;
@@ -1845,7 +1848,7 @@ function initIntro() {
             // Diğer sahne temizlemeleri
             sceneIntro.clear(); // Sahneyi temizle
 
-            document.removeEventListener('keydown', this);
+            introAbortController.abort();
             main();
             timeValue.style.display = 'block';
             speedometer.style.display = 'block';
@@ -1936,7 +1939,7 @@ function initIntro() {
             // Diğer sahne temizlemeleri
             sceneIntro.clear(); // Sahneyi temizle
 
-            document.removeEventListener('keydown', this);
+            introAbortController.abort();
             sandBox(); // Sandbox sahnesini başlat
 
 
