@@ -30,6 +30,10 @@ let carMesh;
 let wheelMeshes = [];
 export {carMesh, wheelMeshes};
 
+// Module-level references for event-driven material switching
+let mapGltfScene = null;
+let mapOriginalMaterials = null;
+
 export const manager = new THREE.LoadingManager();
 const loadingScreen = document.getElementById('loading-screen');
 const loadingFill = document.getElementById('loadingFill');
@@ -260,13 +264,25 @@ export function loadSounds(scene) {
     });
 }
 
-function loadShader(url) {
-    return fetch(url).then(response => response.text());
+async function loadShader(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to load shader: ${url} (${response.status})`);
+    }
+    return response.text();
 }
 
-const FogVertexShader = await loadShader("shaders/FogVertex.glsl");
-
-const FogFragmentShader = await loadShader("shaders/FogFragment.glsl");
+let FogVertexShader, FogFragmentShader, ShadowVertexShader, ShadowFragmentShader;
+try {
+    [FogVertexShader, FogFragmentShader, ShadowVertexShader, ShadowFragmentShader] = await Promise.all([
+        loadShader("shaders/FogVertex.glsl"),
+        loadShader("shaders/FogFragment.glsl"),
+        loadShader("shaders/ShadowVertex.glsl"),
+        loadShader("shaders/ShadowFragment.glsl"),
+    ]);
+} catch (e) {
+    console.error("Shader loading failed:", e);
+}
 
 export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.4, 0.4),solidColor = new THREE.Color(0.0, 0.0, 0.0)) {
     return new THREE.RawShaderMaterial({
@@ -278,15 +294,12 @@ export function createFogMaterial(diffuseMap, fogColor = new THREE.Color(0.4, 0.
             uFogNear: { value: 15.0 },
             uFogFar: { value: 50.0 },
             uFogColor: { value: fogColor },
+            uFogDensity: { value: 0.9 },
             uSolidColor: { value: solidColor }, // Add solid color
             uHasTexture: { value: !!diffuseMap }, // Check if a texture is provided
         }
     });
 }
-
-const ShadowVertexShader = await loadShader("shaders/ShadowVertex.glsl");
-
-const ShadowFragmentShader = await loadShader("shaders/ShadowFragment.glsl");
 
 export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
     // The directional light’s camera is used for shadow generation.
@@ -348,9 +361,71 @@ export function createShadowMaterial(diffuseTexture,sunLight,hemisphereLight) {
     });
 }
 
+/**
+ * Switches city map materials based on the current visual mode.
+ * Called once when useShadow changes, NOT every frame.
+ * Modes: 0 = shadow shader, 1 = fog shader, 2 = standard, 3 = standard + motion blur
+ */
+export function updateMapMaterials(mode, scene) {
+    if (!mapGltfScene || !mapOriginalMaterials) return;
+
+    mapGltfScene.traverse(function (child) {
+        if (!child.isMesh || !child.material) return;
+
+        // Meshes with a diffuse texture that was wrapped in a custom shader
+        if (child.material.uniforms && child.material.uniforms.diffuseMap) {
+            const texture = child.material.uniforms.diffuseMap.value;
+
+            if (mode === 0) {
+                // Shadow mode
+                child.castShadow = true;
+                child.receiveShadow = true;
+                child.material = createShadowMaterial(texture, sunLight, hemisphereLight);
+                scene.remove(skyMesh);
+                renderer.toneMappingExposure = 0.5;
+                motionBlurPass.enabled = false;
+                bloomPass.strength = 0.4;
+                bloomPass.radius = 1.0;
+            } else if (mode === 1) {
+                // Fog mode
+                child.material = createFogMaterial(texture);
+                const skyFogMaterial = createFogMaterial(null);
+                skyMesh.material = skyFogMaterial;
+                if (!scene.children.includes(skyMesh)) {
+                    scene.add(skyMesh);
+                }
+                renderer.toneMappingExposure = 0.2;
+            }
+            return;
+        }
+
+        // Meshes with a standard diffuse map (city buildings, etc.)
+        if (child.material.map) {
+            if (mode < 2) {
+                // Fog/shadow modes: wrap texture in fog material
+                child.material = createFogMaterial(child.material.map);
+            } else {
+                // Standard modes: restore original material
+                if (mapOriginalMaterials.has(child)) {
+                    child.material = mapOriginalMaterials.get(child);
+                }
+            }
+        }
+
+        // Standard mode renderer settings (applied once per mesh, not per frame)
+        if (mode >= 2 && mapOriginalMaterials.has(child)) {
+            renderer.toneMappingExposure = 1.2;
+            scene.remove(skyMesh);
+            bloomPass.strength = 0.8;
+            bloomPass.radius = 0.4;
+            motionBlurPass.enabled = mode > 2;
+        }
+    });
+}
+
 export function loadMap(scene) {
     const originalMaterials = new Map();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         gltfLoader.load(
             'public/city.glb',
             function (gltf) {
@@ -390,76 +465,35 @@ export function loadMap(scene) {
                     child.visible = false; // Make the child invisible
                 }
             });
-            world.addEventListener("postStep", () => {
-                gltf.scene.traverse(function (child) {
-                    if (child.isMesh && child.material) {
-                        if (useShadow<2) {
 
-                            if (child.material.map) {
-                                const cityTexture = child.material.map;
-                                const customCityMaterial = createFogMaterial(cityTexture);
-                                child.material = customCityMaterial;
-                            }
-                        } else {
-                            if (originalMaterials.has(child)) {
-                                child.material = originalMaterials.get(child);
-                                renderer.toneMappingExposure=1.2;
-                                scene.remove(skyMesh);
-                                bloomPass.strength=0.8;
-                                bloomPass.radius=0.4;
-                            }
-                            if (useShadow>2) {
-                                motionBlurPass.enabled=true;
-                            }
-                        }
-                    }
-                    if (child.isMesh && child.material && child.material.uniforms &&   child.material.uniforms.diffuseMap) {
-                        const texture = child.material.uniforms.diffuseMap.value;
-                        if (useShadow===0) {
-                            child.castShadow = true;
-                            child.receiveShadow = true;
-                            child.material =  createShadowMaterial(texture,sunLight,hemisphereLight);
-                            scene.remove(skyMesh);
-                            renderer.toneMappingExposure = 0.5;
-                            motionBlurPass.enabled=false;
-                            bloomPass.strength=0.4;
-                            bloomPass.radius=1.0;
-                        } else if (useShadow===1){
-
-                            child.material = createFogMaterial(texture);
-                            const skyFogMaterial = createFogMaterial(null);
-                            skyMesh.material = skyFogMaterial;
-                            if (!scene.children.includes(skyMesh)) {
-                                scene.add(skyMesh);
-                            }
-                            renderer.toneMappingExposure = 0.2;
-                        }
-                    }
-                });
-
-            });
+            // Store references for event-driven material switching (no postStep listener)
+            mapGltfScene = gltf.scene;
+            mapOriginalMaterials = originalMaterials;
 
             resolve();
         },
         null,
         function (error) {
             console.error('An error happened:', error);
+            reject(error);
         });
     });
 }
 
-export function loadHDR(scene) {
-    rgbeLoader.load('public/hdrinew.hdr', function (texture) {
+export function loadHDR(scene, hdrPath = 'public/hdrinew.hdr', intensity) {
+    rgbeLoader.load(hdrPath, function (texture) {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture;
         scene.background = texture;
-        scene.environment.intensity = 0.2;
+        if (intensity !== undefined) {
+            scene.environment.intensity = intensity;
+        }
     });
 }
 
 export function loadCar(scene, carType) {
     const config = CAR_MATERIAL_CONFIGS[carType];
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         fbxLoader.load(config.bodyPath, (object) => {
             carMesh = object;
             scene.add(object);
@@ -471,47 +505,70 @@ export function loadCar(scene, carType) {
             object.add(carCamera);
             scene.userData.activeCamera = carCamera;
 
+            const headlightUpdates = [];
+            const brakeLightMeshes = [];
+
             object.traverse(function(child) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
                     config.setupMesh(child, carColor);
 
-                    // Headlights with spotlight
+                    // Collect headlight meshes for consolidated postStep update
                     if (config.setupHeadlights && config.headlightMeshNames.some(name => child.name.includes(name))) {
                         const spot = config.setupHeadlights(child, scene);
-                        world.addEventListener("postStep", () => {
-                            const pos = child.getWorldPosition(new THREE.Vector3());
-                            const dir = config.headlightDirection(child);
-                            spot.updatePositionAndDirection(pos, pos.clone().add(dir));
-                        });
+                        headlightUpdates.push({ child, spot, config });
                     }
 
-                    // Brake/tail lights with postStep toggle
-                    if (child.name.includes("Brakelight") || child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
-                        world.addEventListener("postStep", () => {
-                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
-                        });
-                    }
-                    if (child.name.includes("Rearlight") && carType === 'bmw') {
-                        world.addEventListener("postStep", () => {
-                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 5 : 2;
-                        });
-                    }
-                    if (child.name.includes("Taillight") && carType === 'jeep') {
-                        world.addEventListener("postStep", () => {
-                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 10 : 5;
-                        });
-                    }
-                    if (child.name.includes("Studio_Car252_light") && carType === 'porsche') {
-                        world.addEventListener("postStep", () => {
-                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 20 : 5;
-                        });
+                    // Collect brake/tail light meshes for consolidated postStep toggle
+                    if (
+                        child.name.includes("Brakelight") ||
+                        child.name.includes("Studio_Car252_taillights") ||
+                        child.name.includes("Studio_Car236_brakelight") ||
+                        (child.name.includes("Rearlight") && carType === 'bmw') ||
+                        (child.name.includes("Taillight") && carType === 'jeep') ||
+                        (child.name.includes("Studio_Car252_light") && carType === 'porsche')
+                    ) {
+                        brakeLightMeshes.push({ child, carType });
                     }
                 }
             });
+
+            // Single consolidated postStep listener for headlights
+            const _hlPos = new THREE.Vector3();
+            const _hlTarget = new THREE.Vector3();
+
+            if (headlightUpdates.length > 0) {
+                world.addEventListener("postStep", () => {
+                    for (const { child, spot, config: cfg } of headlightUpdates) {
+                        child.getWorldPosition(_hlPos);
+                        const dir = cfg.headlightDirection(child);
+                        _hlTarget.copy(_hlPos).add(dir);
+                        spot.updatePositionAndDirection(_hlPos, _hlTarget);
+                    }
+                });
+            }
+
+            // Single consolidated postStep listener for brake/tail lights
+            if (brakeLightMeshes.length > 0) {
+                world.addEventListener("postStep", () => {
+                    const braking = isBraking || isTurboActive;
+                    for (const { child, carType: ct } of brakeLightMeshes) {
+                        if (ct === 'bmw' && child.name.includes("Rearlight")) {
+                            child.material.emissiveIntensity = braking ? 5 : 2;
+                        } else if (ct === 'jeep' && child.name.includes("Taillight")) {
+                            child.material.emissiveIntensity = braking ? 10 : 5;
+                        } else if (ct === 'porsche' && child.name.includes("Studio_Car252_light")) {
+                            child.material.emissiveIntensity = braking ? 20 : 5;
+                        } else {
+                            child.material.emissiveIntensity = braking ? 50 : 2;
+                        }
+                    }
+                });
+            }
+
             resolve();
-        }, null, function(error) { console.error(error); });
+        }, null, function(error) { console.error(error); reject(error); });
         loadWheels(scene, config.wheelPath);
     });
 }
@@ -588,22 +645,6 @@ function loadObject(scene, camera,  objectPath) {
         });
     }, null, function (error) {
         console.error(error);
-    });
-}
-
-export function loadHDRsunset(scene) {
-    rgbeLoader.load('public/hdrisunset.hdr', function (texture) {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        scene.background = texture;
-    });
-}
-
-export function loadHDRnight(scene) {
-    rgbeLoader.load('public/hdrinight.hdr', function (texture) {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        scene.background = texture;
     });
 }
 
