@@ -41,11 +41,8 @@ import {
 import {
     updateCamera, setCameraComposer, createOrbitControls,
     setupCameraInput, setupOrbitToggle, orbitControls,
-    _tmpVec3A, _tmpVec3B, _tmpVec3C, _tmpQuat,
-    getIsMovingForward, getIsMovingBackward, getIsStopped, setIsStopped,
-    setCameraAnimationStartTime, setCurrentCameraZ,
-    getNameCameraBool, getCameraLookAtStartTime, setCameraLookAtStartTime,
-    cameraLookAtStart, cameraLookAtEnd, cameraLookAtDuration, cameraLookAtDuration2,
+    _tmpVec3A,
+    cameraCtx, CameraMode,
 } from './camera.js';
 
 import {
@@ -583,15 +580,11 @@ function animate() {
         const velocity = vehicle.chassisBody.velocity;
         const speed = getXZSpeed(vehicle.chassisBody);
         motionBlurPass.uniforms['velocityFactor'].value = speed * 100;
-        if (velocity.length() > 0 && velocity.length() < 0.2 && !getIsMovingForward() && !getIsMovingBackward()) {
-            // Eğer araba duruyorsa idle pozisyonuna geç
-            if (!getIsStopped()) {
-                setIsStopped(true);
-                setCameraAnimationStartTime(performance.now());
-                setCurrentCameraZ(scene.userData.activeCamera.position.z); // Mevcut pozisyonu kaydet
-            }
-        } else {
-            setIsStopped(false); // Araba hareket ediyorsa idle durumdan çık
+        if (velocity.length() > 0 && velocity.length() < 0.2 && cameraCtx.mode === CameraMode.IDLE) {
+            // Car nearly stopped — return camera to idle position
+            const cam = scene.userData.activeCamera;
+            cam.position.z += (6.3 - cam.position.z) * 0.1;
+            cam.position.y += (2.0 - cam.position.y) * 0.1;
         }
         const activeCamera = scene.userData.activeCamera;
         if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted && !countdownStarted) {
@@ -622,38 +615,6 @@ function animate() {
 
         }
 
-        if (getNameCameraBool()) {
-            if (getCameraLookAtStartTime() !== null) {
-                const elapsedTime = performance.now() - getCameraLookAtStartTime();
-                const t = Math.min(elapsedTime / cameraLookAtDuration, 1); // 0 ile 1 arasında interpolasyon oranı
-                const elapsedTime2 = performance.now() - getCameraLookAtStartTime();
-                const t2 = Math.min(elapsedTime2 / cameraLookAtDuration2, 1);
-
-                // Hedef bakış noktasını interpolasyonla güncelle
-                _tmpVec3A.lerpVectors(cameraLookAtStart, cameraLookAtEnd, t);
-
-                // Kameranın mevcut pozisyonu sabit kalıyor
-                _tmpVec3B.copy(activeCamera.position);
-
-                // Kameranın hedef yönünü hesapla
-                _tmpVec3C.subVectors(_tmpVec3A, _tmpVec3B).normalize();
-
-                // Kameranın quaternion dönüşünü hesapla
-                activeCamera.getWorldDirection(_tmpVec3A).normalize();
-                _tmpQuat.setFromUnitVectors(_tmpVec3A, _tmpVec3C);
-
-                // Kameranın dönüşünü yumuşakça güncelle
-                activeCamera.quaternion.slerp(_tmpQuat, t2);
-
-                // Animasyon tamamlandıysa sıfırla
-                if (t === 1) {
-                    setCameraLookAtStartTime(null); // Animasyon tamamlandı
-                }
-            }
-        } else {
-            _tmpVec3A.set(chassisBody.position.x, chassisBody.position.y + 0.9, chassisBody.position.z);
-            activeCamera.lookAt(_tmpVec3A); // Arabaya bak
-        }
         composer.render();
     }
     catch (e) {

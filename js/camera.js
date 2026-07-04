@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { scene, renderer, composer, vehicle } from "./state.js";
-import { getTurboVroom, getStartTurboTime, setStartTurboTime } from "./vehicle.js";
+import { getTurboVroom } from "./vehicle.js";
 import { carMesh } from "./loaders.js";
 
 // Camera state machine
@@ -69,7 +69,6 @@ export { cameraCtx };
 // KAMERA POZİSYONLARI - DİKEY HAREKET
 // ================================================
 const cameraStartZ = 6.3;   // Adjusted for a more dynamic view
-let cameraTargetZ;                       // Anlık hedef Z (dinamik)
 const maxCameraTargetZ = 7.8;   // Camera zooms out further
 const minCameraTargetZ = 6.6;
 const brakingCameraZ = 5.3;   // Closer view during braking
@@ -80,37 +79,16 @@ const cameraBackZ = 6.0;   // Slightly forward position on stop
 const cameraAnimationDuration3 = 1500; // Faster animations
 const cameraAnimationDuration2 = 500;
 const cameraAnimationDuration1 = 800;
-let cameraAnimationStartTime = null; // Animasyon için referans zaman
-let isMovingForward = false;
-let isMovingBackward = false;
-let isBackingMorvard = false; // (Kod içinde özel durumu varsa)
-let isMovingToIdle = false;
-let isBrakingCamera = false;
-let isStopped = false;
-let isBrakingPhase = 0;     // Fren aşamasını izleme
-let currentCameraZ = cameraStartZ;
-let nameCameraBool = false;
-export let cameraLookAtStart = new THREE.Vector3(); // Başlangıç bakış noktası
-export let cameraLookAtEnd = new THREE.Vector3();   // Hedef bakış noktası
-let cameraLookAtStartTime = null;            // Animasyon başlangıç zamanı
 export const cameraLookAtDuration = 3000;
 export const cameraLookAtDuration2 = 6000;
-let startQuaternion = new THREE.Quaternion(); // Başlangıç dönüşü
-let endQuaternion = new THREE.Quaternion();
 
 // ================================================
 // 9) KAMERA POZİSYONLARI - YATAY HAREKET
 // ================================================
-let isMovingLeft = false;
-let isMovingRight = false;
 const cameraStartX = 0;
 const cameraLeftTargetX = -1.2; // Wider camera movement for dramatic effect
 const cameraRightTargetX = 1.2;
-let cameraAnimationStartTimeX = null;
-let cameraAnimationStartTimeC = null;
-let currentCameraX = cameraStartX;
 const cameraStartY = 2.0;
-let currentCameraY = cameraStartY;
 
 // Reusable objects for per-frame calculations (avoid GC pressure)
 export const _tmpVec3A = new THREE.Vector3();
@@ -119,22 +97,6 @@ export const _tmpVec3C = new THREE.Vector3();
 export const _tmpQuat = new THREE.Quaternion();
 
 export let orbitControls = null;
-
-// ================================================
-// GETTER HELPERS (for animate() in main.js)
-// ================================================
-export function getIsMovingForward() { return isMovingForward; }
-export function getIsMovingBackward() { return isMovingBackward; }
-export function getIsMovingToIdle() { return isMovingToIdle; }
-export function getIsStopped() { return isStopped; }
-export function setIsStopped(v) { isStopped = v; }
-export function setCameraAnimationStartTime(v) { cameraAnimationStartTime = v; }
-export function setCurrentCameraZ(v) { currentCameraZ = v; }
-export function getIsMovingLeft() { return isMovingLeft; }
-export function getIsMovingRight() { return isMovingRight; }
-export function getNameCameraBool() { return nameCameraBool; }
-export function getCameraLookAtStartTime() { return cameraLookAtStartTime; }
-export function setCameraLookAtStartTime(v) { cameraLookAtStartTime = v; }
 
 // ================================================
 // CAMERA INPUT — WASD / N key handlers
@@ -239,176 +201,144 @@ export function setupOrbitToggle(signal) {
 // ================================================
 export function updateCamera() {
     const currentTime = performance.now();
+    const activeCamera = scene.userData.activeCamera;
+    if (!activeCamera) return;
 
-    if (cameraAnimationStartTime !== null) {
-        const elapsedTime = currentTime - cameraAnimationStartTime;
-        const activeCamera = scene.userData.activeCamera;
+    // Skip if orbit controls are active
+    if (orbitControls && orbitControls.enabled) return;
 
-        if (activeCamera && orbitControls.enabled === false && nameCameraBool === false) {
-            if (isMovingBackward) {
-                // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
-                const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraBackZ, easeT);
+    const elapsed = currentTime - cameraCtx.modeStartTime;
 
-                if (t === 1) {
-                    isMovingBackward = false;
-                    cameraAnimationStartTime = null; // Animasyon tamamlandı
-                    // Geri dönüş tamamlandı
+    switch (cameraCtx.mode) {
+        case CameraMode.MOVING_FORWARD: {
+            const velocity = vehicle.chassisBody.velocity.length();
+            let turboEffect = 0;
+            if (getTurboVroom()) {
+                if (cameraCtx.startTurboTime === null) {
+                    cameraCtx.startTurboTime = currentTime;
                 }
-            } else if (isBackingMorvard) {
-                // W tuşundan el çekince geri dönüş: Mevcut pozisyondan 6'ya
-                const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, backingCameraZ, easeT);
-
-                if (t === 1) {
-                    isBackingMorvard = false;
-                    cameraAnimationStartTime = null; // Animasyon tamamlandı
-                    // Geri dönüş tamamlandı
-                }
-            } else if (isMovingToIdle && isStopped) {
-                // Araba durunca idle pozisyonuna dönüş: Mevcut pozisyondan 6.3'e
-                const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraStartZ, easeT);
-
-                if (t === 1) {
-                    isMovingToIdle = false;
-                    cameraAnimationStartTime = null; // Animasyon tamamlandı
-                    // Idle pozisyonuna ulaşıldı
-                }
-            } else if (isMovingForward) {
-                try {
-                    const velocity = vehicle.chassisBody.velocity.length();
-                    let turboEffect = 0; // Başlangıç değeri
-                    if (getTurboVroom()) {
-                        if (getStartTurboTime() === null) {
-                            setStartTurboTime(performance.now()); // Turbo başladığında zamanı kaydet
-                        }
-                        const turboElapsed = Math.min((performance.now() - getStartTurboTime()) / 5000, 1); // 2 saniyede maksimuma ulaş
-                        turboEffect = THREE.MathUtils.lerp(0.8, 2.4, turboElapsed); // 1'den 3'e doğru artış
-                    } else {
-                        setStartTurboTime(null); // Turbo durduğunda sıfırla
-                    }
-
-                    cameraTargetZ = THREE.MathUtils.clamp(
-                        maxCameraTargetZ - velocity * speedFactor + turboEffect, // turboEffect burada ekleniyor
-                        minCameraTargetZ,
-                        maxCameraTargetZ + 3 // Turbo etkisiyle maksimum değer biraz artırıldı
-                    );
-
-                    if (elapsedTime >= cameraAnimationDuration3) {
-                        // Animasyon tamamlandıktan sonra da hıza bağlı güncelleme
-                        activeCamera.position.y = THREE.MathUtils.lerp(activeCamera.position.y, cameraStartY, 0.5);
-                        activeCamera.position.z = THREE.MathUtils.lerp(
-                            activeCamera.position.z,
-                            cameraTargetZ,
-                            0.1 // Daha yumuşak bir geçiş için sabit bir katsayı
-                        );
-                    } else {
-                        // Animasyon sırasında
-                        const t = Math.min(elapsedTime / cameraAnimationDuration3, 1);
-                        const easeT = easeInOutSin(t);
-                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
-                        activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, cameraTargetZ, easeT);
-                    }
-                } catch (e) {
-                    console.error("Kamera hıza göre güncellenemedi:", e);
-                }
-            } else if (isBrakingCamera) {
-                try {
-                    if (isBrakingPhase === 0) {
-                        const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
-                        const easeT = easeInOutSin(t);
-                        activeCamera.position.y = THREE.MathUtils.lerp(currentCameraY, cameraStartY, easeT);
-                        activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, brakingCameraZ, easeT);
-
-                        if (t === 1) {
-                            isBrakingPhase = 1; // Faz 2'ye geçiş
-                            cameraAnimationStartTime = performance.now();
-                        }
-                    } else if (isBrakingPhase === 1) {
-                        if (elapsedTime >= cameraAnimationDuration1) {
-                            isBrakingPhase = 2;
-                            cameraAnimationStartTime = performance.now();
-                            currentCameraZ = activeCamera.position.z;
-                        }
-                    } else if (isBrakingPhase === 2) {
-                        const t = Math.min(elapsedTime / cameraAnimationDuration1, 1);
-                        const easeT = easeInOutSin(t);
-                        activeCamera.position.z = THREE.MathUtils.lerp(currentCameraZ, rearingCameraZ, easeT);
-
-                        if (t === 1) {
-                            isBrakingCamera = false; // Animasyon tamamlandı
-                            cameraAnimationStartTime = null;
-                        }
-                    }
-                }
-                catch (e) {
-                    console.error("Bizde geri vites yok");
-                }
-            }
-        }
-    }
-    if (cameraAnimationStartTimeX !== null) {
-        const elapsedTimeX = currentTime - cameraAnimationStartTimeX;
-        const activeCamera = scene.userData.activeCamera;
-
-        if (activeCamera && orbitControls.enabled === false && nameCameraBool === false) {
-            if (isMovingLeft) {
-                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraLeftTargetX, easeT);
-
-                if (t === 1) {
-                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
-                }
-            } else if (isMovingRight) {
-                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraRightTargetX, easeT);
-
-                if (t === 1) {
-                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
-                }
+                const turboElapsed = Math.min((currentTime - cameraCtx.startTurboTime) / 5000, 1);
+                turboEffect = THREE.MathUtils.lerp(0.8, 2.4, turboElapsed);
             } else {
-                // Geri dönüş hareketi
-                const t = Math.min(elapsedTimeX / cameraAnimationDuration2, 1);
-                const easeT = easeInOutSin(t);
-                activeCamera.position.x = THREE.MathUtils.lerp(currentCameraX, cameraStartX, easeT);
-
-                if (t === 1) {
-                    cameraAnimationStartTimeX = null; // Animasyon tamamlandı
-                }
+                cameraCtx.startTurboTime = null;
             }
-        }
-    }
-    if (cameraAnimationStartTimeC !== null && nameCameraBool) {
-        const elapsedTimeC = currentTime - cameraAnimationStartTimeC;
-        const activeCamera = scene.userData.activeCamera;
 
-        if (activeCamera) {
-            const t = Math.min(elapsedTimeC / 3000, 1); // 1 saniyelik animasyon
-            const easeT = easeInOutSin(t);
-
-            // Hedef pozisyon ve rotasyon
-            _tmpVec3A.set(60, 60, 40);
-
-            // Pozisyonu ve rotasyonu hesapla
-            _tmpVec3B.set(currentCameraX, currentCameraY, currentCameraZ);
-            activeCamera.position.lerpVectors(
-                _tmpVec3B,
-                _tmpVec3A,
-                easeT
+            const cameraTargetZ = THREE.MathUtils.clamp(
+                maxCameraTargetZ - velocity * speedFactor + turboEffect,
+                minCameraTargetZ,
+                maxCameraTargetZ + 3
             );
 
-
-            // Animasyonu sonlandır
-            if (t === 1) {
-                cameraAnimationStartTimeC = null;
+            if (elapsed >= cameraAnimationDuration3) {
+                activeCamera.position.y = THREE.MathUtils.lerp(activeCamera.position.y, cameraStartY, 0.5);
+                activeCamera.position.z = THREE.MathUtils.lerp(activeCamera.position.z, cameraTargetZ, 0.1);
+            } else {
+                const t = Math.min(elapsed / cameraAnimationDuration3, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.y = THREE.MathUtils.lerp(cameraCtx.startY, cameraStartY, easeT);
+                activeCamera.position.z = THREE.MathUtils.lerp(cameraCtx.startZ, cameraTargetZ, easeT);
             }
+            break;
         }
+
+        case CameraMode.RETURNING_IDLE: {
+            const t = Math.min(elapsed / cameraAnimationDuration1, 1);
+            const easeT = easeInOutSin(t);
+            activeCamera.position.z = THREE.MathUtils.lerp(cameraCtx.startZ, cameraBackZ, easeT);
+            if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            break;
+        }
+
+        case CameraMode.REVERSING: {
+            const t = Math.min(elapsed / cameraAnimationDuration1, 1);
+            const easeT = easeInOutSin(t);
+            activeCamera.position.z = THREE.MathUtils.lerp(cameraCtx.startZ, backingCameraZ, easeT);
+            if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            break;
+        }
+
+        case CameraMode.BRAKING: {
+            if (cameraCtx.brakingPhase === 0) {
+                const t = Math.min(elapsed / cameraAnimationDuration1, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.y = THREE.MathUtils.lerp(cameraCtx.startY, cameraStartY, easeT);
+                activeCamera.position.z = THREE.MathUtils.lerp(cameraCtx.startZ, brakingCameraZ, easeT);
+                if (t === 1) {
+                    cameraCtx.brakingPhase = 1;
+                    cameraCtx.modeStartTime = currentTime;
+                }
+            } else if (cameraCtx.brakingPhase === 1) {
+                if (elapsed >= cameraAnimationDuration1) {
+                    cameraCtx.brakingPhase = 2;
+                    cameraCtx.modeStartTime = currentTime;
+                    cameraCtx.startZ = activeCamera.position.z;
+                }
+            } else if (cameraCtx.brakingPhase === 2) {
+                const t = Math.min(elapsed / cameraAnimationDuration1, 1);
+                const easeT = easeInOutSin(t);
+                activeCamera.position.z = THREE.MathUtils.lerp(cameraCtx.startZ, rearingCameraZ, easeT);
+                if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            }
+            break;
+        }
+
+        case CameraMode.MOVING_LEFT: {
+            const t = Math.min(elapsed / cameraAnimationDuration2, 1);
+            const easeT = easeInOutSin(t);
+            activeCamera.position.x = THREE.MathUtils.lerp(cameraCtx.startX, cameraLeftTargetX, easeT);
+            if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            break;
+        }
+
+        case CameraMode.MOVING_RIGHT: {
+            const t = Math.min(elapsed / cameraAnimationDuration2, 1);
+            const easeT = easeInOutSin(t);
+            activeCamera.position.x = THREE.MathUtils.lerp(cameraCtx.startX, cameraRightTargetX, easeT);
+            if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            break;
+        }
+
+        case CameraMode.RETURNING_X: {
+            const t = Math.min(elapsed / cameraAnimationDuration2, 1);
+            const easeT = easeInOutSin(t);
+            activeCamera.position.x = THREE.MathUtils.lerp(cameraCtx.startX, cameraStartX, easeT);
+            if (t === 1) cameraCtx.mode = CameraMode.IDLE;
+            break;
+        }
+
+        case CameraMode.NAME_CAMERA: {
+            if (cameraCtx.lookAtStartTime !== null) {
+                const lookElapsed = currentTime - cameraCtx.lookAtStartTime;
+                const t = Math.min(lookElapsed / cameraLookAtDuration, 1);
+                const t2 = Math.min(lookElapsed / cameraLookAtDuration2, 1);
+
+                _tmpVec3A.lerpVectors(cameraCtx.lookAtStart, cameraCtx.lookAtEnd, t);
+                _tmpVec3B.copy(activeCamera.position);
+                _tmpVec3C.subVectors(_tmpVec3A, _tmpVec3B).normalize();
+
+                activeCamera.getWorldDirection(_tmpVec3A).normalize();
+                _tmpQuat.setFromUnitVectors(_tmpVec3A, _tmpVec3C);
+                activeCamera.quaternion.slerp(_tmpQuat, t2);
+
+                if (t === 1) cameraCtx.lookAtStartTime = null;
+            }
+            break;
+        }
+
+        case CameraMode.IDLE:
+        default:
+            // No animation — camera follows car
+            break;
+    }
+
+    // Name camera has its own position/orientation, skip lookAt
+    if (cameraCtx.mode !== CameraMode.NAME_CAMERA) {
+        _tmpVec3A.set(
+            vehicle.chassisBody.position.x,
+            vehicle.chassisBody.position.y + 0.9,
+            vehicle.chassisBody.position.z
+        );
+        activeCamera.lookAt(_tmpVec3A);
     }
 }
 
