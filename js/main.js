@@ -206,6 +206,7 @@ const totalTime = 400;
 let remainingTime = totalTime;
 let scoreTime = 400;
 let gameOver = false;
+let countdownStarted = false;
 
 export let selectedCarNo = 0;
 
@@ -1509,7 +1510,8 @@ function animate() {
             isStopped = false; // Araba hareket ediyorsa idle durumdan çık
         }
         const activeCamera = scene.userData.activeCamera;
-        if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted) {
+        if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted && !countdownStarted) {
+            countdownStarted = true;
             let countdown = 1;
             //countdownı buraya yapacaksın
             const countdown3 = document.getElementById('countdown');
