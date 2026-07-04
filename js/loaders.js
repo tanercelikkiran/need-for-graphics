@@ -84,6 +84,7 @@ const CAR_MATERIAL_CONFIGS = {
                 child.add(pointLight(child.position, 0xCDDCFF, 0.05, 1, 5));
             }
         },
+        headlightMeshNames: ['HeadlightSpot'],
         setupHeadlights: (child, scene) => {
             const headlightSpot = spotlight(
                 new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.05, -1)
@@ -120,6 +121,7 @@ const CAR_MATERIAL_CONFIGS = {
             if (child.name.includes("platelight2"))
                 child.add(pointLight(child.position, 0xCDDCFF, 0.01, 1, 5));
         },
+        headlightMeshNames: ['headlight1', 'headlight2'],
         setupHeadlights: (child, scene) => {
             const headlightSpot = spotlight(
                 new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -10)
@@ -170,7 +172,12 @@ const CAR_MATERIAL_CONFIGS = {
             scene.add(headlightSpot.target);
             return headlightSpot;
         },
-        headlightDirection: () => new THREE.Vector3(0, -0.1, 1),
+        headlightMeshNames: ['HeadlightSpot'],
+        headlightDirection: (child) => {
+            const localDir = new THREE.Vector3(0, -0.1, 1);
+            localDir.applyQuaternion(child.getWorldQuaternion(new THREE.Quaternion()));
+            return localDir;
+        },
     },
 };
 
@@ -472,15 +479,13 @@ export function loadCar(scene, carType) {
                     config.setupMesh(child, carColor);
 
                     // Headlights with spotlight
-                    if (child.name.includes("HeadlightSpot") || child.name.includes("headlight1") || child.name.includes("headlight2") || child.name.includes("Headlight")) {
-                        if (config.setupHeadlights && (child.name.includes("HeadlightSpot") || child.name.includes("headlight1") || child.name.includes("headlight2") || child.name.includes("Headlight"))) {
-                            const spot = config.setupHeadlights(child, scene);
-                            world.addEventListener("postStep", () => {
-                                const pos = child.getWorldPosition(new THREE.Vector3());
-                                const dir = config.headlightDirection(child);
-                                spot.updatePositionAndDirection(pos, pos.clone().add(dir));
-                            });
-                        }
+                    if (config.setupHeadlights && config.headlightMeshNames.some(name => child.name.includes(name))) {
+                        const spot = config.setupHeadlights(child, scene);
+                        world.addEventListener("postStep", () => {
+                            const pos = child.getWorldPosition(new THREE.Vector3());
+                            const dir = config.headlightDirection(child);
+                            spot.updatePositionAndDirection(pos, pos.clone().add(dir));
+                        });
                     }
 
                     // Brake/tail lights with postStep toggle
