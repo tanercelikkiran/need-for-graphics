@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 
-export function transparent(material, color) {
+export function transparent(material, color = 0xffffff) {
     material.transparent = true; // Şeffaflık modunu etkinleştir
     material.opacity = 0.5; // Şeffaflık oranı (0 tamamen görünmez, 1 tamamen opak)
     material.roughness = 0; // Cam yüzeyi pürüzsüz olmalı
