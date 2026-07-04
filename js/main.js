@@ -28,18 +28,25 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { metallicPaint } from "./material-properties.js";
 import { DepthTexture } from "three";
 
-export let scene, sceneIntro, sceneSandbox, renderer, composer, stats, carColor, motionBlurPass, bloomPass;
-export let world, cannonDebugger, vehicle, carSize, isBraking, isTurboActive, useShadow, skyMesh, sunLight, hemisphereLight;
+import {
+    scene, sceneIntro, sceneSandbox, renderer, composer, carColor, motionBlurPass, bloomPass,
+    world, vehicle, carSize, isBraking, isTurboActive, useShadow, skyMesh, sunLight, hemisphereLight,
+    objects, selectedCarNo,
+    setScene, setSceneIntro, setSceneSandbox, setRenderer, setComposer, setCarColor,
+    setMotionBlurPass, setBloomPass, setSkyMesh, setSunLight, setHemisphereLight,
+    setWorld, setVehicle, setCarSize, setSelectedCarNo, setIsBraking, setIsTurboActive,
+    setUseShadow, setObjects,
+} from './state.js';
 
-export let objects = [];
+let cannonDebugger; // not shared with loaders.js, kept local
+let stats; // not shared with loaders.js, kept local
+
 let objectBodies = []; // Array of CANNON bodies for the objects
 
 function getXZSpeed(body) {
     const v = body.velocity;
     return Math.sqrt(v.x * v.x + v.z * v.z);
 }
-
-carColor = 0x5C0007;
 
 const motionBlurShader = {
     uniforms: {
@@ -78,7 +85,6 @@ let finalScore;
 // 1) ARACIN GİRİŞ / DURUM FLAGLERİ
 // ================================================
 let isAccelerating = false;
-isBraking = false;
 let isSteeringLeft = false;
 let isSteeringRight = false;
 let isHandBraking = false;
@@ -182,7 +188,6 @@ const engineDropFactor = 0.7;
 // ================================================
 
 let turboLevel = 100; // Nitro'nun başlangıç değeri
-isTurboActive = false; // Nitro kullanım durumu
 const turboDecayRate = 100 / (5 * 60);
 let turboVroom = false;
 let startTurboTime = null;
@@ -217,8 +222,6 @@ let scoreTime = 400;
 let gameOver = false;
 let countdownStarted = false;
 
-export let selectedCarNo = 0;
-
 // Car configuration: mass and wheel option overrides per car index
 // 0 = Porsche, 1 = BMW, 2 = Jeep
 const baseWheelOptions = {
@@ -248,7 +251,7 @@ function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
 
     // Directional Light (güneş ışığı etkisi)
-    sunLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    setSunLight(new THREE.DirectionalLight(0xffffff, 0.5));
     sunLight.position.set(1000, 2000, 1000); // Güneşin pozisyonu (X, Y, Z)
     sunLight.castShadow = true;
 
@@ -270,7 +273,7 @@ function addLights(scene) {
     scene.add(sunLight);
 
     // Hemisphere Light (gökyüzü ve zemin etkisi)
-    hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4);
+    setHemisphereLight(new THREE.HemisphereLight(0xaaaaaa, 0x444444, 0.4));
     hemisphereLight.position.set(0, 50, 0);
     scene.add(hemisphereLight);
 }
@@ -280,10 +283,10 @@ function init() {
     gameAbortController = new AbortController();
     const { signal } = gameAbortController;
 
-    scene = new THREE.Scene();
+    setScene(new THREE.Scene());
     addLights(scene);
     loadSounds(scene);
-    renderer = new THREE.WebGLRenderer({ antialias: false });
+    setRenderer(new THREE.WebGLRenderer({ antialias: false }));
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
     renderer.toneMapping = THREE.ReinhardToneMapping; // Tonemapping
@@ -293,28 +296,28 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     const renderScene = new RenderPass(scene, null);
-    composer = new EffectComposer(renderer);
+    setComposer(new EffectComposer(renderer));
     composer.addPass(renderScene);
 
     const fxaaPass = new ShaderPass(FXAAShader);
     fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
     composer.addPass(fxaaPass);
 
-    bloomPass = new UnrealBloomPass(
+    setBloomPass(new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
         0.8,
         0.4,
         0.2
-    );
+    ));
     composer.addPass(bloomPass);
 
     const skyGeo = new THREE.SphereGeometry(500, 32, 32);
     skyGeo.scale(-1, 1, 1); // flip faces inward if needed
     const skyFogMaterial = createFogMaterial(null);
-    skyMesh = new THREE.Mesh(skyGeo, skyFogMaterial);
+    setSkyMesh(new THREE.Mesh(skyGeo, skyFogMaterial));
     scene.add(skyMesh);
 
-    motionBlurPass = new ShaderPass(motionBlurShader);
+    setMotionBlurPass(new ShaderPass(motionBlurShader));
     motionBlurPass.uniforms['delta'].value = 200; // Blur miktarı
     motionBlurPass.uniforms['velocityFactor'].value = 15; // Hız ile artan blur
     composer.renderTarget1.depthTexture = new DepthTexture();
@@ -366,10 +369,10 @@ function init() {
         switch (key) {
             case 'w':
                 isAccelerating = true;
-                isBraking = false;
+                setIsBraking(false);
                 break;
             case 's':
-                isBraking = true;
+                setIsBraking(true);
                 isAccelerating = false;
                 break;
             case 'a':
@@ -399,7 +402,7 @@ function init() {
                 isAccelerating = false;
                 break;
             case 's':
-                isBraking = false;
+                setIsBraking(false);
                 break;
             case 'a':
                 isSteeringLeft = false;
@@ -534,7 +537,7 @@ function createOrbitControls() {
 }
 
 function setCannonWorld() {
-    world = new CANNON.World();
+    setWorld(new CANNON.World());
     world.gravity.set(0, -9.82, 0);
     world.broadphase = new CANNON.SAPBroadphase(world);
     world.useBoundingBoxes = true;
@@ -748,7 +751,7 @@ function createVehicle() {
     const vehicleMass = config.mass;
     const wheelOptions = { ...baseWheelOptions, ...config.wheelOverrides };
 
-    carSize = new THREE.Vector3();
+    setCarSize(new THREE.Vector3());
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
     boundingBox.getSize(carSize);
 
@@ -783,12 +786,12 @@ function createVehicle() {
     chassisBody.collisionFilterGroup = materialGroups[1].group;
     chassisBody.collisionFilterMask = materialGroups[1].mask;
 
-    vehicle = new CANNON.RaycastVehicle({
+    setVehicle(new CANNON.RaycastVehicle({
         chassisBody: chassisBody,
         indexRightAxis: 0,
         indexUpAxis: 1,
         indexForwardAxis: 2
-    });
+    }));
 
     let wheelCenter = new THREE.Vector3();
     let wheelSize = new THREE.Vector3();
@@ -1092,13 +1095,13 @@ function updateTurboSlider() {
 
 document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'shift' && turboLevel > 0) {
-        isTurboActive = true;
+        setIsTurboActive(true);
     }
 });
 
 document.addEventListener('keyup', (event) => {
     if (event.key.toLowerCase() === 'shift') {
-        isTurboActive = false;
+        setIsTurboActive(false);
     }
 });
 
@@ -1112,7 +1115,7 @@ function updateTurbo(deltaTime) {
         turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalır
         if (turboLevel <= 0) {
             turboLevel = 0;
-            isTurboActive = false; // Turbo sıfırlandığında devre dışı
+            setIsTurboActive(false); // Turbo sıfırlandığında devre dışı
             turboVroom = false;
         }
     } else {
@@ -1314,11 +1317,9 @@ function easeInOutSin(t) {
     return 0.5 * (1 - Math.cos(Math.PI * t));
 }
 
-useShadow = 2;
-
 window.addEventListener('keydown', (e) => {
     if (e.key === 'k' || e.key === 'K') {
-        useShadow = (useShadow + 1) % 4;
+        setUseShadow((useShadow + 1) % 4);
         updateMapMaterials(useShadow, scene);
     }
 });
@@ -1577,9 +1578,9 @@ function initIntro() {
     const introAbortController = new AbortController();
     const introAbortSignal = introAbortController.signal;
 
-    sceneIntro = new THREE.Scene();
+    setSceneIntro(new THREE.Scene());
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    setRenderer(new THREE.WebGLRenderer({ antialias: true }));
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -1592,7 +1593,7 @@ function initIntro() {
 
 
     document.getElementById("start-text-2").addEventListener("click", () => {
-        selectedCarNo = (selectedCarNo + 1) % 3
+        setSelectedCarNo((selectedCarNo + 1) % 3)
         updateCarVisibility(); // Görünürlüğü güncelle
     });
 
@@ -1818,7 +1819,7 @@ function initIntro() {
 
         colorPicker.addEventListener('input', () => {
             if (!colorPickerActive || !sceneIntro) return;
-            carColor = colorPicker.value;
+            setCarColor(colorPicker.value);
             sceneIntro.traverse((object) => {
                 if (object.isMesh && object.material) {
                     if (
@@ -1949,13 +1950,13 @@ function sandBox() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    sceneSandbox = new THREE.Scene();
+    setSceneSandbox(new THREE.Scene());
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
     camera.lookAt(0, 0, 0);
     sceneSandbox.userData.activeCamera = camera;
 
-    renderer = new THREE.WebGLRenderer();
+    setRenderer(new THREE.WebGLRenderer());
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -1971,7 +1972,7 @@ function sandBox() {
     directionalLight.position.set(10, 10, 10);
     sceneSandbox.add(directionalLight);
 
-    useShadow = 2;
+    setUseShadow(2);
 
     try {
         loadMap(sceneSandbox).then(() => updateMapMaterials(useShadow, sceneSandbox));
@@ -2071,7 +2072,7 @@ function sandBox() {
         }
         if (event.key === 'Delete') {
             sceneSandbox.remove(selectedObject);
-            objects = objects.filter((object) => object.uuid !== selectedObject.uuid);
+            setObjects(objects.filter((object) => object.uuid !== selectedObject.uuid));
         }
     }, { signal: sandboxSignal });
 

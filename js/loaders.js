@@ -23,7 +23,7 @@ import {carColor,
     hemisphereLight,
     sunLight,
     motionBlurPass,
-    bloomPass} from "./main.js";
+    bloomPass} from "./state.js";
 import {FontLoader} from "three/addons/loaders/FontLoader.js";
 
 let carMesh;
