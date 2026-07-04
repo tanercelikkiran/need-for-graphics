@@ -9,7 +9,6 @@ import {
     setVehicle, setCarSize, setIsBraking, setIsTurboActive,
 } from "./state.js";
 import { carMesh, wheelMeshes, bmwAcc, porscheAcc, jeepAcc, turboSound } from "./loaders.js";
-import { updateSpeedometer, updateSpeedSlider, updateTurbometer, updateTurboSlider } from "./hud.js";
 
 // ================================================
 // 1) ARACIN GIRIS / DURUM FLAGLERI
@@ -117,6 +116,7 @@ export function getXZSpeed(body) {
 }
 
 export function getTurboVroom() { return turboVroom; }
+export function getTurboLevel() { return turboLevel; }
 export function getStartTurboTime() { return startTurboTime; }
 export function setStartTurboTime(v) { startTurboTime = v; }
 
@@ -458,10 +458,6 @@ export function updateVehicleControls() {
     // Direksiyon
     vehicle.setSteeringValue(currentSteering, 0);
     vehicle.setSteeringValue(currentSteering, 1);
-    updateSpeedometer();
-    updateSpeedSlider();
-    updateTurbometer(turboLevel);
-    updateTurboSlider(turboLevel);
 }
 
 

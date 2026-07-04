@@ -1,7 +1,6 @@
 import {
     loadMap,
     loadHDR,
-    carMesh,
     loadCar,
     loadCarIntro,
     manager,
@@ -35,7 +34,7 @@ import {
 
 import {
     getXZSpeed, updateWheelFriction, createVehicle, createObjects,
-    updateVehicleControls, updateTurbo, setupVehicleInput,
+    updateVehicleControls, updateTurbo, getTurboLevel, setupVehicleInput,
     syncObjectBodies,
 } from './vehicle.js';
 
@@ -43,14 +42,15 @@ import {
     updateCamera, setCameraComposer, createOrbitControls,
     setupCameraInput, setupOrbitToggle, orbitControls,
     _tmpVec3A, _tmpVec3B, _tmpVec3C, _tmpQuat,
-    getIsMovingForward, getIsMovingBackward, getIsMovingToIdle, getIsStopped, setIsStopped,
-    setCameraAnimationStartTime, setCurrentCameraZ, getIsMovingLeft, getIsMovingRight,
+    getIsMovingForward, getIsMovingBackward, getIsStopped, setIsStopped,
+    setCameraAnimationStartTime, setCurrentCameraZ,
     getNameCameraBool, getCameraLookAtStartTime, setCameraLookAtStartTime,
     cameraLookAtStart, cameraLookAtEnd, cameraLookAtDuration, cameraLookAtDuration2,
 } from './camera.js';
 
 import {
     showHelpScreen, setupHelpInput,
+    updateSpeedometer, updateSpeedSlider, updateTurbometer, updateTurboSlider,
 } from './hud.js';
 
 let cannonDebugger; // not shared with loaders.js, kept local
@@ -535,6 +535,10 @@ function animate() {
     try {
         updateTurbo(deltaTime);
         updateVehicleControls();
+        updateSpeedometer();
+        updateSpeedSlider();
+        updateTurbometer(getTurboLevel());
+        updateTurboSlider(getTurboLevel());
         updateCamera();
         updateMinimap();
 
