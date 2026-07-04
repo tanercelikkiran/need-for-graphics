@@ -558,33 +558,19 @@ export function loadWheels(scene, wheelPath) {
     });
 }
 
+const MOVEABLE_OBJECT_PATHS = [
+    "public/moveableObjects/oil_barrel_2.glb",
+    "public/moveableObjects/simple_crate.glb",
+    "public/moveableObjects/simple_long_crate.glb",
+    "public/moveableObjects/concrete_barrier_hq.glb",
+    "public/moveableObjects/plastic_chair.glb",
+    "public/moveableObjects/stop-sign-ts.glb",
+    "public/moveableObjects/traffic_cone_game_ready.glb",
+    "public/moveableObjects/trash_can.glb",
+];
+
 export function loadMoveableObject(scene, index, camera) {
-    switch (index) {
-        case 0:
-            loadObject(scene, camera, "public/moveableObjects/oil_barrel_2.glb");
-            break;
-        case 1:
-            loadObject(scene, camera, "public/moveableObjects/simple_crate.glb");
-            break;
-        case 2:
-            loadObject(scene, camera,"public/moveableObjects/simple_long_crate.glb");
-            break;
-        case 3:
-            loadObject(scene, camera,"public/moveableObjects/concrete_barrier_hq.glb");
-            break;
-        case 4:
-            loadObject(scene, camera,"public/moveableObjects/plastic_chair.glb");
-            break;
-        case 5:
-            loadObject(scene, camera,"public/moveableObjects/stop-sign-ts.glb");
-            break;
-        case 6:
-            loadObject(scene, camera,"public/moveableObjects/traffic_cone_game_ready.glb");
-            break;
-        case 7:
-            loadObject(scene, camera,"public/moveableObjects/trash_can.glb");
-            break;
-    }
+    loadObject(scene, camera, MOVEABLE_OBJECT_PATHS[index]);
 }
 
 function loadObject(scene, camera,  objectPath) {
