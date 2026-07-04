@@ -1907,6 +1907,26 @@ function sandBox() {
 
     sandboxMenu.style.display = "flex";
 
+    // Initialize minimap renderer if not already created (sandbox can be entered before init())
+    if (!minimapRenderer) {
+        minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
+        const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.20;
+        minimapRenderer.setSize(minimapSize, minimapSize);
+        minimapRenderer.setClearColor(0x000000, 1);
+        minimapRenderer.domElement.style.position = "absolute";
+        minimapRenderer.domElement.style.bottom = "-0.5%";
+        minimapRenderer.domElement.style.right = "-0.5%";
+        minimapRenderer.domElement.style.borderRadius = "50%";
+        minimapRenderer.domElement.style.zIndex = "1";
+        const minimap = document.getElementById("minimap");
+        const minimapContainer = document.getElementById("minimap-container");
+        minimap.style.width = `${minimapSize}px`;
+        minimap.style.height = `${minimapSize}px`;
+        minimapContainer.style.width = `${minimapSize}px`;
+        minimapContainer.style.height = `${minimapSize}px`;
+        minimap.appendChild(minimapRenderer.domElement);
+    }
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
