@@ -886,7 +886,7 @@ function updateVehicleControls() {
 
     let brakingValue = 0;
     // Eğer hızımız ileri yönlüyse ve S basılıysa, fren uygula
-    if (isBraking > 0) {
+    if (isBraking) {
         brakingValue = brakeForce;
     }
 
@@ -919,7 +919,7 @@ function updateVehicleControls() {
     } else if (selectedCarNo === 2) {
         maxSpeed = 156 / 3.6;
     }
-    if (isBraking > 0) {
+    if (isBraking) {
         if (speed >= rearMaxSpeed) {
             currentEngineForce = 0;
         } else {
