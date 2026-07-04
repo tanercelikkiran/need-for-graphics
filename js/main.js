@@ -310,6 +310,28 @@ function init() {
     composer.addPass(motionBlurPass);
     motionBlurPass.enabled = false;
 
+    // Minimap renderer
+    minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
+    const setMinimapSize = () => {
+        const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.20;
+        minimapRenderer.setSize(minimapSize, minimapSize);
+        const minimap = document.getElementById("minimap");
+        const minimapContainer = document.getElementById("minimap-container");
+        minimap.style.width = `${minimapSize}px`;
+        minimap.style.height = `${minimapSize}px`;
+        minimapContainer.style.width = `${minimapSize}px`;
+        minimapContainer.style.height = `${minimapSize}px`;
+    };
+    setMinimapSize();
+    minimapRenderer.setClearColor(0x000000, 1);
+    minimapRenderer.domElement.style.position = "absolute";
+    minimapRenderer.domElement.style.bottom = "-0.5%";
+    minimapRenderer.domElement.style.right = "-0.5%";
+    minimapRenderer.domElement.style.borderRadius = "50%";
+    minimapRenderer.domElement.style.zIndex = "1";
+    window.addEventListener("resize", () => setMinimapSize());
+    document.getElementById("minimap").appendChild(minimapRenderer.domElement);
+
     window.addEventListener('resize', () => {
         const activeCamera = scene.userData.activeCamera;
         const width = window.innerWidth;
@@ -1344,37 +1366,8 @@ const minimapCamera = new THREE.OrthographicCamera(
 minimapCamera.position.set(0, 800, 0);
 minimapCamera.lookAt(0, 0, 0);
 
-// Minimap renderer oluştur
-const minimapRenderer = new THREE.WebGLRenderer({ antialias: false });
-const setMinimapSize = () => {
-    const minimapSize = Math.min(window.innerWidth, window.innerHeight) * 0.20;
-    minimapRenderer.setSize(minimapSize, minimapSize);
-
-    const minimapSizex = Math.min(window.innerWidth, window.innerHeight) * 0.20;
-    const minimap = document.getElementById("minimap");
-    const minimapContainer = document.getElementById("minimap-container");
-
-    // Minimap boyutunu ayarla
-    minimap.style.width = `${minimapSizex}px`;
-    minimap.style.height = `${minimapSizex}px`;
-
-    // Kapsayıcı boyutunu ayarla
-    minimapContainer.style.width = `${minimapSizex}px`;
-    minimapContainer.style.height = `${minimapSizex}px`;
-};
-setMinimapSize();
-minimapRenderer.setClearColor(0x000000, 1);
-minimapRenderer.domElement.style.position = "absolute";
-minimapRenderer.domElement.style.bottom = "-0.5%";
-minimapRenderer.domElement.style.right = "-0.5%";
-minimapRenderer.domElement.style.borderRadius = "50%";
-minimapRenderer.domElement.style.zIndex = "1";
-
-window.addEventListener("resize", () => {
-    setMinimapSize(); // Boyutu yeniden ayarla
-});
-
-document.getElementById("minimap").appendChild(minimapRenderer.domElement);
+// Minimap renderer (lazy-init inside init())
+let minimapRenderer;
 
 function updateMinimap() {
     // Minimap kamera, aracın pozisyonunu takip eder
