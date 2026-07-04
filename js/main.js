@@ -276,6 +276,7 @@ function addLights(scene) {
 }
 
 function init() {
+    if (gameAbortController) gameAbortController.abort();
     gameAbortController = new AbortController();
     const { signal } = gameAbortController;
 
@@ -2081,7 +2082,7 @@ function sandBox() {
     }, { signal: sandboxSignal });
     document.getElementById("sandbox-button-2").addEventListener("click", () => {
         loadMoveableObject(sceneSandbox, index, camera);
-    });
+    }, { signal: sandboxSignal });
 
     document.getElementById('sandbox-button-1').addEventListener('mousedown', function (event) {
         const timeValue = document.getElementById('time-remaining');
