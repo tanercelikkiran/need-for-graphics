@@ -145,107 +145,72 @@ export function setupCameraInput(signal) {
         const activeCamera = scene.userData.activeCamera;
         if (!activeCamera) return;
         const key = event.key.toLowerCase();
-        if (key === 'w' && !isMovingForward) {
-            currentCameraZ = activeCamera.position.z;
-            currentCameraY = activeCamera.position.y;
-            isMovingForward = true;
-            isBrakingCamera = false;
-            isMovingBackward = false;
-            isMovingToIdle = false;
-            isBackingMorvard = false;
-            cameraAnimationStartTime = performance.now();
+
+        // W — move camera forward (zoom out)
+        if (key === 'w' && cameraCtx.mode !== CameraMode.MOVING_FORWARD) {
+            transitionTo(CameraMode.MOVING_FORWARD);
         }
-        if (key === 's' && !isBrakingCamera) {
-            currentCameraZ = activeCamera.position.z;
-            currentCameraY = activeCamera.position.y;
-            isMovingForward = false;
-            isBrakingCamera = true;
-            isMovingBackward = false;
-            isMovingToIdle = false;
-            isBackingMorvard = false;
-            cameraAnimationStartTime = performance.now();
+
+        // S — braking camera (zoom in closer)
+        if (key === 's' && cameraCtx.mode !== CameraMode.BRAKING) {
+            cameraCtx.brakingPhase = 0;
+            transitionTo(CameraMode.BRAKING);
         }
-        if (key === 'a' && !isMovingLeft) {
-            currentCameraX = activeCamera.position.x;
-            isMovingLeft = true;
-            isMovingRight = false;
-            cameraAnimationStartTimeX = performance.now();
+
+        // A — move camera left
+        if (key === 'a' && cameraCtx.mode !== CameraMode.MOVING_LEFT) {
+            transitionTo(CameraMode.MOVING_LEFT);
         }
-        if (key === 'd' && !isMovingRight) {
-            currentCameraX = activeCamera.position.x;
-            isMovingRight = true;
-            isMovingLeft = false;
-            cameraAnimationStartTimeX = performance.now();
+
+        // D — move camera right
+        if (key === 'd' && cameraCtx.mode !== CameraMode.MOVING_RIGHT) {
+            transitionTo(CameraMode.MOVING_RIGHT);
         }
+
+        // N — toggle name camera
         if (key === 'n') {
-            if (!nameCameraBool) {
-                currentCameraX = activeCamera.position.x;
-                currentCameraY = activeCamera.position.y;
-                currentCameraZ = activeCamera.position.z;
+            if (cameraCtx.mode !== CameraMode.NAME_CAMERA) {
+                // Entering name camera
+                cameraCtx.lookAtStart.copy(activeCamera.position.clone().add(
+                    activeCamera.getWorldDirection(new THREE.Vector3())
+                ));
+                cameraCtx.lookAtEnd.set(60, 0, 130);
+                cameraCtx.startQuat.copy(activeCamera.quaternion);
+                activeCamera.lookAt(cameraCtx.lookAtEnd);
+                cameraCtx.endQuat.copy(activeCamera.quaternion);
+                activeCamera.quaternion.copy(cameraCtx.startQuat);
+                cameraCtx.lookAtStartTime = performance.now();
+                transitionTo(CameraMode.NAME_CAMERA);
                 carMesh.remove(activeCamera);
                 scene.add(activeCamera);
                 orbitControls.enabled = false;
-                cameraLookAtStart.copy(activeCamera.position.clone().add(activeCamera.getWorldDirection(new THREE.Vector3())));
-                cameraLookAtEnd.set(60, 0, 130);
-                startQuaternion.copy(activeCamera.quaternion);
-                activeCamera.lookAt(cameraLookAtEnd);
-                endQuaternion.copy(activeCamera.quaternion);
-                activeCamera.quaternion.copy(startQuaternion);
-                cameraLookAtStartTime = performance.now();
-                cameraAnimationStartTimeC = performance.now();
-                nameCameraBool = true;
             } else {
-                currentCameraX = activeCamera.position.x;
-                currentCameraY = activeCamera.position.y;
-                currentCameraZ = activeCamera.position.z;
+                // Exiting name camera
+                transitionTo(CameraMode.IDLE);
                 scene.remove(activeCamera);
                 carMesh.add(activeCamera);
-                cameraAnimationStartTimeC = performance.now();
-                nameCameraBool = false;
             }
         }
     }, { signal });
 
     // Keyup handlers
     document.addEventListener('keyup', (event) => {
-        const activeCamera = scene.userData.activeCamera;
         const key = event.key.toLowerCase();
+
+        // W released — return to idle Z position
         if (key === 'w') {
-            if (activeCamera) {
-                currentCameraZ = activeCamera.position.z;
-                currentCameraY = activeCamera.position.y;
-            }
-            isMovingForward = false;
-            isMovingBackward = true;
-            isMovingToIdle = true;
-            isBrakingCamera = false;
-            isBackingMorvard = false;
-            cameraAnimationStartTime = performance.now();
+            transitionTo(CameraMode.RETURNING_IDLE);
         }
+
+        // S released — reverse camera back
         if (key === 's') {
-            if (activeCamera) {
-                currentCameraZ = activeCamera.position.z;
-                currentCameraY = activeCamera.position.y;
-            }
-            isMovingForward = false;
-            isMovingBackward = false;
-            isMovingToIdle = true;
-            isBrakingCamera = false;
-            isBackingMorvard = true;
-            isBrakingPhase = 0;
-            cameraAnimationStartTime = performance.now();
+            cameraCtx.brakingPhase = 0;
+            transitionTo(CameraMode.REVERSING);
         }
-        if (key === 'a') {
-            if (activeCamera) currentCameraX = activeCamera.position.x;
-            isMovingLeft = false;
-            isMovingRight = false;
-            cameraAnimationStartTimeX = performance.now();
-        }
-        if (key === 'd') {
-            if (activeCamera) currentCameraX = activeCamera.position.x;
-            isMovingLeft = false;
-            isMovingRight = false;
-            cameraAnimationStartTimeX = performance.now();
+
+        // A/D released — return to center X position
+        if (key === 'a' || key === 'd') {
+            transitionTo(CameraMode.RETURNING_X);
         }
     }, { signal });
 }
