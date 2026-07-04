@@ -405,6 +405,114 @@ function init() {
                 break;
         }
     });
+
+    // Camera key handlers (moved from updateCamera)
+    document.addEventListener('keydown', (event) => {
+        const activeCamera = scene.userData.activeCamera;
+        if (!activeCamera) return;
+        const key = event.key.toLowerCase();
+        if (key === 'w' && !isMovingForward) {
+            currentCameraZ = activeCamera.position.z;
+            currentCameraY = activeCamera.position.y;
+            isMovingForward = true;
+            isBrakingCamera = false;
+            isMovingBackward = false;
+            isMovingToIdle = false;
+            isBackingMorvard = false;
+            cameraAnimationStartTime = performance.now();
+        }
+        if (key === 's' && !isBrakingCamera) {
+            currentCameraZ = activeCamera.position.z;
+            currentCameraY = activeCamera.position.y;
+            isMovingForward = false;
+            isBrakingCamera = true;
+            isMovingBackward = false;
+            isMovingToIdle = false;
+            isBackingMorvard = false;
+            cameraAnimationStartTime = performance.now();
+        }
+        if (key === 'a' && !isMovingLeft) {
+            currentCameraX = activeCamera.position.x;
+            isMovingLeft = true;
+            isMovingRight = false;
+            cameraAnimationStartTimeX = performance.now();
+        }
+        if (key === 'd' && !isMovingRight) {
+            currentCameraX = activeCamera.position.x;
+            isMovingRight = true;
+            isMovingLeft = false;
+            cameraAnimationStartTimeX = performance.now();
+        }
+        if (key === 'n') {
+            if (!nameCameraBool) {
+                currentCameraX = activeCamera.position.x;
+                currentCameraY = activeCamera.position.y;
+                currentCameraZ = activeCamera.position.z;
+                carMesh.remove(activeCamera);
+                scene.add(activeCamera);
+                orbitControls.enabled = false;
+                cameraLookAtStart.copy(activeCamera.position.clone().add(activeCamera.getWorldDirection(new THREE.Vector3())));
+                cameraLookAtEnd.set(60, 0, 130);
+                startQuaternion.copy(activeCamera.quaternion);
+                activeCamera.lookAt(cameraLookAtEnd);
+                endQuaternion.copy(activeCamera.quaternion);
+                activeCamera.quaternion.copy(startQuaternion);
+                cameraLookAtStartTime = performance.now();
+                cameraAnimationStartTimeC = performance.now();
+                nameCameraBool = true;
+            } else {
+                currentCameraX = activeCamera.position.x;
+                currentCameraY = activeCamera.position.y;
+                currentCameraZ = activeCamera.position.z;
+                scene.remove(activeCamera);
+                carMesh.add(activeCamera);
+                cameraAnimationStartTimeC = performance.now();
+                nameCameraBool = false;
+            }
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        const activeCamera = scene.userData.activeCamera;
+        const key = event.key.toLowerCase();
+        if (key === 'w') {
+            if (activeCamera) {
+                currentCameraZ = activeCamera.position.z;
+                currentCameraY = activeCamera.position.y;
+            }
+            isMovingForward = false;
+            isMovingBackward = true;
+            isMovingToIdle = true;
+            isBrakingCamera = false;
+            isBackingMorvard = false;
+            cameraAnimationStartTime = performance.now();
+        }
+        if (key === 's') {
+            if (activeCamera) {
+                currentCameraZ = activeCamera.position.z;
+                currentCameraY = activeCamera.position.y;
+            }
+            isMovingForward = false;
+            isMovingBackward = false;
+            isMovingToIdle = true;
+            isBrakingCamera = false;
+            isBackingMorvard = true;
+            isBrakingPhase = 0;
+            cameraAnimationStartTime = performance.now();
+        }
+        if (key === 'a') {
+            if (activeCamera) currentCameraX = activeCamera.position.x;
+            isMovingLeft = false;
+            isMovingRight = false;
+            cameraAnimationStartTimeX = performance.now();
+        }
+        if (key === 'd') {
+            if (activeCamera) currentCameraX = activeCamera.position.x;
+            isMovingLeft = false;
+            isMovingRight = false;
+            cameraAnimationStartTimeX = performance.now();
+        }
+    });
 }
 
 function createOrbitControls() {
@@ -1027,126 +1135,6 @@ function updateTurbo(deltaTime) {
 }
 
 function updateCamera() {
-    document.addEventListener('keydown', (event) => {
-        const activeCamera = scene.userData.activeCamera;
-        if (activeCamera) {
-            switch (event.key.toLowerCase()) {
-                case 'w':
-                    if (!isMovingForward) {
-                        currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-                        currentCameraY = activeCamera.position.y;
-                        isMovingForward = true;
-                        isBrakingCamera = false;
-                        isMovingBackward = false;
-                        isMovingToIdle = false;
-                        isBackingMorvard = false;
-                        cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
-                    }
-                    break;
-                case 's':
-                    if (!isBrakingCamera) {
-                        currentCameraZ = activeCamera.position.z;
-                        currentCameraY = activeCamera.position.y;
-                        isMovingForward = false;// Mevcut pozisyonu kaydet
-                        isBrakingCamera = true;
-                        isMovingBackward = false;
-                        isMovingToIdle = false;
-                        isBackingMorvard = false;
-                        cameraAnimationStartTime = performance.now(); // Animasyonun başlangıç zamanı
-                    }
-                    break;
-                case 'a': // Kamera sola hareket
-                    if (!isMovingLeft) {
-                        currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                        isMovingLeft = true;
-                        isMovingRight = false;
-                        cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
-                    }
-                    break;
-                case 'd': // Kamera sağa hareket
-                    if (!isMovingRight) {
-                        currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                        isMovingRight = true;
-                        isMovingLeft = false;
-                        cameraAnimationStartTimeX = performance.now(); // Animasyonun başlangıç zamanı
-                    }
-                    break;
-                case 'n':
-                    if (!nameCameraBool) {
-                        currentCameraX = activeCamera.position.x;
-                        currentCameraY = activeCamera.position.y;
-                        currentCameraZ = activeCamera.position.z;
-                        carMesh.remove(activeCamera); // Arabadan çıkar
-                        scene.add(activeCamera);      // Sahneye ekle
-                        orbitControls.enabled = false; // OrbitControls'u devre dışı bırak
-                        cameraLookAtStart.copy(activeCamera.position.clone().add(activeCamera.getWorldDirection(new THREE.Vector3())));
-                        cameraLookAtEnd.set(60, 0, 130); // Hedef nokta
-                        startQuaternion.copy(activeCamera.quaternion); // Mevcut dönüş
-                        activeCamera.lookAt(cameraLookAtEnd);          // Hedefe bak
-                        endQuaternion.copy(activeCamera.quaternion);   // Hedef dönüş
-                        activeCamera.quaternion.copy(startQuaternion);
-                        cameraLookAtStartTime = performance.now();
-                        cameraAnimationStartTimeC = performance.now();
-                        nameCameraBool = true;
-                    } else {
-                        currentCameraX = activeCamera.position.x;
-                        currentCameraY = activeCamera.position.y;
-                        currentCameraZ = activeCamera.position.z;
-
-                        scene.remove(activeCamera); // Sahneden çıkar
-                        carMesh.add(activeCamera); // Arabaya ekle
-                        cameraAnimationStartTimeC = performance.now();
-                        nameCameraBool = false;
-                    }
-                    break;
-            }
-        }
-    });
-    document.addEventListener('keyup', (event) => {
-        const activeCamera = scene.userData.activeCamera;
-        switch (event.key.toLowerCase()) {
-            case 'w':
-                if (activeCamera) {
-                    currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-                    currentCameraY = activeCamera.position.y;
-                }
-                // Animasyonu başlat
-                isMovingForward = false;
-                isMovingBackward = true;
-                isMovingToIdle = true;//
-                isBrakingCamera = false;
-                isBackingMorvard = false;
-                cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
-                break;
-            case 's':
-                if (activeCamera) {
-                    currentCameraZ = activeCamera.position.z; // Mevcut pozisyonu kaydet
-                    currentCameraY = activeCamera.position.y;
-                }
-                // Animasyonu başlat
-                isMovingForward = false;
-                isMovingBackward = false;
-                isMovingToIdle = true;
-                isBrakingCamera = false;
-                isBackingMorvard = true;
-                isBrakingPhase = 0;
-                cameraAnimationStartTime = performance.now();// Geri dönüş animasyonu başlasın
-                break;
-            case 'a':
-                currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                isMovingLeft = false;
-                isMovingRight = false;
-                cameraAnimationStartTimeX = performance.now(); // Geri dönüş animasyonu başlasın
-                break;
-            case 'd':
-                currentCameraX = activeCamera.position.x; // Mevcut pozisyonu kaydet
-                isMovingLeft = false;
-                isMovingRight = false;
-                cameraAnimationStartTimeX = performance.now(); // Geri dönüş animasyonu başlasın
-                break;
-        }
-    });
-
     const currentTime = performance.now();
 
     if (cameraAnimationStartTime !== null) {
