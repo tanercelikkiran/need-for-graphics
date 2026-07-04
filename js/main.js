@@ -231,8 +231,8 @@ const baseWheelOptions = {
 };
 
 const CAR_CONFIGS = [
-    { mass: 1420, wheelOverrides: {} },                                    // Porsche
     { mass: 1504, wheelOverrides: { suspensionStiffness: 50 } },           // BMW
+    { mass: 1420, wheelOverrides: {} },                                    // Porsche
     { mass: 2306, wheelOverrides: { radius: 0.42 } },                      // Jeep
 ];
 
@@ -2171,7 +2171,7 @@ function main() {
         loadHDRnight(scene, renderer);
     }
 
-    const carTypes = ['porsche', 'bmw', 'jeep'];
+    const carTypes = ['bmw', 'porsche', 'jeep'];
     loadCar(scene, carTypes[selectedCarNo])
         .then(setCameraComposer)
         .then(createVehicle)
