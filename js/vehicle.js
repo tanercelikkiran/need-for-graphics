@@ -9,6 +9,7 @@ import {
     setVehicle, setCarSize, setIsBraking, setIsTurboActive,
 } from "./state.js";
 import { carMesh, wheelMeshes, bmwAcc, porscheAcc, jeepAcc, turboSound } from "./loaders.js";
+import { updateSpeedometer, updateSpeedSlider, updateTurbometer, updateTurboSlider } from "./hud.js";
 
 // ================================================
 // 1) ARACIN GIRIS / DURUM FLAGLERI
@@ -459,34 +460,10 @@ export function updateVehicleControls() {
     vehicle.setSteeringValue(currentSteering, 1);
     updateSpeedometer();
     updateSpeedSlider();
-    updateTurbometer();
-    updateTurboSlider();
+    updateTurbometer(turboLevel);
+    updateTurboSlider(turboLevel);
 }
 
-export function updateSpeedometer() {
-    const speed = getXZSpeed(vehicle.chassisBody);  // XZ duzlemindeki hiz
-    const speedKmH = Math.round(speed * 3.6);  // m/s'den km/h'ye donusum (3.6 ile carp)
-    const speedometerText = document.getElementById('speed-value');
-    speedometerText.textContent = `Speed ${speedKmH}KM`;
-}
-
-export function updateSpeedSlider() {
-    const speed = getXZSpeed(vehicle.chassisBody);  // XZ duzlemindeki hiz
-    const sliderFill = document.getElementById('speed-slider-fill');
-    const tSpeed = 304 / 3.6;
-    const fillPercentage = (speed / tSpeed) * 100;
-    sliderFill.style.width = `${fillPercentage}%`;
-}
-
-export function updateTurbometer() {
-    const turbometerText = document.getElementById('turbo-value');
-    turbometerText.textContent = `Turbo ${turboLevel.toFixed(0)}%`;
-}
-
-export function updateTurboSlider() {
-    const turbosliderFill = document.getElementById('turbo-slider-fill');
-    turbosliderFill.style.width = `${turboLevel}%`;
-}
 
 export function updateTurbo(deltaTime) {
     if (isTurboActive && turboLevel > 0 && isAccelerating) {

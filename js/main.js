@@ -49,6 +49,10 @@ import {
     cameraLookAtStart, cameraLookAtEnd, cameraLookAtDuration, cameraLookAtDuration2,
 } from './camera.js';
 
+import {
+    showHelpScreen, setupHelpInput,
+} from './hud.js';
+
 let cannonDebugger; // not shared with loaders.js, kept local
 let stats; // not shared with loaders.js, kept local
 
@@ -226,6 +230,7 @@ function init() {
     }, { signal });
 
     setupVehicleInput(signal);
+    setupHelpInput(signal);
 
     document.getElementById('menu-button').addEventListener('mousedown', function () {
         location.reload();
@@ -655,26 +660,6 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-
-const helpScreen = document.getElementById('help-screen');
-const helpText = document.getElementById('help-content');
-
-function showHelpScreen() {
-    helpScreen.style.display = 'flex';
-    helpText.style.display = 'flex';
-}
-function hideHelpScreen() {
-    helpScreen.style.display = 'none';
-}
-document.addEventListener('keydown', (h) => {
-    if (h.key.toLowerCase() === 'h') {
-        if (helpScreen.style.display === 'none') {
-            showHelpScreen();
-        } else {
-            hideHelpScreen();
-        }
-    }
-});
 
 function initIntro() {
     const introAbortController = new AbortController();
