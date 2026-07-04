@@ -42,7 +42,7 @@ import {
     updateCamera, setCameraComposer, createOrbitControls,
     setupCameraInput, setupOrbitToggle, orbitControls,
     _tmpVec3A,
-    cameraCtx, CameraMode,
+    cameraCtx, CameraMode, transitionTo,
 } from './camera.js';
 
 import {
@@ -580,11 +580,9 @@ function animate() {
         const velocity = vehicle.chassisBody.velocity;
         const speed = getXZSpeed(vehicle.chassisBody);
         motionBlurPass.uniforms['velocityFactor'].value = speed * 100;
-        if (velocity.length() > 0 && velocity.length() < 0.2 && cameraCtx.mode === CameraMode.IDLE) {
-            // Car nearly stopped — return camera to idle position
-            const cam = scene.userData.activeCamera;
-            cam.position.z += (6.3 - cam.position.z) * 0.1;
-            cam.position.y += (2.0 - cam.position.y) * 0.1;
+        if (speed > 0 && speed < 0.2 && cameraCtx.mode === CameraMode.IDLE) {
+            // Car is nearly stopped — transition to return-to-idle animation
+            transitionTo(CameraMode.RETURNING_IDLE);
         }
         const activeCamera = scene.userData.activeCamera;
         if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted && !countdownStarted) {

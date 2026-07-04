@@ -63,7 +63,7 @@ function transitionTo(newMode) {
     cameraCtx.mode = newMode;
 }
 
-export { cameraCtx };
+export { cameraCtx, transitionTo };
 
 // ================================================
 // KAMERA POZİSYONLARI - DİKEY HAREKET
@@ -307,6 +307,18 @@ export function updateCamera() {
         }
 
         case CameraMode.NAME_CAMERA: {
+            // Position lerp: fly camera to elevated vantage point
+            const posElapsed = currentTime - cameraCtx.modeStartTime;
+            const posT = Math.min(posElapsed / 3000, 1);
+            const posEase = easeInOutSin(posT);
+            const nameTarget = new THREE.Vector3(60, 60, 40);
+            activeCamera.position.lerpVectors(
+                new THREE.Vector3(cameraCtx.startX, cameraCtx.startY, cameraCtx.startZ),
+                nameTarget,
+                posEase
+            );
+
+            // Quaternion slerp (existing logic below)
             if (cameraCtx.lookAtStartTime !== null) {
                 const lookElapsed = currentTime - cameraCtx.lookAtStartTime;
                 const t = Math.min(lookElapsed / cameraLookAtDuration, 1);
