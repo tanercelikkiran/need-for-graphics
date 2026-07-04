@@ -1585,6 +1585,7 @@ function animate() {
         composer.render();
     }
     catch (e) {
+        console.error("Game loop error:", e);
     }
 
     //stats.end();
