@@ -56,6 +56,124 @@ const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
 const fontloader = new FontLoader(manager);
 
+// Car material configurations
+// Each entry maps mesh name patterns to material setup functions
+const CAR_MATERIAL_CONFIGS = {
+    bmw: {
+        bodyPath: 'public/bmw/bmwWnowheels.fbx',
+        wheelPath: 'public/bmw/bmwwheels.fbx',
+        introPath: 'public/bmw/bmwIntro.fbx',
+        paintMaterialName: 'BMW:carpaint1',
+        cameraFar: 400,
+        setupMesh: (child, carColor) => {
+            if (child.name.includes("Glass")) transparent(child.material);
+            if (child.name.includes("HeadlightWindow")) transparent(child.material);
+            if (child.material.name === 'BMW:carpaint1') metallicPaint(child.material, carColor);
+            if (child.name.includes("Rearlight")) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0x550000, emissive: 0xff3333, emissiveIntensity: 2,
+                    roughness: 0.3, metalness: 0.1,
+                });
+            }
+            if (child.name.includes("Brakelight")) {
+                emissiveLight(child, 0xff3333, 2);
+            }
+            if (child.name.includes("Headl")) emissiveLight(child, 0xFFFFFF, 0.4);
+            if (child.name.includes("RearlightWindow")) transparent(child.material, 0xffffe0);
+            if (child.name.includes("platelight")) {
+                child.add(pointLight(child.position, 0xCDDCFF, 0.05, 1, 5));
+            }
+        },
+        setupHeadlights: (child, scene) => {
+            const headlightSpot = spotlight(
+                new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.05, -1)
+            );
+            headlightSpot.castShadow = true;
+            scene.add(headlightSpot);
+            scene.add(headlightSpot.target);
+            return headlightSpot;
+        },
+        headlightDirection: (child) => {
+            const localDir = new THREE.Vector3(0, -0.1, 1);
+            localDir.applyQuaternion(child.getWorldQuaternion(new THREE.Quaternion()));
+            return localDir;
+        },
+    },
+    porsche: {
+        bodyPath: 'public/porsche/CarwNoWheels.fbx',
+        wheelPath: 'public/porsche/wheels.fbx',
+        introPath: 'public/porsche/CarIntro.fbx',
+        cameraFar: 1000,
+        setupMesh: (child, carColor) => {
+            if (child.name.includes("Object") || child.name.includes("Studio_Car187.002"))
+                transparent(child.material);
+            if (child.name.includes("Studio_Car276")) transparent(child.material, 0x5C0007);
+            if (child.name.includes("Studio_Car277")) metallicPaint(child.material, carColor);
+            if (child.name.includes("Studio_Car148") || child.name.includes("Studio_Car149"))
+                emissiveLight(child, 0xffffff, 20.0);
+            if (child.name.includes("headlight1") || child.name.includes("headlight2"))
+                emissiveLight(child, 0xffffff, 20.0);
+            if (child.name.includes("Studio_Car252_light")) emissiveLight(child, 0xff3333, 5);
+            if (child.name.includes("Studio_Car252_taillights1")) emissiveLight(child, 0xff3333, 20.0);
+            if (child.name.includes("platelight1"))
+                child.add(pointLight(child.position, 0xCDDCFF, 0.01, 1, 5));
+            if (child.name.includes("platelight2"))
+                child.add(pointLight(child.position, 0xCDDCFF, 0.01, 1, 5));
+        },
+        setupHeadlights: (child, scene) => {
+            const headlightSpot = spotlight(
+                new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -10)
+            );
+            headlightSpot.castShadow = true;
+            scene.add(headlightSpot);
+            scene.add(headlightSpot.target);
+            return headlightSpot;
+        },
+        headlightDirection: (child) => {
+            const localDir = new THREE.Vector3(0, 10, 0);
+            localDir.applyQuaternion(child.getWorldQuaternion(new THREE.Quaternion()));
+            return localDir;
+        },
+    },
+    jeep: {
+        bodyPath: 'public/jeep/jeepWnowheels.fbx',
+        wheelPath: 'public/jeep/jeep.fbx',
+        introPath: 'public/jeep/jeepIntro.fbx',
+        paintMaterialName: 'Jeep_GladiatorRewardRecycled_2019Paint_Material',
+        cameraFar: 1000,
+        setupMesh: (child, carColor) => {
+            if (child.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material')
+                metallicPaint(child.material, carColor);
+            if (child.name.includes("Brakelight")) emissiveLight(child, 0xff3333, 2);
+            if (child.name.includes("Taillight")) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0x550000, emissive: 0xff3333, emissiveIntensity: 5,
+                    roughness: 0.3, metalness: 0.1,
+                });
+            }
+            if (child.name.includes("Headlight")) emissiveLight(child, 0xFFFFFF, 2);
+            if (child.name.includes("LicensePlate")) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0xffffff, emissive: 0x000000, roughness: 0.5, metalness: 0.1,
+                });
+            }
+            if (child.name.includes("Trunklight")) emissiveLight(child, 0xFFFFFF, 5);
+            if (child.name.includes("platelight"))
+                child.add(pointLight(child.position, 0xCDDCFF, 0.05, 1, 5));
+        },
+        setupHeadlights: (child, scene) => {
+            const headlightSpot = spotlight(
+                new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.05, -1)
+            );
+            headlightSpot.castShadow = true;
+            scene.add(headlightSpot);
+            scene.add(headlightSpot.target);
+            return headlightSpot;
+        },
+        headlightDirection: () => new THREE.Vector3(0, -0.1, 1),
+    },
+};
+
 export let audioListener;
 export let bmwAcc, porscheAcc, jeepAcc,bmwEngine, porscheEngine, jeepEngine,slide,turboSound;
 export let korna;
@@ -333,452 +451,79 @@ export function loadHDR(scene) {
     });
 }
 
-export function loadJeepIntro(scene) {
-    fbxLoader.load('public/jeep/jeepIntro.fbx', (object) =>{
-        object.traverse(function (child) {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-
-                if (child.name.includes("Brakelight")) {
-
-                    emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                }
-                if (child.name.includes("Taillight")) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        color: 0x550000, // Kırmızı bir ana renk
-                        emissive: 0xff3333, // Emissive kırmızı ton
-                        emissiveIntensity: 5, // Daha düşük başlangıç parlaklığı
-                        roughness: 0.3, // Hafif yansımalar için
-                        metalness: 0.1, // Biraz metalik görünüm
-                    });
-
-                }
-
-                if (child.name.includes("Headlight")) {
-                    emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
-
-                }
-                if (child.name.includes("LicensePlate")) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        color: 0xffffff,
-                        emissive: 0x000000,
-                        roughness: 0.5,
-                        metalness: 0.1,
-                    });
-                }
-                if (child.name.includes("Trunklight")) {
-                    emissiveLight(child, 0xFFFFFF, 5);
-                }
-                if (child.name.includes("platelight")) {
-                    const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                    child.add(pointLight4);
-                }
-            }
-        });
-        scene.add(object);
-    }, null, function(error){
-        console.error(error);
-    });
-}
-
-export function loadBMWintro(scene) {
-    fbxLoader.load('public/bmw/bmwIntro.fbx', (object) => {
-        object.traverse(function(child) {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-
-                // Apply specific material changes for the BMW model if necessary
-                if (child.name.includes("Glass")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-
-                if (child.name.includes("HeadlightWindow")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-
-                // Add any specific light effects or emissive materials to parts of the car
-                if (child.name.includes("Rearlight")) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        color: 0x550000, // Kırmızı bir ana renk
-                        emissive: 0xff3333, // Emissive kırmızı ton
-                        emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
-                        roughness: 0.3, // Hafif yansımalar için
-                        metalness: 0.1, // Biraz metalik görünüm
-                    });
-
-                }
-                if (child.name.includes("Brakelight")) {
-                    emissiveLight(child, 0xff3333, 10);
-                }
-
-                if (child.name.includes("Headl")) {
-                    emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
-
-                }
-                if (child.name.includes("RearlightWindow")) {
-                    transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
-                }
-                if (child.name.includes("HeadlightWindow")) {
-                    transparent(child.material); // Example of applying a transparent material to a part
-                }
-                if (child.name.includes("platelight")){
-                    const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                    child.add(pointLight3);
-                }
-            }
-        });
-        scene.add(object);
-    } , null, function(error){
-        console.error(error);
-    });
-}
-
-export function loadPorscheIntro(scene) {
-    fbxLoader.load("public/porsche/CarIntro.fbx", function(object){
-
-        object.traverse(function(child) {
-            if (child.isMesh){
-                child.castShadow = child.receiveShadow = true;
-                if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
-                    transparent(child.material);
-                }
-                if (child.name.includes("Studio_Car276")){
-                    transparent(child.material, 0x5C0007);
-                }
-                if (child.name.includes("Studio_Car148")){
-                    emissiveLight(child, 0xffffff, 20.0);
-                }
-                if (child.name.includes("Studio_Car149")){
-                    emissiveLight(child, 0xffffff, 20.0);
-                }
-                if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
-                    emissiveLight(child, 0xffffff, 20.0);
-                }
-                if (child.name.includes("Studio_Car252_light")) {
-                    emissiveLight(child, 0xff3333, 5);
-                }
-                if (child.name.includes("Studio_Car252_taillights1")) {
-                    emissiveLight(child, 0xff3333, 20.0);
-                }
-                if (child.name.includes("platelight1")) {
-                    const pointLight1 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                    child.add(pointLight1);
-                }
-                if (child.name.includes("platelight2")) {
-                    const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                    child.add(pointLight2);
-                }
-                if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
-                    emissiveLight(child, 0xff3333, 50); // Fren yapıldığında parlaklık
-                }
-            }
-        });
-        scene.add(object);
-    } , null, function(error){
-        console.error(error);
-    });
-}
-
-export function loadJeep(scene) {
+export function loadCar(scene, carType) {
+    const config = CAR_MATERIAL_CONFIGS[carType];
     return new Promise((resolve) => {
-        fbxLoader.load('public/jeep/jeepWnowheels.fbx', (object) => {
+        fbxLoader.load(config.bodyPath, (object) => {
             carMesh = object;
             scene.add(object);
-            
             object.position.set(-390, 5, 23.5);
 
-            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-            carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
-            carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
-            carMesh.add(carCamera);
-
+            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, config.cameraFar);
+            carCamera.position.set(0, 2, 6.3);
+            carCamera.lookAt(new THREE.Vector3(0, 1.5, 0));
+            object.add(carCamera);
             scene.userData.activeCamera = carCamera;
 
             object.traverse(function(child) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
+                    config.setupMesh(child, carColor);
 
-                    if (child.material.name === 'Jeep_GladiatorRewardRecycled_2019Paint_Material'){
-                        metallicPaint(child.material,carColor);
+                    // Headlights with spotlight
+                    if (child.name.includes("HeadlightSpot") || child.name.includes("headlight1") || child.name.includes("headlight2") || child.name.includes("Headlight")) {
+                        if (config.setupHeadlights && (child.name.includes("HeadlightSpot") || child.name.includes("headlight1") || child.name.includes("headlight2") || child.name.includes("Headlight"))) {
+                            const spot = config.setupHeadlights(child, scene);
+                            world.addEventListener("postStep", () => {
+                                const pos = child.getWorldPosition(new THREE.Vector3());
+                                const dir = config.headlightDirection(child);
+                                spot.updatePositionAndDirection(pos, pos.clone().add(dir));
+                            });
+                        }
                     }
-                    if (child.name.includes("Brakelight")) {
-                        emissiveLight(child, 0xff3333, 2); // one-time setup
+
+                    // Brake/tail lights with postStep toggle
+                    if (child.name.includes("Brakelight") || child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
                         world.addEventListener("postStep", () => {
                             child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
                         });
                     }
-                    if (child.name.includes("Taillight")) {
-                        child.material = new THREE.MeshStandardMaterial({
-                            color: 0x550000, // Kırmızı bir ana renk
-                            emissive: 0xff3333, // Emissive kırmızı ton
-                            emissiveIntensity: 5, // Daha düşük başlangıç parlaklığı
-                            roughness: 0.3, // Hafif yansımalar için
-                            metalness: 0.1, // Biraz metalik görünüm
-                        });
-                        world.addEventListener("postStep", () => {
-                            if (isBraking || isTurboActive) {
-                                child.material.emissiveIntensity = 10;
-                            }else{
-                                child.material.emissiveIntensity = 5;
-                            }
-                        });
-
-                    }
-
-                    if (child.name.includes("HeadlightSpot")) {
-                        // Example for emissive lighting effect
-
-                        const headlightSpotJeep = spotlight(
-                            new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                            new THREE.Vector3(0, -0.05, -1)
-                        );
-                        headlightSpotJeep.castShadow = true;
-                        // Add it to the scene
-                        scene.add(headlightSpotJeep);
-                        scene.add(headlightSpotJeep.target);
-
-                        // Now each physics step, update the spotlight so it "follows" this child
-                        world.addEventListener("postStep", () => {
-                            const updatedPositionJeep = child.getWorldPosition(new THREE.Vector3());
-                            const updatedDirectionJeep = new THREE.Vector3(0, -0.1, 1); // Varsayılan ileri yön
-                            const updatedQuatJeep = child.getWorldQuaternion(new THREE.Quaternion());
-                            updatedDirectionJeep.applyQuaternion(updatedQuatJeep);
-
-                            headlightSpotJeep.updatePositionAndDirection(
-                                updatedPositionJeep,
-                                updatedPositionJeep.clone().add(updatedDirectionJeep)
-                            );
-                        });
-                    }
-                    if (child.name.includes("Headlight")) {
-                        emissiveLight(child, 0xFFFFFF, 2); // Example for emissive lighting effect
-
-                    }
-                    if (child.name.includes("LicensePlate")) {
-                        child.material = new THREE.MeshStandardMaterial({
-                            color: 0xffffff,
-                            emissive: 0x000000,
-                            roughness: 0.5,
-                            metalness: 0.1,
-                        });
-                    }
-                    if (child.name.includes("Trunklight")) {
-                        emissiveLight(child, 0xFFFFFF, 5);
-                    }
-                    if (child.name.includes("platelight")){
-                        const pointLight4 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                        child.add(pointLight4);
-                    }
-                }
-            });
-            resolve();
-        } , null, function(error){
-            console.error(error);
-        });
-        loadWheels(scene, "public/jeep/jeep.fbx" );
-    });
-}
-
-export function loadBMW(scene) {
-    return new Promise((resolve) => {
-        fbxLoader.load('public/bmw/bmwWnowheels.fbx', (object) => {
-            carMesh = object;
-            scene.add(object);
-
-            object.position.set(-390, 5, 23.5);
-
-            const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 400);
-            carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
-            carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
-            carMesh.add(carCamera);
-
-            scene.userData.activeCamera = carCamera;
-
-            object.traverse(function(child) {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-
-                    // Apply specific material changes for the BMW model if necessary
-                    if (child.name.includes("Glass")) {
-                        transparent(child.material); // Example of applying a transparent material to a part
-                    }
-                    if (child.material.name === 'BMW:carpaint1'){
-                        metallicPaint(child.material,carColor);
-                    }
-
-                    if (child.name.includes("HeadlightWindow")) {
-                        transparent(child.material); // Example of applying a transparent material to a part
-                    }
-
-                    // Add any specific light effects or emissive materials to parts of the car
-                    if (child.name.includes("Rearlight")) {
-                        child.material = new THREE.MeshStandardMaterial({
-                            color: 0x550000, // Kırmızı bir ana renk
-                            emissive: 0xff3333, // Emissive kırmızı ton
-                            emissiveIntensity: 2, // Daha düşük başlangıç parlaklığı
-                            roughness: 0.3, // Hafif yansımalar için
-                            metalness: 0.1, // Biraz metalik görünüm
-                        });
+                    if (child.name.includes("Rearlight") && carType === 'bmw') {
                         world.addEventListener("postStep", () => {
                             child.material.emissiveIntensity = (isBraking || isTurboActive) ? 5 : 2;
                         });
-
                     }
-                    if (child.name.includes("Brakelight")) {
-                        emissiveLight(child, 0xff3333, 2); // one-time setup
+                    if (child.name.includes("Taillight") && carType === 'jeep') {
                         world.addEventListener("postStep", () => {
-                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
+                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 10 : 5;
                         });
                     }
-                    if (child.name.includes("Headlight")) {
-                        // Example for emissive lighting effect
-                        const headlightSpotBMW = spotlight(
-                            new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                            new THREE.Vector3(0, -0.05, -1)
-                        );
-                        headlightSpotBMW.castShadow=true;
-
-                        // Add it to the scene
-                        scene.add(headlightSpotBMW);
-                        scene.add(headlightSpotBMW.target);
-
-                        // Now each physics step, update the spotlight so it "follows" this child
+                    if (child.name.includes("Studio_Car252_light") && carType === 'porsche') {
                         world.addEventListener("postStep", () => {
-                            const updatedPositionBMW = child.getWorldPosition(new THREE.Vector3());
-                            const updatedDirection = new THREE.Vector3(0, -0.1, 1); // Varsayılan ileri yön
-                            const updatedQuat = child.getWorldQuaternion(new THREE.Quaternion());
-                            updatedDirection.applyQuaternion(updatedQuat);
-
-                            headlightSpotBMW.updatePositionAndDirection(
-                                updatedPositionBMW,
-                                updatedPositionBMW.clone().add(updatedDirection)
-                            );
+                            child.material.emissiveIntensity = (isBraking || isTurboActive) ? 20 : 5;
                         });
-                    }
-                    if (child.name.includes("Headl")) {
-                        emissiveLight(child, 0xFFFFFF, 0.4); // Example for emissive lighting effect
-                    }
-                    if (child.name.includes("RearlightWindow")) {
-                        transparent(child.material, 0xffffe0); // Example of applying a transparent material to a part
-                    }
-                    if (child.name.includes("HeadlightWindow")) {
-                        transparent(child.material);
-                    }
-                    if (child.name.includes("platelight")){
-                        const pointLight3 = pointLight(child.position, 0xCDDCFF, 0.05, 1, 5);
-                        child.add(pointLight3);
                     }
                 }
             });
             resolve();
-        } , null, function(error){
-            console.error(error);
-        });
-        loadWheels(scene, "public/bmw/bmwwheels.fbx" );
-    } );
+        }, null, function(error) { console.error(error); });
+        loadWheels(scene, config.wheelPath);
+    });
 }
 
-export function loadPorsche(scene) {
-    return new Promise((resolve) => {
-        fbxLoader.load("public/porsche/CarwNoWheels.fbx", function(object){
-                carMesh = object;
-                scene.add(object);
-
-                object.position.set(-390, 5, 23.5);
-
-                const carCamera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-                carCamera.position.set(0, 2, 6.3); // Kamerayı arabanın arkasına yerleştir
-                carCamera.lookAt(new THREE.Vector3(0, 1.5, 0)); // Kameranın arabaya doğru bakmasını sağla
-                object.add(carCamera);
-
-                scene.userData.activeCamera = carCamera;
-
-                object.traverse( function(child){
-                    if (child.isMesh){
-                        child.castShadow = child.receiveShadow = true;
-                        if (child.name.includes("Object") || child.name.includes("Studio_Car187.002")){
-                            transparent(child.material);
-                        }
-                        if (child.name.includes("Studio_Car276")){
-                            transparent(child.material, 0x5C0007);
-                        }
-                        if (child.name.includes("Studio_Car277")){
-                            metallicPaint(child.material,carColor);
-                        }
-                        if (child.name.includes("Studio_Car148")){
-                            emissiveLight(child, 0xffffff, 20.0);
-                        }
-                        if (child.name.includes("Studio_Car149")){
-                            emissiveLight(child, 0xffffff, 20.0);
-                        }
-                        if (child.name.includes("headlight1") || child.name.includes("headlight2")) {
-                            emissiveLight(child, 0xffffff, 20.0);
-
-                            // Create the spotlight with dummy positions for now
-                            const headlightSpot = spotlight(
-                                new THREE.Vector3(0, 0, 0), // we'll override in postStep
-                                new THREE.Vector3(0, 0, -10)
-                            );
-                            headlightSpot.castShadow=true;
-
-                            // Add it to the scene
-                            scene.add(headlightSpot);
-                            scene.add(headlightSpot.target);
-
-                            // Now each physics step, update the spotlight so it "follows" this child
-                            world.addEventListener("postStep", () => {
-                                // 1) Get the child's current world position
-                                const updatedPosition = child.getWorldPosition(new THREE.Vector3());
-
-                                // 2) We'll define a local "forward" offset of -10 along Z,
-                                //    then rotate it by the child's *world* quaternion.
-                                const localDir = new THREE.Vector3(0, 10, 0);
-                                const childQuat = child.getWorldQuaternion(new THREE.Quaternion());
-                                localDir.applyQuaternion(childQuat);
-
-                                // 3) Final target is updatedPosition + localDir
-                                const updatedTarget = updatedPosition.clone().add(localDir);
-
-                                // 4) Call the tilt-based spotlight update:
-                                headlightSpot.updatePositionAndDirection(updatedPosition, updatedTarget);
-                            });
-                        }
-                        if (child.name.includes("Studio_Car252_light")) {
-                            emissiveLight(child, 0xff3333, 5); // one-time setup
-                            world.addEventListener("postStep", () => {
-                                child.material.emissiveIntensity = (isBraking || isTurboActive) ? 20 : 5;
-                            });
-                        }
-                        if (child.name.includes("Studio_Car252_taillights1")) {
-                            emissiveLight(child, 0xff3333, 20.0);
-                        }
-                        if (child.name.includes("platelight1")) {
-                            const pointLight1 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                            child.add(pointLight1);
-                        }
-                        if (child.name.includes("platelight2")) {
-                            const pointLight2 = pointLight(child.position, 0xCDDCFF, 0.01, 1, 5);
-                            child.add(pointLight2);
-                        }
-                        if (child.name.includes("Studio_Car252_taillights") || child.name.includes("Studio_Car236_brakelight")) {
-                            emissiveLight(child, 0xff3333, 2); // one-time setup
-                            world.addEventListener("postStep", () => {
-                                child.material.emissiveIntensity = (isBraking || isTurboActive) ? 50 : 2;
-                            });
-                        }
-                    }
-                });
-                resolve();
-            },
-            null, function(error){
-                console.error(error);
-            });
-        loadWheels(scene, "public/porsche/wheels.fbx" );
-    });
+export function loadCarIntro(scene, carType) {
+    const config = CAR_MATERIAL_CONFIGS[carType];
+    fbxLoader.load(config.introPath, (object) => {
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                config.setupMesh(child, carColor);
+            }
+        });
+        scene.add(object);
+    }, null, function(error) { console.error(error); });
 }
 
 export function loadWheels(scene, wheelPath) {

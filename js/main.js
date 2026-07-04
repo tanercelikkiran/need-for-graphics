@@ -3,12 +3,8 @@ import {
     loadHDR,
     carMesh,
     wheelMeshes,
-    loadPorsche,
-    loadBMW,
-    loadJeep,
-    loadBMWintro,
-    loadPorscheIntro,
-    loadJeepIntro,
+    loadCar,
+    loadCarIntro,
     manager,
     bmwAcc,
     porscheAcc,
@@ -1584,9 +1580,8 @@ function initIntro() {
     document.body.appendChild(renderer.domElement);
 
     try {
-        loadBMWintro(sceneIntro);
-        loadPorscheIntro(sceneIntro);
-        loadJeepIntro(sceneIntro);
+        const carTypes = ['bmw', 'porsche', 'jeep'];
+        carTypes.forEach(type => loadCarIntro(sceneIntro, type));
     } catch (error) {
         console.error("Model yükleme sırasında hata oluştu:", error);
     }
@@ -2177,13 +2172,13 @@ function main() {
     } else if (hdriChange === 2) {
         loadHDRnight(scene, renderer);
     }
-    if (selectedCarNo === 0) {
-        loadBMW(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    } else if (selectedCarNo === 1) {
-        loadPorsche(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    } else if (selectedCarNo === 2) {
-        loadJeep(scene).then(setCameraComposer).then(createVehicle).then(createOrbitControls);
-    }
+
+    const carTypes = ['porsche', 'bmw', 'jeep'];
+    loadCar(scene, carTypes[selectedCarNo])
+        .then(setCameraComposer)
+        .then(createVehicle)
+        .then(createOrbitControls);
+
     animate();
 }
 
