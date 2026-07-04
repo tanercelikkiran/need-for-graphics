@@ -1734,22 +1734,6 @@ function initIntro() {
         bloomPass.resolution.set(width, height);
     });
 
-    window.addEventListener('resize', () => {
-        // Yeni boyutları al
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Kamera oranını güncelle
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-
-        // Renderer boyutunu güncelle
-        renderer.setSize(width, height);
-
-        // BloomPass çözünürlüğünü güncelle
-        bloomPass.resolution.set(width, height);
-    });
-
     function animateIntro() {
         controls.update();
         introComposer.render();
