@@ -1,20 +1,21 @@
 {
-  "name": "threeboilerplate",
+  "name": "need-for-graphics",
   "version": "1.0.0",
-  "description": "The Three.js boilerplate that I'm using in my Tutorials.",
-  "main": "main.js",
+  "description": "A Three.js + Cannon-es 3D racing game for studying friction forces in physics",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
-  "author": "Wael Yasmina",
+  "author": "Taner Celikkiran",
   "license": "GPL-2.0",
   "dependencies": {
     "cannon-es": "^0.20.0",
-    "cannon-es-debugger": "^1.0.0",
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "cannon-es-debugger": "^1.0.0",
     "vite": "^5.4.11"
   }
 }

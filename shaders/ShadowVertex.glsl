@@ -11,7 +11,6 @@ in vec3 position;
 in vec3 normal;
 in vec2 uv;
 
-out vec3 vWorldPos;       // Pass world position to fragment
 out vec3 vWorldNormal;    // Pass normal in world space
 out vec2 vUV;             // Pass UV
 out vec4 vShadowCoord;    // Light's clip space position
@@ -19,8 +18,6 @@ out vec4 vShadowCoord;    // Light's clip space position
 void main() {
     // Compute world-space position
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPos     = worldPos.xyz;
-
     // For correct lighting, transform normal by normalMatrix if needed.
     // For simplicity, assume no non-uniform scale. If you do, pass
     // a normalMatrix = inverseTranspose(modelMatrix) as uniform.

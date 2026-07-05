@@ -4,12 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Need For Graphics</title>
+    <link rel="preload" href="public/PlatformOne.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="public/digital7.ttf" as="font" type="font/ttf" crossorigin>
     <style>
         @font-face {
             font-family: 'Platformone';
             src: url('public/PlatformOne.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
+            font-display: swap;
         }
 
         @font-face {
@@ -17,6 +20,7 @@
             src: url('public/digital7.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
+            font-display: swap;
         }
 
         body { margin: 0; }
@@ -169,7 +173,7 @@
             height: 100%;
             background: linear-gradient(90deg, rgba(0,0,0,0), rgba(29,216,183,0.7)); /* Dolum gradyanı */
             transition: width 0.1s; /* Pürüzsüz animasyon */
-        //transform-origin: right center;
+        /* transform-origin: right center; */
         }
         #countdown {
             position: absolute;
@@ -199,7 +203,7 @@
             width: 100px; /* Genişliği sabitleyin */
             margin: auto; /* Ortalamayı kesinleştirin */
             position: relative; /* Sabit bir konum belirlemek için */
-            transition: opacity 0.5s ease, opacity 0.5s ease; /* Yumuşak geçiş */
+            transition: opacity 0.5s ease; /* Yumuşak geçiş */
         }
 
         #minimap-container {
@@ -450,7 +454,7 @@
             color: #1dd8b7;
             text-shadow: 0 0 1vw #1dd8b7, 0 0 2vw #1dd8b7;
         }
-        #game-over-screen button {
+        #game-over button {
             padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
@@ -513,6 +517,21 @@
             cursor: grab;
         }
 
+        #sandbox-message {
+            display: none;
+            position: fixed;
+            top: 18%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #1dd8b7;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            font-family: 'Platformone', sans-serif;
+            font-size: 2rem;
+            z-index: 1000;
+        }
+
 
 
 
@@ -543,7 +562,7 @@
     <button id="start-text-1" class="hover-effect">PLAY</button>
     <button id="start-text-2" class="hover-effect">CHANGE CAR</button>
     <button id="start-text-3" class="hover-effect">CHANGE COLOR</button>
-    <input type="color" id="color-picker" style="display: none;" class="hover-effect">
+    <input type="color" id="color-picker" style="display: none;" class="hover-effect" aria-label="Choose car color" tabindex="-1">
     <button id="start-text-4" class="hover-effect">HELP</button>
     <button id="start-text-5" class="hover-effect">SANDBOX</button>
     <button id="start-text-6" class="hover-effect">TIME:MORNING</button>
@@ -553,11 +572,11 @@
     <button id="sandbox-button-2" class="hover-effect">ADD</button>
 </div>
 
-<div id="sandbox-message" style="display: none; position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); color: #1dd8b7; padding: 1rem; border-radius: 10px; text-align: center;font-family: 'Platformone', sans-serif; font-size: 2rem; z-index: 1000;">
+<div id="sandbox-message">
     You have already entered Sandbox!
 </div>
 
-<div id="help-screen" class="hidden">
+<div id="help-screen">
     <div id="help">HELP</div>
     <div id="help-content">
         <ul>
@@ -627,13 +646,13 @@
     <span id="turbo-value">Turbo 100%</span>
 </div>
 
-<img id="neonline" src="public/neonline.png" alt="PNG Image">
-<img id="neonline2" src="public/neonline.png" alt="PNG Image">
+<img id="neonline" src="public/neonline.png" alt="" role="presentation" loading="lazy">
+<img id="neonline2" src="public/neonline.png" alt="" role="presentation" loading="lazy">
 
-<img id="neontimer" src="public/neontimer.png" alt="PNG Image">
+<img id="neontimer" src="public/neontimer.png" alt="" role="presentation" loading="lazy">
 
-<img id="scoreboard" src="public/scoreboard.png" alt="PNG Image">
-<img id="scoreboard2" src="public/scoreboard.png" alt="PNG Image">
+<img id="scoreboard" src="public/scoreboard.png" alt="" role="presentation" loading="lazy">
+<img id="scoreboard2" src="public/scoreboard.png" alt="" role="presentation" loading="lazy">
 
 <script src="js/main.js" type="module"></script>
 </body>

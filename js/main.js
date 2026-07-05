@@ -52,8 +52,12 @@ import {
     updateSpeedometer, updateSpeedSlider, updateTurbometer, updateTurboSlider,
 } from './hud.js';
 
-let cannonDebugger; // not shared with loaders.js, kept local
-let stats; // not shared with loaders.js, kept local
+// Game constants
+const CAR_START_POSITION = { x: -390, y: 5, z: 23.5 };
+const CAMERA_OFFSET_DIVISOR = 1.5;
+const MOTION_BLUR_DELTA = 200;
+const MOTION_BLUR_VELOCITY_FACTOR = 15;
+const SCORE_SPEED_MULTIPLIER = 0.000001;
 
 const motionBlurShader = {
     uniforms: {
@@ -93,6 +97,17 @@ let hdriChange = 0;
 
 // AbortController for game scene event listeners — aborted on scene transitions
 let gameAbortController = null;
+
+// requestAnimationFrame IDs for cancellation on scene transitions
+let gameRafId = null;
+let introRafId = null;
+let sandboxRafId = null;
+
+function cancelAllAnimationFrames() {
+    if (gameRafId !== null) { cancelAnimationFrame(gameRafId); gameRafId = null; }
+    if (introRafId !== null) { cancelAnimationFrame(introRafId); introRafId = null; }
+    if (sandboxRafId !== null) { cancelAnimationFrame(sandboxRafId); sandboxRafId = null; }
+}
 
 const startMenu = document.getElementById('start-menu');
 const sandboxMenu = document.getElementById('sandbox-menu');
@@ -153,6 +168,29 @@ function init() {
     setScene(new THREE.Scene());
     addLights(scene);
     loadSounds(scene);
+
+    // Dispose old renderer and composer if they exist
+    if (composer) {
+        composer.passes.forEach(pass => {
+            if (pass.dispose) pass.dispose();
+        });
+        composer.renderTarget1?.dispose();
+        composer.renderTarget2?.dispose();
+    }
+    if (renderer) {
+        renderer.dispose();
+        if (renderer.domElement?.parentNode) {
+            renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
+    }
+    if (minimapRenderer) {
+        minimapRenderer.dispose();
+        if (minimapRenderer.domElement?.parentNode) {
+            minimapRenderer.domElement.parentNode.removeChild(minimapRenderer.domElement);
+        }
+        minimapRenderer = null;
+    }
+
     setRenderer(new THREE.WebGLRenderer({ antialias: false }));
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);// HDR renk kodlaması
@@ -185,8 +223,8 @@ function init() {
     scene.add(skyMesh);
 
     setMotionBlurPass(new ShaderPass(motionBlurShader));
-    motionBlurPass.uniforms['delta'].value = 200; // Blur miktarı
-    motionBlurPass.uniforms['velocityFactor'].value = 15; // Hız ile artan blur
+    motionBlurPass.uniforms['delta'].value = MOTION_BLUR_DELTA; // Blur miktarı
+    motionBlurPass.uniforms['velocityFactor'].value = MOTION_BLUR_VELOCITY_FACTOR; // Hız ile artan blur
     composer.renderTarget1.depthTexture = new DepthTexture();
     composer.renderTarget2.depthTexture = new DepthTexture();
     composer.addPass(motionBlurPass);
@@ -269,31 +307,46 @@ function setCannonWorld() {
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
-    // cannonDebugger = new CannonDebugger(scene, world);
+    const activeSurfaces = new Set();
 
     world.addEventListener("beginContact", (event) => {
+        if (!vehicle) return;
         const bodyA = event.bodyA;
         const bodyB = event.bodyB;
 
+        const materials = [bodyA.material?.name, bodyB.material?.name];
+        let surfaceName = null;
         let newFrictionSlip = surfaceFrictionValues.default;
 
-        const materials = [bodyA.material?.name, bodyB.material?.name];
         if (materials.includes("grass")) {
+            surfaceName = "grass";
             newFrictionSlip = surfaceFrictionValues.grass;
         } else if (materials.includes("ice")) {
+            surfaceName = "ice";
             newFrictionSlip = surfaceFrictionValues.ice;
         } else if (materials.includes("gravel")) {
+            surfaceName = "gravel";
             newFrictionSlip = surfaceFrictionValues.gravel;
         } else if (materials.includes("mud")) {
+            surfaceName = "mud";
             newFrictionSlip = surfaceFrictionValues.mud;
         }
 
+        if (surfaceName) activeSurfaces.add(surfaceName);
         updateWheelFriction(vehicle, newFrictionSlip);
     });
 
     world.addEventListener("endContact", (event) => {
-        // Varsayılan değeri geri yükle
-        updateWheelFriction(vehicle, surfaceFrictionValues.default);
+        if (!vehicle) return;
+        const bodyA = event.bodyA;
+        const bodyB = event.bodyB;
+        const materials = [bodyA.material?.name, bodyB.material?.name];
+        for (const name of ["grass", "ice", "gravel", "mud"]) {
+            if (materials.includes(name)) activeSurfaces.delete(name);
+        }
+        if (activeSurfaces.size === 0) {
+            updateWheelFriction(vehicle, surfaceFrictionValues.default);
+        }
     });
 }
 
@@ -442,13 +495,11 @@ function createFrictionPairs() {
 
 }
 
+const _localUp = new CANNON.Vec3(0, 1, 0);
+const _worldUpResult = new CANNON.Vec3();
 function getUpAxis(body) {
-    const localUp = new CANNON.Vec3(0, 1, 0); // Local up in body space
-    let worldUp = new CANNON.Vec3(); // Placeholder for world up
-
-    body.quaternion.vmult(localUp, worldUp); // Transform local up to world space
-
-    return worldUp; // This is the normalized up axis
+    body.quaternion.vmult(_localUp, _worldUpResult);
+    return _worldUpResult;
 }
 
 
@@ -466,9 +517,9 @@ function updateScore(deltaTime) {
     scoreTime -= deltaTime / 1000;
     const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
     const seconds = Math.floor(scoreTime % 60);
-    score += speed * 0.000001;
-    const secondssqr = Math.pow(seconds, 2)
-    finalScore = score * secondssqr;
+    score += speed * SCORE_SPEED_MULTIPLIER;
+    const secondsSquared = seconds * seconds;
+    finalScore = score * secondsSquared;
     scoreEl.textContent = `Score: ${finalScore.toFixed(0)}`;
 }
 
@@ -545,19 +596,17 @@ function startCountdown() {
 function animate() {
     if (gameState === GameState.GAME_OVER) return;
     if (gameState !== GameState.PLAYING && gameState !== GameState.COUNTDOWN) {
-        requestAnimationFrame(animate);
+        gameRafId = requestAnimationFrame(animate);
         return;
     }
-    //cannonDebugger.update();
 
 
     const time = performance.now();
     const deltaTime = (time - lastTime) / 1000; // Convert to seconds
-    const milDeltaTime = (time - lastTime);
+    const deltaTimeMs = (time - lastTime);
     lastTime = time;
     // Step the physics world
     world.step(fixedTimeStep, deltaTime, maxSubSteps);
-    //stats.begin();
     try {
         updateTurbo(deltaTime);
         updateVehicleControls();
@@ -574,7 +623,7 @@ function animate() {
 
         const chassisBody = vehicle.chassisBody;
         let worldUp = getUpAxis(chassisBody);
-        _tmpVec3A.set(chassisBody.position.x - worldUp.x / 1.5, chassisBody.position.y - worldUp.y / 1.5, chassisBody.position.z - worldUp.z / 1.5);
+        _tmpVec3A.set(chassisBody.position.x - worldUp.x / CAMERA_OFFSET_DIVISOR, chassisBody.position.y - worldUp.y / CAMERA_OFFSET_DIVISOR, chassisBody.position.z - worldUp.z / CAMERA_OFFSET_DIVISOR);
         chassisBody.threemesh.position.copy(_tmpVec3A);
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
@@ -599,9 +648,9 @@ function animate() {
         syncObjectBodies();
 
         if (gameState === GameState.PLAYING) {
-            updateTimer(milDeltaTime);
-            updateRemainingTime(milDeltaTime);
-            updateScore(milDeltaTime);
+            updateTimer(deltaTimeMs);
+            updateRemainingTime(deltaTimeMs);
+            updateScore(deltaTimeMs);
         }
 
         const velocity = vehicle.chassisBody.velocity;
@@ -619,8 +668,7 @@ function animate() {
         console.error("Game loop error:", e);
     }
 
-    //stats.end();
-    requestAnimationFrame(animate);
+    gameRafId = requestAnimationFrame(animate);
 }
 
 
@@ -629,6 +677,13 @@ function initIntro() {
     const introAbortSignal = introAbortController.signal;
 
     setSceneIntro(new THREE.Scene());
+
+    if (renderer) {
+        renderer.dispose();
+        if (renderer.domElement?.parentNode) {
+            renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
+    }
 
     setRenderer(new THREE.WebGLRenderer({ antialias: true }));
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -645,7 +700,7 @@ function initIntro() {
     document.getElementById("start-text-2").addEventListener("click", () => {
         setSelectedCarNo((selectedCarNo + 1) % 3)
         updateCarVisibility(); // Görünürlüğü güncelle
-    });
+    }, { signal: introAbortSignal });
 
     function updateCarVisibility() {
         let bmwModel, porscheModel, jeepModel;
@@ -791,7 +846,7 @@ function initIntro() {
     function animateIntro() {
         controls.update();
         introComposer.render();
-        requestAnimationFrame(animateIntro);
+        introRafId = requestAnimationFrame(animateIntro);
     }
 
     animateIntro();
@@ -806,7 +861,7 @@ function initIntro() {
         const loadingFill = document.getElementById('loadingFill');
         const scoreboard = document.getElementById('scoreboard');
         const scoreboard2 = document.getElementById('scoreboard2');
-        const minimapx = document.getElementById('minimap-container');
+        const minimapContainerEl = document.getElementById('minimap-container');
         const timerX = document.getElementById('timer');
         const scoreX = document.getElementById('score');
         if (event.button === 0 && gameState === GameState.INTRO) {
@@ -842,6 +897,7 @@ function initIntro() {
             sceneIntro.clear(); // Sahneyi temizle
 
             introAbortController.abort();
+            cancelAnimationFrame(introRafId);
             main();
             timeValue.style.display = 'block';
             speedometer.style.display = 'block';
@@ -851,7 +907,7 @@ function initIntro() {
             turbometer.style.display = 'block';
             scoreboard.style.display = "block";
             scoreboard2.style.display = "block";
-            minimapx.style.display = "block";
+            minimapContainerEl.style.display = "block";
             scoreX.style.display = "inline-block";
             timerX.style.display = "inline-block";
         }
@@ -867,7 +923,7 @@ function initIntro() {
                 colorPicker.click();
                 colorPickerActive = true;
             }
-        });
+        }, { signal: introAbortSignal });
 
         colorPicker.addEventListener('input', () => {
             if (!colorPickerActive || !sceneIntro) return;
@@ -908,7 +964,7 @@ function initIntro() {
         if (gameState === GameState.INTRO) {
             setGameState(GameState.SANDBOX);
 
-            const minimapx = document.getElementById('minimap-container');
+            const minimapContainerEl = document.getElementById('minimap-container');
             const loadingFill = document.getElementById('loadingFill');;
             // Kaynakları temizleme
             sceneIntro.traverse((object) => {
@@ -931,7 +987,7 @@ function initIntro() {
                 loadingFill.style.display = 'none';
             };
             startMenu.style.display = "none";
-            minimapx.style.display = "block";
+            minimapContainerEl.style.display = "block";
             renderer.dispose(); // Renderer'ı temizle
             document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
 
@@ -939,7 +995,8 @@ function initIntro() {
             sceneIntro.clear(); // Sahneyi temizle
 
             introAbortController.abort();
-            sandBox(); // Sandbox sahnesini başlat
+            cancelAnimationFrame(introRafId);
+            initSandbox(); // Sandbox sahnesini başlat
 
 
         }
@@ -951,7 +1008,7 @@ function initIntro() {
             }, 3000);
         }
     });
-    document.getElementById('start-text-4').addEventListener('click', showHelpScreen);
+    document.getElementById('start-text-4').addEventListener('click', showHelpScreen, { signal: introAbortSignal });
     document.getElementById('start-text-6').addEventListener('mousedown', function (event) {
         hdriChange = (hdriChange + 1) % 3;
         const getHDRItext = document.getElementById("start-text-6");
@@ -962,10 +1019,10 @@ function initIntro() {
         } else if (hdriChange === 2) {
             getHDRItext.textContent = "TIME:NIGHT";
         }
-    });
+    }, { signal: introAbortSignal });
 }
 
-function sandBox() {
+function initSandbox() {
     const sandboxAbortController = new AbortController();
     const sandboxSignal = sandboxAbortController.signal;
 
@@ -1008,14 +1065,21 @@ function sandBox() {
     camera.lookAt(0, 0, 0);
     sceneSandbox.userData.activeCamera = camera;
 
+    if (renderer) {
+        renderer.dispose();
+        if (renderer.domElement?.parentNode) {
+            renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
+    }
+
     setRenderer(new THREE.WebGLRenderer());
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const controls2 = new OrbitControls(camera, renderer.domElement);
-    controls2.target.set(0, 1, 0);
-    controls2.enableDamping = true;
-    controls2.dampingFactor = 0.05;
+    const sandboxControls = new OrbitControls(camera, renderer.domElement);
+    sandboxControls.target.set(0, 1, 0);
+    sandboxControls.enableDamping = true;
+    sandboxControls.dampingFactor = 0.05;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Ortam ışığı
     sceneSandbox.add(ambientLight);
@@ -1063,13 +1127,13 @@ function sandBox() {
             );
 
             isDragging = true;
-            controls2.enabled = false; // Disable orbit controls
+            sandboxControls.enabled = false; // Disable orbit controls
         } else {
             // No object selected
             if (selectedObject) {
                 selectedObject = null;
             }
-            controls2.enabled = true; // Enable orbit controls
+            sandboxControls.enabled = true; // Enable orbit controls
         }
     }, { signal: sandboxSignal });
 
@@ -1106,7 +1170,7 @@ function sandBox() {
             isDragging = false;
             dragMode = "move"; // Reset to move mode
         }
-        controls2.enabled = true; // Re-enable orbit controls
+        sandboxControls.enabled = true; // Re-enable orbit controls
     }, { signal: sandboxSignal });
 
     document.addEventListener('keydown', (event) => {
@@ -1147,7 +1211,7 @@ function sandBox() {
         const loadingFill = document.getElementById('loadingFill');
         const scoreboard = document.getElementById('scoreboard');
         const scoreboard2 = document.getElementById('scoreboard2');
-        const minimapx = document.getElementById('minimap-container');
+        const minimapContainerEl = document.getElementById('minimap-container');
         const timerX = document.getElementById('timer');
         const scoreX = document.getElementById('score');
         if (event.button === 0 && gameState === GameState.SANDBOX) {
@@ -1175,6 +1239,7 @@ function sandBox() {
             // sceneIntro was already cleared when entering sandbox — skip cleanup
 
             sandboxAbortController.abort();
+            cancelAnimationFrame(sandboxRafId);
             main();
             timeValue.style.display = 'block';
             speedometer.style.display = 'block';
@@ -1184,7 +1249,7 @@ function sandBox() {
             turbometer.style.display = 'block';
             scoreboard.style.display = "block";
             scoreboard2.style.display = "block";
-            minimapx.style.display = "block";
+            minimapContainerEl.style.display = "block";
             scoreX.style.display = "inline-block";
             timerX.style.display = "inline-block";
         }
@@ -1206,10 +1271,10 @@ function sandBox() {
     }, { signal: sandboxSignal });
 
     function animateSandbox() {
-        controls2.update();
+        sandboxControls.update();
         renderer.render(sceneSandbox, camera);
         minimapRenderer.render(sceneSandbox, minimapCamera);
-        requestAnimationFrame(animateSandbox);
+        sandboxRafId = requestAnimationFrame(animateSandbox);
     }
 
     animateSandbox();

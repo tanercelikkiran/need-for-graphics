@@ -10,13 +10,6 @@ export function transparent(material, color = 0xffffff) {
     material.envMapIntensity = 1; // Ortam yansıması (isteğe bağlı, HDRI kullanıyorsanız etkili olur)
 }
 
-export function neonEmissiveMaterial(material, color, intensity) {
-    material.color.set(color);
-    material.emissive = new THREE.Color(color);
-    material.emissiveIntensity = intensity;
-    material.roughness = 0.2; // Slight roughness for light diffusion
-    material.metalness = 0.8; // Slight metallic effect for glow reflection
-}
 
 export function metallicPaint(material, color) {
     // Kullanıcının verdiği rengi ayarla
@@ -33,26 +26,30 @@ export function metallicPaint(material, color) {
     material.sheenColor = new THREE.Color(color).multiplyScalar(1.2); // Rengin hafif aydınlatılmış tonu
     material.sheenRoughness = 0.3; // Sheen pürüzlülüğü
 
-    // Normal Map ve ayrıntılar (isteğe bağlı)
-    material.normalMap = null; // Varsayılan olarak yok
-    material.normalScale = new THREE.Vector2(1, 1); // Normal haritası ölçeği
-
-    // Ortam haritası (envMap)
-    material.envMap = null; // Varsayılan olarak yok
-
     // Fresnel Etkisi (dinamik renk değişimi)
     material.onBeforeCompile = (shader) => {
-        shader.uniforms.uFresnelPower = { value: 2.0 }; // Fresnel yoğunluğu
-        shader.uniforms.uFresnelColor = { value: new THREE.Color(color).multiplyScalar(1.5) }; // Fresnel renk tonu
+        shader.uniforms.uFresnelPower = { value: 2.0 };
+        shader.uniforms.uFresnelColor = { value: new THREE.Color(color).multiplyScalar(1.5) };
+
+        // Inject Fresnel calculation into the color_fragment chunk
         shader.fragmentShader = shader.fragmentShader.replace(
-            `void main() {`,
+            `#include <color_fragment>`,
+            `#include <color_fragment>
+            {
+                vec3 viewDir = normalize(vViewPosition);
+                vec3 normalDir = normalize(vNormal);
+                float fresnel = pow(1.0 - abs(dot(normalDir, viewDir)), uFresnelPower);
+                diffuseColor.rgb += uFresnelColor * fresnel;
+            }
             `
+        );
+
+        // Add uniforms to the fragment shader
+        shader.fragmentShader = shader.fragmentShader.replace(
+            `uniform float opacity;`,
+            `uniform float opacity;
             uniform float uFresnelPower;
-            uniform vec3 uFresnelColor;
-            void main() {
-                float fresnel = pow(1.0 - dot(normalize(vNormal), vec3(0.0, 0.0, 1.0)), uFresnelPower);
-                gl_FragColor.rgb += uFresnelColor * fresnel;
-            `
+            uniform vec3 uFresnelColor;`
         );
     };
 
@@ -72,38 +69,35 @@ export function pointLight(position, color, intensity, distance, decay) {
 }
 
 export function emissiveLight(mesh, emissiveColor, intensity) {
-    mesh.material = new THREE.MeshStandardMaterial({
-        emissive: emissiveColor,
-        emissiveIntensity: intensity,
-    });
+    if (mesh.material) {
+        mesh.material.emissive = new THREE.Color(emissiveColor);
+        mesh.material.emissiveIntensity = intensity;
+    }
 }
 
-export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 15, angle = Math.PI / 4, distance = 50) {
+// Pre-allocated temp vectors for spotlight updates
+const _spotDir = new THREE.Vector3();
+const _spotTarget = new THREE.Vector3();
 
+export function spotlight(position, targetPosition, color = 0xDDE6FF, intensity = 15, angle = Math.PI / 4, distance = 50, tiltDegrees = -5) {
     const spot = new THREE.SpotLight(color, intensity, distance, angle, 1, 1);
     spot.position.copy(position);
 
-    // 1) Compute direction from position --> target
+    // Compute direction from position --> target with tilt
+    const tiltEuler = new THREE.Euler(THREE.MathUtils.degToRad(tiltDegrees), 0, 0, "XYZ");
     const direction = new THREE.Vector3().subVectors(targetPosition, position);
-
-    // 2) Tilt that direction by -5° around the local X axis
-    const tiltEuler = new THREE.Euler(THREE.MathUtils.degToRad(-5), 0, 0, "XYZ");
     direction.applyEuler(tiltEuler);
-
-    // 3) Final target = position + (tilted direction)
     const finalTarget = position.clone().add(direction);
     spot.target.position.copy(finalTarget);
     spot.target.updateMatrixWorld();
 
-    // For dynamic updates, reapply the same tilt.
+    // For dynamic updates, reapply the same tilt using pre-allocated vectors
     spot.updatePositionAndDirection = function (newPosition, newTargetPosition) {
         this.position.copy(newPosition);
-
-        const dir = new THREE.Vector3().subVectors(newTargetPosition, newPosition);
-        dir.applyEuler(tiltEuler);
-
-        const finalTarget2 = newPosition.clone().add(dir);
-        this.target.position.copy(finalTarget2);
+        _spotDir.subVectors(newTargetPosition, newPosition);
+        _spotDir.applyEuler(tiltEuler);
+        _spotTarget.copy(newPosition).add(_spotDir);
+        this.target.position.copy(_spotTarget);
         this.target.updateMatrixWorld();
     };
 

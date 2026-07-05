@@ -19,7 +19,7 @@ void main() {
         baseColor = uSolidColor; // Fallback to solid color
     }
 
-    // Linear fog factor
+    // Smooth fog factor (Hermite interpolation)
     float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);
     vec3 finalColor = mix(baseColor, uFogColor, fogFactor*0.9);
 

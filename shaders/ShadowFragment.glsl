@@ -16,10 +16,9 @@ uniform sampler2D diffuseMap;
 
 // Shadow & Projection Info
 uniform float shadowBias;      // e.g., 0.001
-uniform float shadowDarkness;  // e.g., 0.6 for how dark the shadow is
+uniform float shadowDarkness;  // 0.0 = pitch black shadow, 1.0 = no shadow effect
 uniform float shadowMapSize;   // e.g., 2048 or 1024
 
-in vec3 vWorldPos;
 in vec3 vWorldNormal;
 in vec2 vUV;
 in vec4 vShadowCoord;
@@ -77,10 +76,8 @@ void main() {
         // PCF: gather multiple taps around the current pixel
         float texelSize = 1.0 / shadowMapSize; // e.g. 1/2048
         float shadowPct = sampleShadowPCF(shadowMap, shadowCoord.xy, shadowCoord.z, texelSize);
-        // shadowPct = fraction of samples that are in shadow => 0..1
-        //  => 0 => fully lit, 9 => fully shadowed
-        // We'll invert that because if all samples are in shadow => shadowPct=9
-        float shadowFactor = 1.0 - (shadowPct / 1.0);
+        // shadowPct: fraction of samples in shadow, range [0.0 = fully lit, 1.0 = fully shadowed]
+        float shadowFactor = 1.0 - shadowPct;
         // If shadowFactor=0 => fully in shadow
         // If shadowFactor=1 => fully lit
 
