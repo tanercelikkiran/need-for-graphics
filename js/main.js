@@ -233,6 +233,13 @@ function init() {
     // Camera input handlers
     setupCameraInput(signal);
     setupOrbitToggle(signal);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'k' || e.key === 'K') {
+            setUseShadow((useShadow + 1) % 4);
+            updateMapMaterials(useShadow, scene);
+        }
+    }, { signal });
 }
 
 function setCannonWorld() {
@@ -434,12 +441,6 @@ function getUpAxis(body) {
     return worldUp; // This is the normalized up axis
 }
 
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'k' || e.key === 'K') {
-        setUseShadow((useShadow + 1) % 4);
-        updateMapMaterials(useShadow, scene);
-    }
-});
 
 
 function updateTimer(deltaTime) {
