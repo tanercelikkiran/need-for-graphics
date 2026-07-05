@@ -533,7 +533,9 @@ function startCountdown() {
 }
 
 function animate() {
-    if (gameState === GameState.GAME_OVER) {
+    if (gameState === GameState.GAME_OVER) return;
+    if (gameState !== GameState.PLAYING && gameState !== GameState.COUNTDOWN) {
+        requestAnimationFrame(animate);
         return;
     }
     //cannonDebugger.update();
@@ -608,10 +610,6 @@ function animate() {
             transitionTo(CameraMode.RETURNING_IDLE);
         }
         const activeCamera = scene.userData.activeCamera;
-        if (gameState === GameState.LOADING && loadingScreen.style.display === "none" && startMenu.style.display === "none") {
-            setGameState(GameState.COUNTDOWN);
-            startCountdown();
-        }
 
         composer.render();
     }
@@ -817,6 +815,8 @@ function initIntro() {
             manager.onLoad = () => {
                 loadingScreen.style.display = 'none';
                 loadingFill.style.display = 'none';
+                setGameState(GameState.COUNTDOWN);
+                startCountdown();
             };
             setGameState(GameState.LOADING);
             elapsedTime = 0;  // Reset elapsedTime when the game starts
@@ -1164,6 +1164,8 @@ function sandBox() {
             manager.onLoad = () => {
                 loadingScreen.style.display = 'none';
                 loadingFill.style.display = 'none';
+                setGameState(GameState.COUNTDOWN);
+                startCountdown();
             };
             setGameState(GameState.LOADING);
             elapsedTime = 0;  // Reset elapsedTime when the game starts
