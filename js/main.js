@@ -84,7 +84,6 @@ const motionBlurShader = {
     `
 };
 
-let isSandbox = false;
 let finalScore;
 
 let score = 0;
@@ -904,8 +903,7 @@ function initIntro() {
         });
     })();
     document.getElementById('start-text-5').addEventListener('mousedown', function (event) {
-        if (isSandbox === false) {
-            isSandbox = true;
+        if (gameState === GameState.INTRO) {
             setGameState(GameState.SANDBOX);
 
             const minimapx = document.getElementById('minimap-container');
@@ -943,7 +941,7 @@ function initIntro() {
 
 
         }
-        else {
+        else if (gameState === GameState.SANDBOX) {
             const messageBox = document.getElementById('sandbox-message');
             messageBox.style.display = 'block';
             setTimeout(() => {
