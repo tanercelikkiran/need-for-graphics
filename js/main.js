@@ -30,6 +30,7 @@ import {
     setMotionBlurPass, setBloomPass, setSkyMesh, setSunLight, setHemisphereLight,
     setWorld, setSelectedCarNo,
     setUseShadow, setObjects,
+    GameState, gameState, setGameState,
 } from './state.js';
 
 import {
@@ -102,12 +103,9 @@ const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with th
 let lastTime = performance.now();
 
 let elapsedTime = 0;
-let gameStarted = false;
 const totalTime = 400;
 let remainingTime = totalTime;
 let scoreTime = 400;
-let gameOver = false;
-let countdownStarted = false;
 
 function addLights(scene) {
     // Ambient Light (genel yumuşak aydınlatma)
@@ -465,11 +463,11 @@ function updateScore(deltaTime) {
 }
 
 function updateRemainingTime(deltaTime) {
-    if (!gameOver) {
+    if (gameState === GameState.PLAYING) {
         remainingTime -= deltaTime / 1000;
         if (remainingTime <= 0) {
             remainingTime = 0;
-            gameOver = true;
+            setGameState(GameState.GAME_OVER);
             document.getElementById('game-over').style.display = 'flex'; // Show game over
             document.getElementById("final-score").innerText = `Score: ${finalScore.toFixed(0)}`;
             const totalSeconds = Math.floor(elapsedTime / 1000);
@@ -515,8 +513,28 @@ function updateMinimap() {
 //####  MAIN FUNCTION  #######################################################################################
 //############################################################################################################
 
+function startCountdown() {
+    let countdown = 1;
+    const countdown3 = document.getElementById('countdown');
+    const countdownNumber = document.getElementById('countdown-number');
+    countdown3.style.display = 'none';
+
+    const countdownInterval = setInterval(() => {
+        if (countdown >= 0) {
+            countdownNumber.textContent = String(countdown);
+        } else {
+            clearInterval(countdownInterval);
+            countdown3.style.display = 'none';
+            countdownNumber.style.display = 'none';
+            document.getElementById('countdown').style.display = 'none';
+            setGameState(GameState.PLAYING);
+        }
+        countdown--;
+    }, 1000);
+}
+
 function animate() {
-    if (gameOver) {
+    if (gameState === GameState.GAME_OVER) {
         return;
     }
     //cannonDebugger.update();
@@ -562,9 +580,9 @@ function animate() {
         if (
             carPos.x >= MinX && carPos.x <= MaxX &&
             carPos.y >= MinY && carPos.y <= MaxY &&
-            carPos.z >= MinZ && carPos.z <= MaxZ && !gameOver
+            carPos.z >= MinZ && carPos.z <= MaxZ && gameState === GameState.PLAYING
         ) {
-            gameOver = true;
+            setGameState(GameState.GAME_OVER);
             document.getElementById('game-over').style.display = 'flex';
             document.querySelector("#game-over h1").innerText = "You beat it!";
             document.getElementById("final-score").innerText = `Score: ${finalScore.toFixed(0)}`;
@@ -577,6 +595,12 @@ function animate() {
 
         syncObjectBodies();
 
+        if (gameState === GameState.PLAYING) {
+            updateTimer(milDeltaTime);
+            updateRemainingTime(milDeltaTime);
+            updateScore(milDeltaTime);
+        }
+
         const velocity = vehicle.chassisBody.velocity;
         const speed = getXZSpeed(vehicle.chassisBody);
         motionBlurPass.uniforms['velocityFactor'].value = speed * 100;
@@ -585,32 +609,9 @@ function animate() {
             transitionTo(CameraMode.RETURNING_IDLE);
         }
         const activeCamera = scene.userData.activeCamera;
-        if (loadingScreen.style.display === "none" && startMenu.style.display === "none" && gameStarted && !countdownStarted) {
-            countdownStarted = true;
-            let countdown = 1;
-            //countdownı buraya yapacaksın
-            const countdown3 = document.getElementById('countdown');
-            const countdownNumber = document.getElementById('countdown-number');
-            countdown3.style.display = 'none';
-
-            const countdownInterval = setInterval(() => {
-                if (countdown >= 0) {
-                    countdownNumber.textContent = String(countdown);
-                } else {
-                    clearInterval(countdownInterval);
-                    // Elementleri gizlemek için görünürlüğü değiştirin
-                    countdown3.style.display = 'none';
-                    countdownNumber.style.display = 'none';
-                    document.getElementById('countdown').style.display = 'none';
-
-                    // Fonksiyonlarınızı çağırın
-                    updateTimer(milDeltaTime);
-                    updateRemainingTime(milDeltaTime);
-                    updateScore(milDeltaTime);
-                }
-                countdown--;
-            }, 1000);
-
+        if (gameState === GameState.LOADING && loadingScreen.style.display === "none" && startMenu.style.display === "none") {
+            setGameState(GameState.COUNTDOWN);
+            startCountdown();
         }
 
         composer.render();
@@ -809,7 +810,7 @@ function initIntro() {
         const minimapx = document.getElementById('minimap-container');
         const timerX = document.getElementById('timer');
         const scoreX = document.getElementById('score');
-        if (event.button === 0 && !gameStarted) {
+        if (event.button === 0 && gameState === GameState.INTRO) {
             startMenu.style.display = 'none';
             loadingScreen.style.display = 'flex';
             loadingFill.style.display = 'flex';
@@ -818,7 +819,7 @@ function initIntro() {
                 loadingScreen.style.display = 'none';
                 loadingFill.style.display = 'none';
             };
-            gameStarted = true;
+            setGameState(GameState.LOADING);
             elapsedTime = 0;  // Reset elapsedTime when the game starts
             remainingTime = totalTime; // Reset remaining time
             sceneIntro.traverse((object) => {
@@ -860,7 +861,7 @@ function initIntro() {
         let colorPickerActive = false;
 
         document.getElementById('start-text-3').addEventListener('mousedown', function (event) {
-            if (event.button === 0 && !gameStarted) {
+            if (event.button === 0 && gameState === GameState.INTRO) {
                 colorPicker.style.display = 'block';
                 colorPicker.click();
                 colorPickerActive = true;
@@ -905,6 +906,7 @@ function initIntro() {
     document.getElementById('start-text-5').addEventListener('mousedown', function (event) {
         if (isSandbox === false) {
             isSandbox = true;
+            setGameState(GameState.SANDBOX);
 
             const minimapx = document.getElementById('minimap-container');
             const loadingFill = document.getElementById('loadingFill');;
@@ -1148,7 +1150,7 @@ function sandBox() {
         const minimapx = document.getElementById('minimap-container');
         const timerX = document.getElementById('timer');
         const scoreX = document.getElementById('score');
-        if (event.button === 0 && !gameStarted) {
+        if (event.button === 0 && gameState === GameState.SANDBOX) {
             sandboxMenu.style.display = "none";
             startMenu.style.display = 'none';
 
@@ -1165,7 +1167,7 @@ function sandBox() {
                 loadingScreen.style.display = 'none';
                 loadingFill.style.display = 'none';
             };
-            gameStarted = true;
+            setGameState(GameState.LOADING);
             elapsedTime = 0;  // Reset elapsedTime when the game starts
             remainingTime = totalTime; // Reset remaining time
             sceneIntro.traverse((object) => {
