@@ -17,6 +17,7 @@ let isAccelerating = false;
 let isSteeringLeft = false;
 let isSteeringRight = false;
 let isHandBraking = false;
+let wasAccelerating = false;
 
 // ================================================
 // 2) ARACIN ANLIK MOTOR & DIREKSIYON
@@ -340,7 +341,10 @@ export function updateVehicleControls() {
     // 3) Motor Gucu
     //---------------------------
     if (isAccelerating) {
-        playAccelerationSound(selectedCarNo);
+        if (!wasAccelerating) {
+            playAccelerationSound(selectedCarNo);
+        }
+        wasAccelerating = true;
         currentEngineForce = Math.min(
             currentEngineForce + engineRamp,
             maxEngineForce
@@ -349,6 +353,7 @@ export function updateVehicleControls() {
         if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
         if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
         if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
+        wasAccelerating = false;
         // Geri vitese mi alsin yoksa fren mi yapsin?
         // Basitce "geri" yaklaşımlardan biri:
 
@@ -360,6 +365,7 @@ export function updateVehicleControls() {
         if (bmwAcc && bmwAcc.isPlaying) bmwAcc.stop();
         if (porscheAcc && porscheAcc.isPlaying) porscheAcc.stop();
         if (jeepAcc && jeepAcc.isPlaying) jeepAcc.stop();
+        wasAccelerating = false;
         // Ne gaz ne fren
         const dampingFactor = 0.995; // Hizini azalmak icin katsayi
         const velocity = vehicle.chassisBody.velocity;
