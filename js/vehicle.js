@@ -468,7 +468,7 @@ export function updateVehicleControls() {
 export function updateTurbo(deltaTime) {
     if (isTurboActive && turboLevel > 0 && isAccelerating) {
         turboVroom = true;
-        turboSound.play();
+        if (!turboSound.isPlaying) turboSound.play();
         maxEngineForce = turboBaseForce * 1.5;
         turboLevel -= turboDecayRate * deltaTime * 60; // Her karede nitro seviyesi azalir
         if (turboLevel <= 0) {
@@ -479,7 +479,7 @@ export function updateTurbo(deltaTime) {
     } else {
         maxEngineForce = turboBaseForce; // Nitro aktif degilse motor gucu varsayilana doner
         turboVroom = false;
-        turboSound.stop();
+        if (turboSound.isPlaying) turboSound.stop();
         if (turboLevel < 100) {
             turboLevel += 0.01 * deltaTime * 60;
             if (turboLevel > 100) {
