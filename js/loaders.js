@@ -577,9 +577,9 @@ export function loadCar(scene, carType) {
                 });
             }
 
-            resolve();
+            // Wait for wheels to load before resolving
+            loadWheels(scene, config.wheelPath).then(() => resolve());
         }, null, function(error) { console.error(error); reject(error); });
-        loadWheels(scene, config.wheelPath);
     });
 }
 
@@ -598,6 +598,7 @@ export function loadCarIntro(scene, carType) {
 }
 
 export function loadWheels(scene, wheelPath) {
+    return new Promise((resolve, reject) => {
     fbxLoader.load(wheelPath, (object) => {
         object.traverse((child) => {
             if (child.isMesh) {
@@ -619,8 +620,11 @@ export function loadWheels(scene, wheelPath) {
             }
         });
         scene.add(object);
+        resolve();
     } , null, function(error){
         console.error(error);
+        reject(error);
+    });
     });
 }
 
