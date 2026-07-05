@@ -105,9 +105,9 @@ const baseWheelOptions = {
 };
 
 const CAR_CONFIGS = [
-    { mass: 1504, wheelOverrides: { suspensionStiffness: 50 } },           // BMW
-    { mass: 1420, wheelOverrides: {} },                                    // Porsche
-    { mass: 2306, wheelOverrides: { radius: 0.42 } },                      // Jeep
+    { mass: 1504, wheelOverrides: { suspensionStiffness: 50 }, chassisHeightReduction: 0.02, chassisOffsetY: 0.12, maxSpeedKmh: 243 },  // BMW
+    { mass: 1420, wheelOverrides: {}, chassisHeightReduction: 0.02, chassisOffsetY: 0.10, maxSpeedKmh: 304 },                              // Porsche
+    { mass: 2306, wheelOverrides: { radius: 0.42 }, chassisHeightReduction: 0.20, chassisOffsetY: 0.45, maxSpeedKmh: 156 },               // Jeep
 ];
 
 // ================================================
@@ -150,26 +150,12 @@ export function createVehicle(bodyMaterial, wheelMaterial, materialGroups) {
     const boundingBox = new THREE.Box3().setFromObject(carMesh);
     boundingBox.getSize(carSize);
 
-    let chassisShape;
-    if (selectedCarNo === 0) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
-    } else if (selectedCarNo === 1) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.02, carSize.z / 2));
-    } else if (selectedCarNo === 2) {
-        chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - 0.20, carSize.z / 2));
-    }
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(carSize.x / 2, (carSize.y / 2) - config.chassisHeightReduction, carSize.z / 2));
 
     const chassisBody = new CANNON.Body({
         mass: vehicleMass,
     });
-    let chassisOffset;
-    if (selectedCarNo === 0) {
-        chassisOffset = new CANNON.Vec3(0, 0.12, 0);
-    } else if (selectedCarNo === 1) {
-        chassisOffset = new CANNON.Vec3(0, 0.10, 0);
-    } else if (selectedCarNo === 2) {
-        chassisOffset = new CANNON.Vec3(0, 0.45, 0);
-    }
+    const chassisOffset = new CANNON.Vec3(0, config.chassisOffsetY, 0);
     chassisBody.addShape(chassisShape, chassisOffset);
     let pos = carMesh.position.clone();
     chassisBody.position.copy(pos);
@@ -294,6 +280,7 @@ export function playAccelerationSound(carIndex) {
 
 
 export function updateVehicleControls() {
+    const config = CAR_CONFIGS[selectedCarNo];
     //---------------------------
     // 1) Aracin anlik hizini olc
     //---------------------------
@@ -414,13 +401,7 @@ export function updateVehicleControls() {
     // 5.5) Ivmelenme
     //---------------------------
 
-    if (selectedCarNo === 0) {
-        maxSpeed = 243 / 3.6;
-    } else if (selectedCarNo === 1) {
-        maxSpeed = 304 / 3.6;
-    } else if (selectedCarNo === 2) {
-        maxSpeed = 156 / 3.6;
-    }
+    maxSpeed = config.maxSpeedKmh / 3.6;
     if (isBraking) {
         if (speed >= rearMaxSpeed) {
             currentEngineForce = 0;
