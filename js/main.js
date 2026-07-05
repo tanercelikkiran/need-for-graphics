@@ -785,7 +785,7 @@ function initIntro() {
 
         // BloomPass çözünürlüğünü güncelle
         bloomPass.resolution.set(width, height);
-    });
+    }, { signal: introAbortSignal });
 
     function animateIntro() {
         controls.update();
