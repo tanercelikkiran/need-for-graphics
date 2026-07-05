@@ -98,6 +98,13 @@ const startMenu = document.getElementById('start-menu');
 const sandboxMenu = document.getElementById('sandbox-menu');
 const loadingScreen = document.getElementById('loading-screen');
 
+const timerEl = document.getElementById('timer');
+const scoreEl = document.getElementById('score');
+const gameOverEl = document.getElementById('game-over');
+const finalScoreEl = document.getElementById('final-score');
+const timeValueEl = document.getElementById('time-value');
+const timeEl = document.getElementById('time');
+
 const fixedTimeStep = 1 / 60; // Fixed time step of 60 Hz
 const maxSubSteps = 10;       // Maximum number of sub-steps to catch up with the wall clock
 let lastTime = performance.now();
@@ -445,7 +452,7 @@ function updateTimer(deltaTime) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = Math.floor(totalSeconds % 60);
     const milliseconds = Math.floor(elapsedTime / 10 % 100);
-    document.getElementById('timer').textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
+    timerEl.textContent = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
 }
 
 function updateScore(deltaTime) {
@@ -455,7 +462,7 @@ function updateScore(deltaTime) {
     score += speed * 0.000001;
     const secondssqr = Math.pow(seconds, 2)
     finalScore = score * secondssqr;
-    document.getElementById('score').textContent = `Score: ${finalScore.toFixed(0)}`;
+    scoreEl.textContent = `Score: ${finalScore.toFixed(0)}`;
 }
 
 function updateRemainingTime(deltaTime) {
@@ -464,17 +471,16 @@ function updateRemainingTime(deltaTime) {
         if (remainingTime <= 0) {
             remainingTime = 0;
             setGameState(GameState.GAME_OVER);
-            document.getElementById('game-over').style.display = 'flex'; // Show game over
-            document.getElementById("final-score").innerText = `Score: ${finalScore.toFixed(0)}`;
+            gameOverEl.style.display = 'flex'; // Show game over
+            finalScoreEl.innerText = `Score: ${finalScore.toFixed(0)}`;
             const totalSeconds = Math.floor(elapsedTime / 1000);
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = Math.floor(totalSeconds % 60);
             const milliseconds = Math.floor(elapsedTime / 10 % 100);
-            document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
+            timeEl.innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
         }
         const seconds = Math.floor(remainingTime % 60);
-        const timerText = document.getElementById('time-value');
-        timerText.textContent = `${String(seconds).padStart(2, '0')}`;
+        timeValueEl.textContent = `${String(seconds).padStart(2, '0')}`;
     }
 }
 
@@ -581,14 +587,14 @@ function animate() {
             carPos.z >= MinZ && carPos.z <= MaxZ && gameState === GameState.PLAYING
         ) {
             setGameState(GameState.GAME_OVER);
-            document.getElementById('game-over').style.display = 'flex';
+            gameOverEl.style.display = 'flex';
             document.querySelector("#game-over h1").innerText = "You beat it!";
-            document.getElementById("final-score").innerText = `Score: ${finalScore.toFixed(0)}`;
+            finalScoreEl.innerText = `Score: ${finalScore.toFixed(0)}`;
             const totalSeconds = Math.floor(elapsedTime / 1000);
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = Math.floor(totalSeconds % 60);
             const milliseconds = Math.floor(elapsedTime / 10 % 100);
-            document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
+            timeEl.innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
         }
 
         syncObjectBodies();
