@@ -326,6 +326,13 @@ const surfaceFrictionValues = {
     default: 4.8, // Varsayılan değer
 };
 
+// Finish zone bounds (world coordinates)
+const FINISH_ZONE = {
+    MinX: 261.86, MaxX: 263.86,
+    MinY: 1,      MaxY: 10,
+    MinZ: -6.05,  MaxZ: 5.95,
+};
+
 const materialGroups = [
     { material: groundMaterial, group: GROUP_GROUND, mask: GROUP_BODY | GROUP_WHEEL | GROUP_OBJECT },
     { material: bodyMaterial, group: GROUP_BODY, mask: GROUP_GROUND | GROUP_ICE | GROUP_MUD | GROUP_GRAVEL | GROUP_GRASS | GROUP_OBJECT },
@@ -571,20 +578,12 @@ function animate() {
         chassisBody.threemesh.position.copy(_tmpVec3A);
         chassisBody.threemesh.quaternion.copy(chassisBody.quaternion);
 
-        // Aşağıdaki değerleri başta tanımladığınızı varsayıyoruz:
-        const MinX = 261.86;
-        const MaxX = 263.86;
-        const MinY = 1;
-        const MaxY = 10;
-        const MinZ = -6.05;
-        const MaxZ = 5.95;
-
-        const carPos = chassisBody.position; // CANNON.Vec3: (x, y, z)
+        const carPos = chassisBody.position;
 
         if (
-            carPos.x >= MinX && carPos.x <= MaxX &&
-            carPos.y >= MinY && carPos.y <= MaxY &&
-            carPos.z >= MinZ && carPos.z <= MaxZ && gameState === GameState.PLAYING
+            carPos.x >= FINISH_ZONE.MinX && carPos.x <= FINISH_ZONE.MaxX &&
+            carPos.y >= FINISH_ZONE.MinY && carPos.y <= FINISH_ZONE.MaxY &&
+            carPos.z >= FINISH_ZONE.MinZ && carPos.z <= FINISH_ZONE.MaxZ && gameState === GameState.PLAYING
         ) {
             setGameState(GameState.GAME_OVER);
             gameOverEl.style.display = 'flex';
