@@ -34,6 +34,10 @@ export {carMesh, wheelMeshes};
 let mapGltfScene = null;
 let mapOriginalMaterials = null;
 
+// Track postStep listeners for cleanup on re-load
+let _headlightPostStep = null;
+let _brakeLightPostStep = null;
+
 export const manager = new THREE.LoadingManager();
 const loadingScreen = document.getElementById('loading-screen');
 const loadingFill = document.getElementById('loadingFill');
@@ -501,6 +505,21 @@ export function loadHDR(scene, hdrPath = 'public/hdrinew.hdr', intensity) {
     });
 }
 
+/**
+ * Remove postStep listeners from the previous car load.
+ * Call this before loadCar() to prevent listener accumulation on restart.
+ */
+export function cleanupCarListeners() {
+    if (_headlightPostStep) {
+        world.removeEventListener("postStep", _headlightPostStep);
+        _headlightPostStep = null;
+    }
+    if (_brakeLightPostStep) {
+        world.removeEventListener("postStep", _brakeLightPostStep);
+        _brakeLightPostStep = null;
+    }
+}
+
 export function loadCar(scene, carType) {
     const config = CAR_MATERIAL_CONFIGS[carType];
     return new Promise((resolve, reject) => {
@@ -549,19 +568,20 @@ export function loadCar(scene, carType) {
             const _hlTarget = new THREE.Vector3();
 
             if (headlightUpdates.length > 0) {
-                world.addEventListener("postStep", () => {
+                _headlightPostStep = () => {
                     for (const { child, spot, config: cfg } of headlightUpdates) {
                         child.getWorldPosition(_hlPos);
                         const dir = cfg.headlightDirection(child);
                         _hlTarget.copy(_hlPos).add(dir);
                         spot.updatePositionAndDirection(_hlPos, _hlTarget);
                     }
-                });
+                };
+                world.addEventListener("postStep", _headlightPostStep);
             }
 
             // Single consolidated postStep listener for brake/tail lights
             if (brakeLightMeshes.length > 0) {
-                world.addEventListener("postStep", () => {
+                _brakeLightPostStep = () => {
                     const braking = isBraking || isTurboActive;
                     for (const { child, carType: ct } of brakeLightMeshes) {
                         if (ct === 'bmw' && child.name.includes("Rearlight")) {
@@ -574,7 +594,8 @@ export function loadCar(scene, carType) {
                             child.material.emissiveIntensity = braking ? 50 : 2;
                         }
                     }
-                });
+                };
+                world.addEventListener("postStep", _brakeLightPostStep);
             }
 
             // Wait for wheels to load before resolving

@@ -8,6 +8,7 @@ import {
     loadMoveableObject,
     createFogMaterial,
     updateMapMaterials,
+    cleanupCarListeners,
 } from './loaders.js';
 
 import * as THREE from "three";
@@ -1225,6 +1226,7 @@ function main() {
     loadHDR(scene, HDR_PATHS[hdriChange], HDR_INTENSITIES[hdriChange]);
 
     const carTypes = ['bmw', 'porsche', 'jeep'];
+    cleanupCarListeners();
     loadCar(scene, carTypes[selectedCarNo])
         .then(setCameraComposer)
         .then(() => createVehicle(bodyMaterial, wheelMaterial, materialGroups))

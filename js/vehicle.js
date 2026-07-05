@@ -79,6 +79,9 @@ let turboBaseForce = maxEngineForce;
 // ================================================
 let objectBodies = [];
 
+// Track postStep listener for cleanup on re-load
+let _wheelSyncPostStep = null;
+
 // ================================================
 // CAR CONFIGS
 // ================================================
@@ -219,23 +222,24 @@ export function createVehicle(bodyMaterial, wheelMaterial, materialGroups) {
 
     vehicle.wheelBodies = wheelBodies;
 
-    world.addEventListener('postStep', function () {
+    // Remove previous wheel sync listener if re-creating vehicle
+    if (_wheelSyncPostStep) {
+        world.removeEventListener("postStep", _wheelSyncPostStep);
+    }
+
+    _wheelSyncPostStep = () => {
         vehicle.wheelBodies.forEach((wheelBody, index) => {
-            // Lastiklerin fiziksel pozisyon ve donusunu guncelle
             vehicle.updateWheelTransform(index);
             const wheelTransform = vehicle.wheelInfos[index].worldTransform;
-
-            // Fizik motoru lastiklerinin pozisyonunu ve donusunu uygulayin
             wheelBody.position.copy(wheelTransform.position);
             wheelBody.quaternion.copy(wheelTransform.quaternion);
-
-            // Gorsel lastikleri fizik motoruyla senkronize edin
             if (wheelBodies[index].threemesh) {
                 wheelBodies[index].threemesh.position.copy(wheelBody.position);
                 wheelBodies[index].threemesh.quaternion.copy(wheelBody.quaternion);
             }
         });
-    });
+    };
+    world.addEventListener('postStep', _wheelSyncPostStep);
 
     vehicle.addToWorld(world);
 }
