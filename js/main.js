@@ -331,54 +331,51 @@ const materialGroups = [
 ];
 
 function createColliders() {
-    return new Promise((resolve, reject) => {
-        scene.traverse(function (child) {
-            if (child.isMesh) {
-                if (child.name.includes("Collider")) {
-                    child.visible = false;
-                    const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
-                    const box = new CANNON.Box(halfExtents);
-                    const body = new CANNON.Body({ mass: 0 });
-                    body.addShape(box);
-                    body.position.copy(child.position);
-                    body.quaternion.copy(child.quaternion);
-                    body.material = colliderMaterial;
-                    world.addBody(body);
-                }
-            }
-            if (child.name.includes("Ice") || child.name.includes("Mud") || child.name.includes("Gravel") || child.name.includes("Grass")) {
-                const boundingBox = new THREE.Box3().setFromObject(child);
-                const size = new THREE.Vector3();
-                boundingBox.getSize(size);
-                const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.05, size.z / 2));
+    scene.traverse(function (child) {
+        if (child.isMesh) {
+            if (child.name.includes("Collider")) {
+                child.visible = false;
+                const halfExtents = new CANNON.Vec3(child.scale.x, child.scale.y, child.scale.z);
+                const box = new CANNON.Box(halfExtents);
                 const body = new CANNON.Body({ mass: 0 });
-                body.aabbNeedsUpdate = true;
                 body.addShape(box);
                 body.position.copy(child.position);
-                if (child.name.includes("Ice")) {
-                    body.material = iceMaterial;
-                    body.collisionFilterGroup = materialGroups[4].group;
-                    body.collisionFilterMask = materialGroups[4].mask;
-                }
-                else if (child.name.includes("Mud")) {
-                    body.material = mudMaterial;
-                    body.collisionFilterGroup = materialGroups[5].group;
-                    body.collisionFilterMask = materialGroups[5].mask;
-                }
-                else if (child.name.includes("Gravel")) {
-                    body.material = gravelMaterial;
-                    body.collisionFilterGroup = materialGroups[6].group;
-                    body.collisionFilterMask = materialGroups[6].mask;
-                }
-                else if (child.name.includes("Grass")) {
-                    body.material = grassMaterial;
-                    body.collisionFilterGroup = materialGroups[7].group;
-                    body.collisionFilterMask = materialGroups[7].mask;
-                }
+                body.quaternion.copy(child.quaternion);
+                body.material = colliderMaterial;
                 world.addBody(body);
             }
-        });
-        resolve();
+        }
+        if (child.name.includes("Ice") || child.name.includes("Mud") || child.name.includes("Gravel") || child.name.includes("Grass")) {
+            const boundingBox = new THREE.Box3().setFromObject(child);
+            const size = new THREE.Vector3();
+            boundingBox.getSize(size);
+            const box = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0.05, size.z / 2));
+            const body = new CANNON.Body({ mass: 0 });
+            body.aabbNeedsUpdate = true;
+            body.addShape(box);
+            body.position.copy(child.position);
+            if (child.name.includes("Ice")) {
+                body.material = iceMaterial;
+                body.collisionFilterGroup = materialGroups[4].group;
+                body.collisionFilterMask = materialGroups[4].mask;
+            }
+            else if (child.name.includes("Mud")) {
+                body.material = mudMaterial;
+                body.collisionFilterGroup = materialGroups[5].group;
+                body.collisionFilterMask = materialGroups[5].mask;
+            }
+            else if (child.name.includes("Gravel")) {
+                body.material = gravelMaterial;
+                body.collisionFilterGroup = materialGroups[6].group;
+                body.collisionFilterMask = materialGroups[6].mask;
+            }
+            else if (child.name.includes("Grass")) {
+                body.material = grassMaterial;
+                body.collisionFilterGroup = materialGroups[7].group;
+                body.collisionFilterMask = materialGroups[7].mask;
+            }
+            world.addBody(body);
+        }
     });
 }
 
@@ -1217,7 +1214,11 @@ function sandBox() {
 function main() {
     init();
     setCannonWorld();
-    loadMap(scene).then(() => updateMapMaterials(useShadow, scene)).then(createColliders).then(() => createObjects(objectMaterial, materialGroups));
+    loadMap(scene).then(() => {
+        updateMapMaterials(useShadow, scene);
+        createColliders();
+        createObjects(objectMaterial, materialGroups);
+    });
     createFrictionPairs();
     const HDR_PATHS = ['public/hdrinew.hdr', 'public/hdrisunset.hdr', 'public/hdrinight.hdr'];
     const HDR_INTENSITIES = [0.2, undefined, undefined];

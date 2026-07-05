@@ -62,7 +62,6 @@ manager.onError = (url) => {
 const gltfLoader = new GLTFLoader(manager);
 const fbxLoader = new FBXLoader(manager);
 const rgbeLoader = new RGBELoader(manager);
-const fontloader = new FontLoader(manager);
 
 // Car material configurations
 // Each entry maps mesh name patterns to material setup functions
@@ -683,10 +682,3 @@ function loadObject(scene, camera,  objectPath) {
     });
 }
 
-export function loadFonts() {
-    return new Promise((resolve) => {
-        fontloader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-            resolve(font);
-        });
-    });
-}
