@@ -262,8 +262,6 @@ function setCannonWorld() {
     groundBody.collisionFilterMask = materialGroups[0].mask;
     world.addBody(groundBody);
 
-    let newFrictionSlip = surfaceFrictionValues.default;
-
     // cannonDebugger = new CannonDebugger(scene, world);
 
     world.addEventListener("beginContact", (event) => {
@@ -456,7 +454,7 @@ function updateTimer(deltaTime) {
 function updateScore(deltaTime) {
     scoreTime -= deltaTime / 1000;
     const speed = getXZSpeed(vehicle.chassisBody);  // XZ düzlemindeki hız
-    const seconds = Math.floor(scoreTime % 600);
+    const seconds = Math.floor(scoreTime % 60);
     score += speed * 0.000001;
     const secondssqr = Math.pow(seconds, 2)
     finalScore = score * secondssqr;
@@ -477,7 +475,7 @@ function updateRemainingTime(deltaTime) {
             const milliseconds = Math.floor(elapsedTime / 10 % 100);
             document.getElementById("time").innerText = `Time: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(milliseconds).padStart(2, '0')}`;
         }
-        const seconds = Math.floor(remainingTime % 600);
+        const seconds = Math.floor(remainingTime % 60);
         const timerText = document.getElementById('time-value');
         timerText.textContent = `${String(seconds).padStart(2, '0')}`;
     }
