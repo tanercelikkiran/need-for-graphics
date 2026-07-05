@@ -1170,23 +1170,7 @@ function sandBox() {
             setGameState(GameState.LOADING);
             elapsedTime = 0;  // Reset elapsedTime when the game starts
             remainingTime = totalTime; // Reset remaining time
-            sceneIntro.traverse((object) => {
-                if (object.isMesh) {
-                    object.geometry.dispose();
-                    if (object.material.isMaterial) {
-                        object.material.dispose();
-                    } else {
-                        // Çoklu materyal durumu için
-                        object.material.forEach(material => material.dispose());
-                    }
-                }
-            });
-
-            renderer.dispose(); // Renderer'ı temizle
-            document.body.removeChild(renderer.domElement); // Renderer öğesini DOM'dan kaldır
-
-            // Diğer sahne temizlemeleri
-            sceneIntro.clear(); // Sahneyi temizle
+            // sceneIntro was already cleared when entering sandbox — skip cleanup
 
             sandboxAbortController.abort();
             main();
